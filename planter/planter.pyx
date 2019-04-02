@@ -43,7 +43,7 @@ cdef extern from "clib/planter.h":
         BinaryNode* node_arr
 
     int BinaryMergeTree_Nodes(
-        BinaryMergeTree *tree, double z, double dz, BinaryNode *node_arr, int n_max
+        BinaryMergeTree *tree, double z, double dz, BinaryNode *out, int n_max
     )
     void BinaryMergeTree_Init(
         BinaryMergeTree* tree, HaloRelation* hr, double m_root, double z_root, double z_target,
@@ -141,7 +141,7 @@ cdef class HaloMergeTree:
         return nodes
 
 
-    def Nodes(self, z, dz = 0.1, n_max = 1000):
+    def Nodes(self, z, dz = 0.1, n_max = 100000):
         cdef:
             BinaryNode* node_arr = <BinaryNode*>malloc(n_max*sizeof(BinaryNode))
             BinaryNode* it_node_arr = node_arr

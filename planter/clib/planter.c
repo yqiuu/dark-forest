@@ -67,45 +67,64 @@ int BinaryMergeTree_NewNode_(BinaryMergeTree *tree, double delta, double mass) {
 }
 
 
-void BinaryMergeTree_Trace_Progenitor_(
-    BinaryNode *root, int idx, double d_lower, double d_upper,
-    int n_max, BinaryNode *out, int *n_target
-) {
-    BinaryNode *node = root + idx;
-    double delta = node->delta;
-    double mass = node->mass;
-    if (delta > d_lower && delta < d_upper && *n_target < n_max) {
-        BinaryNode *target = out + *n_target;
-        target->delta = delta;
-        target->mass = mass;
-        target->left = -1;
-        target->right = -1;
-        ++(*n_target);
-    }
-    else {
-        if (node->left != -1)
-            BinaryMergeTree_Trace_Progenitor_(
-                root, node->left, d_lower, d_upper, n_max, out, n_target
-            );
-        if (node->right != -1)
-            BinaryMergeTree_Trace_Progenitor_(
-                root, node->right, d_lower, d_upper, n_max, out, n_target
-            );
-    }
-}
-
-
 int BinaryMergeTree_Nodes(
-    BinaryMergeTree *tree, double z, double dz, BinaryNode *node_arr, int n_max
+    BinaryMergeTree *tree, double z, double dz, BinaryNode *out, int n_max
 ) {
     HaloRelation *hr = tree->hr;
     double d_lower = gsl_spline_eval(hr->Z2D, z, hr->Z2D_acc);
     double d_upper = gsl_spline_eval(hr->Z2D, z + dz, hr->Z2D_acc);
-    int n_target = 0;
-    BinaryMergeTree_Trace_Progenitor_(
-        tree->node_arr, 0, d_lower, d_upper, n_max, node_arr, &n_target
-    );
-    return n_target;
+
+    BinaryNode *root = tree->node_arr;
+    BinaryNode *node;
+    int *queue_search1 = malloc(n_max*sizeof(int));
+    int *queue_search2 = malloc(n_max*sizeof(int));
+    int *queue_res = malloc(n_max*sizeof(int));
+    int *queue_current = queue_search1;
+    int *queue_next = queue_search2;
+    int *queue_tmp;
+    int n_search = 1;
+    int n_next = 0;
+    int n_res = 0;
+    int n_out = 0;
+
+    *queue_current = 0;
+    while(n_search > 0) {
+        if (n_res + n_search > n_max) {
+            printf("Error: use larger n_max\n");
+            exit(EXIT_FAILURE);
+        }
+
+        for(int i_search = 0; i_search < n_search; ++i_search) {
+            node = root + queue_current[i_search];
+            if (node->delta < d_lower) {
+                if (node->left != -1)
+                    queue_next[n_next++] = node->left;
+                if (node->right != -1)
+                    queue_next[n_next++] = node->right;
+            }
+            else
+                queue_res[n_res++] = queue_current[i_search];
+        }
+
+        queue_tmp = queue_current;
+        queue_current = queue_next;
+        queue_next = queue_tmp;
+
+        n_search = n_next;
+        n_next = 0;
+    }
+
+    for(int i_res = 0; i_res < n_res; ++i_res) {
+        node = root + queue_res[i_res];
+        if (node->delta < d_upper)
+            memcpy(out + n_out++, node, sizeof(BinaryNode));
+    }
+
+    free(queue_search1);
+    free(queue_search2);
+    free(queue_res);
+
+    return n_out;
 }
 
 

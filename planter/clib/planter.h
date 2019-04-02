@@ -42,7 +42,7 @@ typedef struct BinaryMergeTree {
 } BinaryMergeTree;
 
 int BinaryMergeTree_Nodes(
-    BinaryMergeTree *tree, double z, double dz, BinaryNode *node_arr, int n_max
+    BinaryMergeTree *tree, double z, double dz, BinaryNode *out, int n_max
 );
 void BinaryMergeTree_Init(
     BinaryMergeTree* tree, HaloRelation* hr, double m_root, double z_root, double z_target,
