@@ -20,7 +20,7 @@ cdef extern from "<gsl/gsl_rng.h>":
     void gsl_rng_free(gsl_rng *r)
 
 
-cdef extern from "clib/planter.h":
+cdef extern from "clib/halotree.h":
     ctypedef struct HaloRelation:
         pass
 
@@ -31,7 +31,7 @@ cdef extern from "clib/planter.h":
     void HaloRelation_Free(HaloRelation *hr)
 
 
-cdef extern from "clib/planter.h":
+cdef extern from "clib/halotree.h":
     ctypedef struct BinaryNode:
         double delta
         double mass

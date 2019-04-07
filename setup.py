@@ -3,9 +3,10 @@ from distutils.extension import Extension
 from Cython.Distutils import build_ext
 
 
-exts = [Extension("planter.planter",
-                  sources = ["planter/clib/planter.c",
-                             "planter/planter.pyx"],
+exts = [Extension("halotree.halotree",
+                  sources = ["halotree/clib/halo_relation.c",
+                             "halotree/clib/binary_merge_tree.c",
+                             "halotree/halotree.pyx"],
                   include_dirs = ["planter/"],
                   extra_compile_args = ['-lgsl', '-lgslcblas'],
                   extra_link_args = ['-lgsl', '-lgslcblas'])]
@@ -16,7 +17,7 @@ for e in exts:
 
 #exec(open('sector/version.py', 'r').read())
 
-setup(name = 'planter',
+setup(name = 'halotree',
       ext_modules = exts,
       cmdclass = {'build_ext': build_ext},
 )

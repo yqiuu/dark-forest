@@ -1,3 +1,6 @@
+#ifndef PLANTER_H
+#define PLANTER_H
+
 #include<stdlib.h>
 #include<string.h>
 #include<math.h>
@@ -50,3 +53,4 @@ void BinaryMergeTree_Init(
 ); 
 void BinaryMergeTree_Free(BinaryMergeTree* tree);
 
+#endif // PLANTER_H
