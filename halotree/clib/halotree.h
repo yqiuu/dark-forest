@@ -1,5 +1,5 @@
-#ifndef PLANTER_H
-#define PLANTER_H
+#ifndef HALOTREE_H
+#define HALOTREE_H
 
 #include<stdlib.h>
 #include<string.h>
@@ -30,27 +30,26 @@ void HaloRelation_Init(
 void HaloRelation_Free(HaloRelation *hr);
 
 
-typedef struct BinaryNode {
+typedef struct Node {
     double delta;
     double mass;
-    int left;
-    int right;
-} BinaryNode;
+    int idx_tail;
+    int idx_next;
+} Node;
 
-typedef struct BinaryMergeTree {
-    int n_node;
+typedef struct NodeVector {
     int n_max;
-    BinaryNode* node_arr;
-    HaloRelation *hr;
-} BinaryMergeTree;
+    int n_node;
+    Node* data;
+} NodeVector;
 
-int BinaryMergeTree_Nodes(
-    BinaryMergeTree *tree, double z, double dz, BinaryNode *out, int n_max
+int NodeVector_Append(NodeVector *vector, double delta, double mass);
+NodeVector NodeVector_Init(int n_base);
+void NodeVector_Free(NodeVector *vector);
+
+
+NodeVector MergeTree_Grow(
+    double m_root, double z_root, double *z_target, int n_target,
+    HaloRelation* hr, double m_res, double eps1, double eps2, gsl_rng* rstate
 );
-void BinaryMergeTree_Init(
-    BinaryMergeTree* tree, HaloRelation* hr, double m_root, double z_root, double z_target,
-    double m_res, double eps1, double eps2, int n_base, gsl_rng* rstate
-); 
-void BinaryMergeTree_Free(BinaryMergeTree* tree);
-
-#endif // PLANTER_H
+#endif // HALOTREE_H

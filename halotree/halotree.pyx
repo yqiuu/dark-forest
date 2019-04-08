@@ -32,24 +32,22 @@ cdef extern from "clib/halotree.h":
 
 
 cdef extern from "clib/halotree.h":
-    ctypedef struct BinaryNode:
+    ctypedef struct Node:
         double delta
         double mass
-        int left
-        int right
-        
-    ctypedef struct BinaryMergeTree:
-        int n_node
-        BinaryNode* node_arr
+        int idx_tail
+        int idx_next
 
-    int BinaryMergeTree_Nodes(
-        BinaryMergeTree *tree, double z, double dz, BinaryNode *out, int n_max
+    ctypedef struct NodeVector:
+        int n_max
+        int n_node
+        Node* data
+
+    void NodeVector_Free(NodeVector *vector)
+    NodeVector MergeTree_Grow(
+        double m_root, double z_root, double *z_target, int n_target,
+        HaloRelation* hr, double m_res, double eps1, double eps2, gsl_rng* rstate
     )
-    void BinaryMergeTree_Init(
-        BinaryMergeTree* tree, HaloRelation* hr, double m_root, double z_root, double z_target,
-        double m_res, double eps1, double eps2, int n_base, gsl_rng* rstate
-    )
-    void BinaryMergeTree_Free(BinaryMergeTree* tree)
 
 
 cdef class HaloRoot:
@@ -65,7 +63,7 @@ cdef class HaloRoot:
         public double m_min
         public double m_max
 
-    
+
     def ConditionalMassFunction(self, m, z, m_root, z_root):
         sigmasq_m = self.sigmasq(m)
         sigmasq_root = self.sigmasq(m_root)
@@ -74,7 +72,7 @@ cdef class HaloRoot:
         f = np.sqrt(2./np.pi)*diff_delta*sigmasq_m*diff_sigmasq**-1.5 \
             *np.exp(-.5*diff_delta*diff_delta/diff_sigmasq)*self.alpha(m)
         return f
-            
+
 
     def __cinit__(self, hmf, z_grid = None):
         hmf.update(z = 0)
@@ -111,7 +109,7 @@ cdef class HaloRoot:
             &self.hr, &m[0], &sigma[0], &sigmasq[0], &alpha[0], m.shape[0],
             &z_mv[0], &delta_mv[0], z_mv.shape[0]
         )
-        
+
 
     def __dealloc__(self):
         HaloRelation_Free(&self.hr)
@@ -119,50 +117,35 @@ cdef class HaloRoot:
 
 cdef class HaloMergeTree:
     cdef:
-        BinaryMergeTree tree
+        NodeVector tree
         HaloRoot halo_root
         gsl_rng* rstate
 
 
-    def AllNodes(self):
-        dtype = np.dtype([('z', 'f8'), ('mass', 'f8'), ('left', 'i4'), ('right', 'i4')])
-        delta = np.zeros(self.tree.n_node)
-        nodes = np.zeros(self.tree.n_node, dtype = dtype)
+    def Nodes(self, level = -1):
         cdef:
             int i_node
-            BinaryNode* it_node_arr = self.tree.node_arr
-        for i_node in range(self.tree.n_node):
-            delta[i_node] = it_node_arr.delta
-            nodes[i_node]['mass'] = it_node_arr.mass
-            nodes[i_node]['left'] = it_node_arr.left
-            nodes[i_node]['right'] = it_node_arr.right
-            it_node_arr += 1
-        nodes['z'] = self.halo_root.D2Z(delta)
-        return nodes
-
-
-    def Nodes(self, z, dz = 0.1, n_max = 100000):
-        cdef:
-            BinaryNode* node_arr = <BinaryNode*>malloc(n_max*sizeof(BinaryNode))
-            BinaryNode* it_node_arr = node_arr
-            int n_node = BinaryMergeTree_Nodes(&self.tree, z, dz, node_arr, n_max)
-            int i_node
-        dtype = np.dtype([('z', 'f8'), ('mass', 'f8')])
-        delta = np.zeros(n_node)
+            int n_node = self.tree.n_node
+            Node* it_node = self.tree.data
+        dtype = np.dtype([('z', 'f8'), ('mass', 'f8'), ('idx_tail', 'i4'), ('idx_next', 'i4')])
         nodes = np.zeros(n_node, dtype = dtype)
         for i_node in range(n_node):
-            delta[i_node] = it_node_arr.delta
-            nodes[i_node]['mass'] = it_node_arr.mass
-            it_node_arr += 1
-        nodes['z'] = self.halo_root.D2Z(delta)
-        free(node_arr)
-        return nodes
+            nodes[i_node]['z'] = it_node.delta
+            nodes[i_node]['mass'] = it_node.mass
+            nodes[i_node]['idx_tail'] = it_node.idx_tail
+            nodes[i_node]['idx_next'] = it_node.idx_next
+            it_node += 1
+        nodes['z'] = self.halo_root.D2Z(nodes['z'])
+        if level == -1:
+            return nodes
+        else:
+            return nodes[nodes['z'] == np.unique(nodes['z'])[level]]
 
 
     def __cinit__(
         self, m_root, z_root, z_target, halo_root,
         m_res = 1e8, eps1 = 0.1, eps2 = 0.2, n_base = 10**5, seed = 2092
-    ):  
+    ):
         if m_root <= halo_root.m_min or m_root >= halo_root.m_max:
             raise ValueError("Mass of root halo beyond mass interpolation range")
         if m_res <= halo_root.m_min or m_res >= halo_root.m_max:
@@ -170,14 +153,18 @@ cdef class HaloMergeTree:
         self.halo_root = halo_root
         self.rstate = gsl_rng_alloc(gsl_rng_mt19937)
         gsl_rng_set(self.rstate, seed)
-        BinaryMergeTree_Init(
-            &self.tree, &self.halo_root.hr, m_root, z_root, z_target, m_res,
-            eps1, eps2, n_base, self.rstate
+
+        cdef:
+            double[::1] z_target_mv = np.ravel(z_target).astype(np.double)
+            int n_target = z_target_mv.shape[0]
+        self.tree = MergeTree_Grow(
+            m_root, z_root, &z_target_mv[0], n_target,
+            &self.halo_root.hr, m_res, eps1, eps2, self.rstate
         )
 
-    
+
     def __dealloc__(self):
-        BinaryMergeTree_Free(&self.tree)
+        NodeVector_Free(&self.tree)
         gsl_rng_free(self.rstate)
 
 

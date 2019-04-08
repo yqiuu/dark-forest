@@ -1,2 +1,2 @@
-from .planter import *
+from .halotree import *
 from .auxiliary import *
