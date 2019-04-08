@@ -50,7 +50,7 @@ cdef extern from "clib/halotree.h":
     )
 
 
-cdef class HaloRoot:
+cdef class HaloKit:
     cdef:
         HaloRelation hr
 
@@ -118,7 +118,7 @@ cdef class HaloRoot:
 cdef class HaloMergeTree:
     cdef:
         NodeVector tree
-        HaloRoot halo_root
+        HaloKit halo_kit
         gsl_rng* rstate
 
 
@@ -135,7 +135,7 @@ cdef class HaloMergeTree:
             nodes[i_node]['idx_tail'] = it_node.idx_tail
             nodes[i_node]['idx_next'] = it_node.idx_next
             it_node += 1
-        nodes['z'] = self.halo_root.D2Z(nodes['z'])
+        nodes['z'] = self.halo_kit.D2Z(nodes['z'])
         if level == -1:
             return nodes
         else:
@@ -143,14 +143,14 @@ cdef class HaloMergeTree:
 
 
     def __cinit__(
-        self, m_root, z_root, z_target, halo_root,
+        self, m_root, z_root, z_target, halo_kit,
         m_res = 1e8, eps1 = 0.1, eps2 = 0.2, n_base = 10**5, seed = 2092
     ):
-        if m_root <= halo_root.m_min or m_root >= halo_root.m_max:
+        if m_root <= halo_kit.m_min or m_root >= halo_kit.m_max:
             raise ValueError("Mass of root halo beyond mass interpolation range")
-        if m_res <= halo_root.m_min or m_res >= halo_root.m_max:
+        if m_res <= halo_kit.m_min or m_res >= halo_kit.m_max:
             raise ValueError("Mass resolution halo beyond mass interpolation range")
-        self.halo_root = halo_root
+        self.halo_kit = halo_kit
         self.rstate = gsl_rng_alloc(gsl_rng_mt19937)
         gsl_rng_set(self.rstate, seed)
 
@@ -159,7 +159,7 @@ cdef class HaloMergeTree:
             int n_target = z_target_mv.shape[0]
         self.tree = MergeTree_Grow(
             m_root, z_root, &z_target_mv[0], n_target,
-            &self.halo_root.hr, m_res, eps1, eps2, self.rstate
+            &self.halo_kit.hr, m_res, eps1, eps2, self.rstate
         )
 
 
