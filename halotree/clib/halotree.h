@@ -32,10 +32,8 @@ void SplitKit_Free(SplitKit *kit_sp);
 
 typedef struct HaloRelation {
     gsl_interp_accel *sigma_acc;
-    gsl_interp_accel *sigmasq_acc;
     gsl_interp_accel *alpha_acc;
     gsl_spline *sigma;
-    gsl_spline *sigmasq;
     gsl_spline *alpha;
 
     gsl_interp_accel *Z2D_acc;
@@ -45,7 +43,7 @@ typedef struct HaloRelation {
 } HaloRelation;
 
 void HaloRelation_Init(
-    HaloRelation *hr, double *mass, double *sigma, double *sigmasq, double *alpha, int n_mass,
+    HaloRelation *hr, double *mass, double *sigma, double *alpha, int n_mass,
     double *z, double *delta_c, int n_z
 );
 void HaloRelation_Free(HaloRelation *hr);

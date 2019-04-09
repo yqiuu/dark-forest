@@ -2,16 +2,12 @@
 
 
 void HaloRelation_Init(
-    HaloRelation *hr, double *mass, double *sigma, double *sigmasq, double *alpha, int n_mass,
+    HaloRelation *hr, double *mass, double *sigma, double *alpha, int n_mass,
     double *z, double *delta_c, int n_z
 ) {
     hr->sigma_acc = gsl_interp_accel_alloc();
     hr->sigma = gsl_spline_alloc(gsl_interp_cspline, n_mass);
     gsl_spline_init(hr->sigma, mass, sigma, n_mass);
-
-    hr->sigmasq_acc = gsl_interp_accel_alloc();
-    hr->sigmasq = gsl_spline_alloc(gsl_interp_cspline, n_mass);
-    gsl_spline_init(hr->sigmasq, mass, sigmasq, n_mass);
 
     hr->alpha_acc = gsl_interp_accel_alloc();
     hr->alpha = gsl_spline_alloc(gsl_interp_cspline, n_mass);
@@ -29,10 +25,8 @@ void HaloRelation_Init(
 
 void HaloRelation_Free(HaloRelation *hr) {
     gsl_spline_free(hr->sigma);
-    gsl_spline_free(hr->sigmasq);
     gsl_spline_free(hr->alpha);
     gsl_interp_accel_free(hr->sigma_acc);
-    gsl_interp_accel_free(hr->sigmasq_acc);
     gsl_interp_accel_free(hr->alpha_acc);
 
     gsl_spline_free(hr->Z2D);

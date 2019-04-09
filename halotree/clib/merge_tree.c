@@ -38,10 +38,8 @@ int MergeTree_BinarySplit(
     double eps2 = kit_sp->eps2;
     // Load interpolation tables for sigma_m
     gsl_interp_accel *sigma_acc = hr->sigma_acc;
-    gsl_interp_accel *sigmasq_acc = hr->sigmasq_acc;
     gsl_interp_accel *alpha_acc = hr->alpha_acc;
     gsl_spline *sigma = hr->sigma;
-    gsl_spline *sigmasq = hr->sigmasq;
     gsl_spline *alpha = hr->alpha;
     // Initialise the binary tree
     NodeVector tree_binary = NodeVector_Init(N_BASE_GROW);
@@ -57,7 +55,7 @@ int MergeTree_BinarySplit(
     double V_res, V_half;
     double B, beta, eta, pow_diff;
     double dd1, dd2, dd, dd_target, dN_dd, N_upper, F;
-    double q, m_q, sigmasq_q, R_q, factor1, factor2;
+    double q, m_q, sigma_q, sigmasq_q, R_q, factor1, factor2;
     double m_prog1, m_prog2;
     int save;
     int n_out = 0;
@@ -121,7 +119,8 @@ int MergeTree_BinarySplit(
             if (gsl_rng_uniform(rstate) < N_upper) {
                 q = pow(pow(q_res, eta) + pow_diff*gsl_rng_uniform(rstate), 1./eta);
                 m_q = q*m_start;
-                sigmasq_q = gsl_spline_eval(sigmasq, m_q, sigmasq_acc);
+                sigma_q = gsl_spline_eval(sigma, m_q, sigma_acc);
+                sigmasq_q = sigma_q*sigma_q;
                 factor1 = gsl_spline_eval(alpha, m_q, alpha_acc)/alpha_half;
                 factor2 = sigmasq_q*pow(sigmasq_q - sigmasq_start, -1.5)/(B*pow(q, beta));
                 R_q = factor1*factor2;
