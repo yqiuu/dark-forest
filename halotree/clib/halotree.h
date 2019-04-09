@@ -9,6 +9,27 @@
 #include<gsl/gsl_spline.h>
 
 
+typedef struct SplitKit {
+    double G0;
+    double gamma1;
+    double gamma2;
+    double m_res;
+    double eps1;
+    double eps2;
+
+    double J_bp1;
+    double J_bp2;
+    gsl_interp_accel *J_u_acc;
+    gsl_spline *J_u;
+} SplitKit;
+
+double SplitKit_J(SplitKit *kit_sp, double u_res);
+SplitKit SplitKit_Init(
+    double G0, double gamma1, double gamma2, double m_res, double eps1, double eps2
+);
+void SplitKit_Free(SplitKit *kit_sp);
+
+
 typedef struct HaloRelation {
     gsl_interp_accel *sigma_acc;
     gsl_interp_accel *sigmasq_acc;
@@ -50,6 +71,6 @@ void NodeVector_Free(NodeVector *vector);
 
 NodeVector MergeTree_Grow(
     double m_root, double z_root, double *z_target, int n_target,
-    HaloRelation* hr, double m_res, double eps1, double eps2, gsl_rng* rstate
+    HaloRelation* hr, SplitKit* kit_sp, gsl_rng* rstate
 );
 #endif // HALOTREE_H

@@ -31,7 +31,21 @@ cdef extern from "clib/halotree.h":
     void HaloRelation_Free(HaloRelation *hr)
 
 
-cdef extern from "clib/halotree.h":
+    ctypedef struct SplitKit:
+        double G0
+        double gamma1
+        double gamma2
+        double m_res
+        double eps1
+        double eps2
+
+    double SplitKit_J(SplitKit *kit_sp, double u_res)
+    SplitKit SplitKit_Init(
+        double G0, double gamma1, double gamma2, double m_res, double eps1, double eps2
+    )
+    void SplitKit_Free(SplitKit *kit_sp)
+
+
     ctypedef struct Node:
         double delta
         double mass
@@ -44,9 +58,11 @@ cdef extern from "clib/halotree.h":
         Node* data
 
     void NodeVector_Free(NodeVector *vector)
+
+
     NodeVector MergeTree_Grow(
         double m_root, double z_root, double *z_target, int n_target,
-        HaloRelation* hr, double m_res, double eps1, double eps2, gsl_rng* rstate
+        HaloRelation* hr, SplitKit* kit_sp, gsl_rng* rstate
     )
 
 
@@ -143,7 +159,7 @@ cdef class HaloMergeTree:
 
 
     def __cinit__(
-        self, m_root, z_root, z_target, halo_kit,
+        self, m_root, z_root, z_target, halo_kit, G0 = 1., gamma1 = 0., gamma2 = 0.,
         m_res = 1e8, eps1 = 0.1, eps2 = 0.2, n_base = 10**5, seed = 2092
     ):
         if m_root <= halo_kit.m_min or m_root >= halo_kit.m_max:
@@ -157,10 +173,11 @@ cdef class HaloMergeTree:
         cdef:
             double[::1] z_target_mv = np.ravel(z_target).astype(np.double)
             int n_target = z_target_mv.shape[0]
+            SplitKit kit_sp = SplitKit_Init(G0, gamma1, gamma2, m_res, eps1, eps2)
         self.tree = MergeTree_Grow(
-            m_root, z_root, &z_target_mv[0], n_target,
-            &self.halo_kit.hr, m_res, eps1, eps2, self.rstate
+            m_root, z_root, &z_target_mv[0], n_target, &self.halo_kit.hr, &kit_sp, self.rstate
         )
+        SplitKit_Free(&kit_sp);
 
 
     def __dealloc__(self):

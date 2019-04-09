@@ -4,8 +4,9 @@ from Cython.Distutils import build_ext
 
 
 exts = [Extension("halotree.halotree",
-                  sources = ["halotree/clib/halo_relation.c",
-                             "halotree/clib/node_vector.c",
+                  sources = ["halotree/clib/node_vector.c",
+                             "halotree/clib/halo_relation.c",
+                             "halotree/clib/tool_kit.c",
                              "halotree/clib/merge_tree.c",
                              "halotree/halotree.pyx"],
                   include_dirs = ["planter/"],
