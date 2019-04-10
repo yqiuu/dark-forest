@@ -16,12 +16,22 @@ static int CompareMass(const void *a, const void *b) {
 }
 
 
-inline double ComputeFraction(
+static inline double ComputeFraction(
     double sigma_start, double sigmasq_start, double sigmasq_res,
     double G1, double dd, SplitKit *kit_sp
 ) {
     double u_res = sigma_start*pow(sigmasq_res - sigmasq_start, -.5);
     return SQRT2OPI*SplitKit_J(kit_sp, u_res)*G1/sigma_start*dd;
+}
+
+
+static inline int ReduceDelta(double dd_target, double *dd) {
+    if (*dd > dd_target) {
+        *dd = dd_target;
+        return 1;
+    }
+    else
+        return 0;
 }
 
 
@@ -81,10 +91,7 @@ int MergeTree_BinarySplit(
         if (q_res >= 0.5) {
             // No split
             dd = eps1*SQRT2*sqrt(sigmasq_half - sigmasq_start);
-            if (dd > dd_target) {
-                dd = dd_target;
-                save = 1;
-            }
+            save = ReduceDelta(dd_target, &dd);
             F = ComputeFraction(sigma_start, sigmasq_start, sigmasq_res, G1, dd, kit_sp);
         }
         else {
@@ -108,10 +115,7 @@ int MergeTree_BinarySplit(
                 dd = dd1;
             else
                 dd = dd2;
-            if (dd > dd_target) {
-                dd = dd_target;
-                save = 1;
-            }
+            save = ReduceDelta(dd_target, &dd);
             N_upper = dN_dd*dd;
             // Compute F
             F = ComputeFraction(sigma_start, sigmasq_start, sigmasq_res, G1, dd, kit_sp);
