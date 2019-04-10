@@ -1,6 +1,35 @@
 #include"halotree.h"
 
 
+HaloRelation HaloRelation_Read(char* fname) {
+    FILE* fp = fopen(fname, "rb");
+    if (fp == NULL) {
+        printf("Error: cannot open the file\n");
+        exit(EXIT_FAILURE);
+    }
+
+    int n_mass;
+    fread(&n_mass, sizeof(int), 1, fp);
+    double *mass = malloc(n_mass*sizeof(double));
+    fread(mass, sizeof(double), n_mass, fp);
+    double *sigma = malloc(n_mass*sizeof(double));
+    fread(sigma, sizeof(double), n_mass, fp);
+    double *alpha = malloc(n_mass*sizeof(double));
+    fread(alpha, sizeof(double), n_mass, fp);
+
+    int n_z;
+    fread(&n_z, sizeof(int), 1, fp);
+    double *z = malloc(n_z*sizeof(double));
+    fread(z, sizeof(double), n_z, fp);
+    double *delta_c = malloc(n_z*sizeof(double));
+    fread(delta_c, sizeof(double), n_z, fp);
+
+    fclose(fp);
+
+    return HaloRelation_Init(mass, sigma, alpha, n_mass, z, delta_c, n_z);
+}
+
+
 HaloRelation HaloRelation_Init(
     double *mass, double *sigma, double *alpha, int n_mass, double *z, double *delta_c, int n_z
 ) {

@@ -1,4 +1,5 @@
 import numpy as np
+import struct as binary
 
 from libc.stdlib cimport malloc, free
 
@@ -24,6 +25,7 @@ cdef extern from "clib/halotree.h":
     ctypedef struct HaloRelation:
         pass
 
+    HaloRelation HaloRelation_Read(char* fanme)
     HaloRelation HaloRelation_Init(
         double *mass, double *sigma, double *alpha, int n_mass, double *z, double *delta_c, int n_z
     )
@@ -89,7 +91,7 @@ cdef class HaloKit:
         return f
 
 
-    def __cinit__(self, hmf, z_grid = None):
+    def __cinit__(self, hmf, z_grid = None, save = None):
         hmf.update(z = 0)
         self.m_min = 10**hmf.Mmin
         self.m_max = 10**hmf.Mmax
@@ -119,6 +121,19 @@ cdef class HaloKit:
         cdef:
             double[::1] z_mv = z_grid
             double[::1] delta_mv = delta_c
+        # Save a binary file of necessary arrays for external uses
+        if save is not None:
+            with open(save, "wb") as fp:
+                n_mass = m.shape[0]
+                fp.write(binary.pack('i', n_mass))
+                fp.write(binary.pack('%dd'%n_mass, *np.asarray(m)))
+                fp.write(binary.pack('%dd'%n_mass, *np.asarray(sigma)))
+                fp.write(binary.pack('%dd'%n_mass, *np.asarray(alpha)))
+
+                n_z = z_mv.shape[0]
+                fp.write(binary.pack('i', n_z))
+                fp.write(binary.pack('%dd'%n_z, *z_grid))
+                fp.write(binary.pack('%dd'%n_z, *delta_c))
         # Initialisation
         self.hr = HaloRelation_Init(
             &m[0], &sigma[0], &alpha[0], m.shape[0], &z_mv[0], &delta_mv[0], z_mv.shape[0]

@@ -41,7 +41,7 @@ typedef struct HaloRelation {
     gsl_spline *Z2D;
     gsl_spline *D2Z;
 } HaloRelation;
-
+HaloRelation HaloRelation_Read(char* fname);
 HaloRelation HaloRelation_Init(
     double *mass, double *sigma, double *alpha, int n_mass, double *z, double *delta_c, int n_z
 );
