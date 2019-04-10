@@ -42,9 +42,8 @@ typedef struct HaloRelation {
     gsl_spline *D2Z;
 } HaloRelation;
 
-void HaloRelation_Init(
-    HaloRelation *hr, double *mass, double *sigma, double *alpha, int n_mass,
-    double *z, double *delta_c, int n_z
+HaloRelation HaloRelation_Init(
+    double *mass, double *sigma, double *alpha, int n_mass, double *z, double *delta_c, int n_z
 );
 void HaloRelation_Free(HaloRelation *hr);
 

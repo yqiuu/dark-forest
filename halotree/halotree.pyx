@@ -24,9 +24,8 @@ cdef extern from "clib/halotree.h":
     ctypedef struct HaloRelation:
         pass
 
-    void HaloRelation_Init(
-        HaloRelation *hr, double *mass, double *sigma, double *alpha, int n_mass,
-        double *z, double *delta_c, int n_z
+    HaloRelation HaloRelation_Init(
+        double *mass, double *sigma, double *alpha, int n_mass, double *z, double *delta_c, int n_z
     )
     void HaloRelation_Free(HaloRelation *hr)
 
@@ -121,9 +120,8 @@ cdef class HaloKit:
             double[::1] z_mv = z_grid
             double[::1] delta_mv = delta_c
         # Initialisation
-        HaloRelation_Init(
-            &self.hr, &m[0], &sigma[0], &alpha[0], m.shape[0],
-            &z_mv[0], &delta_mv[0], z_mv.shape[0]
+        self.hr = HaloRelation_Init(
+            &m[0], &sigma[0], &alpha[0], m.shape[0], &z_mv[0], &delta_mv[0], z_mv.shape[0]
         )
 
 
