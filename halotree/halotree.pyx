@@ -136,26 +136,14 @@ cdef class HaloMergeTree:
         NodeVector tree
         HaloKit halo_kit
         gsl_rng* rstate
+        object nodes
 
 
     def Nodes(self, level = -1):
-        cdef:
-            int i_node
-            int n_node = self.tree.n_node
-            Node* it_node = self.tree.data
-        dtype = np.dtype([('z', 'f8'), ('mass', 'f8'), ('idx_tail', 'i4'), ('idx_next', 'i4')])
-        nodes = np.zeros(n_node, dtype = dtype)
-        for i_node in range(n_node):
-            nodes[i_node]['z'] = it_node.delta
-            nodes[i_node]['mass'] = it_node.mass
-            nodes[i_node]['idx_tail'] = it_node.idx_tail
-            nodes[i_node]['idx_next'] = it_node.idx_next
-            it_node += 1
-        nodes['z'] = self.halo_kit.D2Z(nodes['z'])
         if level == -1:
-            return nodes
+            return self.nodes
         else:
-            return nodes[nodes['z'] == np.unique(nodes['z'])[level]]
+            return self.nodes[self.nodes['z'] == np.unique(self.nodes['z'])[level]]
 
 
     def __cinit__(
@@ -169,7 +157,7 @@ cdef class HaloMergeTree:
         self.halo_kit = halo_kit
         self.rstate = gsl_rng_alloc(gsl_rng_mt19937)
         gsl_rng_set(self.rstate, seed)
-
+        # Create the tree
         cdef:
             double[::1] z_target_mv = np.ravel(z_target).astype(np.double)
             int n_target = z_target_mv.shape[0]
@@ -178,6 +166,10 @@ cdef class HaloMergeTree:
             m_root, z_root, &z_target_mv[0], n_target, &self.halo_kit.hr, &kit_sp, self.rstate
         )
         SplitKit_Free(&kit_sp);
+        # Store all nodes in numpy array
+        dtype = [('z', 'f8'), ('mass', 'f8'), ('idx_tail', 'i4'), ('idx_next', 'i4')]
+        self.nodes = np.array(<Node[:self.tree.n_node]>self.tree.data).astype(dtype)
+        self.nodes['z'] = self.halo_kit.D2Z(self.nodes['z'])
 
 
     def __dealloc__(self):
