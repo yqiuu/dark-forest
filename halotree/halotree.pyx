@@ -2,6 +2,7 @@ import numpy as np
 import struct as binary
 
 from libc.stdlib cimport malloc, free
+from libc.math cimport sqrt
 
 from scipy.interpolate import InterpolatedUnivariateSpline as spl
 from hmf.growth_factor import GrowthFactor
@@ -86,9 +87,12 @@ cdef class HaloKit:
         sigmasq_root = self.sigmasq(m_root)
         diff_delta = self.Z2D(z) - self.Z2D(z_root)
         diff_sigmasq = sigmasq_m - sigmasq_root
-        f = np.sqrt(2./np.pi)*diff_delta*sigmasq_m*diff_sigmasq**-1.5 \
-            *np.exp(-.5*diff_delta*diff_delta/diff_sigmasq)*self.alpha(m)
-        return f
+        factor_exp = np.exp(-.5*diff_delta*diff_delta/diff_sigmasq)
+        return sqrt(2./np.pi)*diff_delta*sigmasq_m*diff_sigmasq**-1.5*factor_exp*self.alpha(m)
+
+
+    def ProgenitorMassFunction(self, m, z, m_root, z_root):
+        return m_root/m*self.ConditionalMassFunction(m, z, m_root, z_root)
 
 
     def __cinit__(self, hmf, z_grid = None, save = None):
