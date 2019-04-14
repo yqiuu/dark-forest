@@ -59,8 +59,8 @@ cdef extern from "clib/halotree.h":
         int n_node
         Node* data
 
+    NodeVector NodeVector_Init(int n_base)
     void NodeVector_Free(NodeVector *vector)
-
 
     NodeVector MergeTree_Grow(
         double m_root, double z_root, double *z_target, int n_target,
@@ -162,31 +162,55 @@ cdef class HaloMergeTree:
             return self.nodes[self.nodes['z'] == np.unique(self.nodes['z'])[level]]
 
 
-    def __cinit__(
-        self, m_root, z_root, z_target, halo_kit, G0 = 1., gamma1 = 0., gamma2 = 0.,
-        m_res = 1e8, eps1 = 0.1, eps2 = 0.2, n_base = 10**5, seed = 2092
-    ):
-        if m_root <= halo_kit.m_min or m_root >= halo_kit.m_max:
-            raise ValueError("Mass of root halo beyond mass interpolation range")
-        if m_res <= halo_kit.m_min or m_res >= halo_kit.m_max:
-            raise ValueError("Mass resolution halo beyond mass interpolation range")
-        self.halo_kit = halo_kit
-        rstate = gsl_rng_alloc(gsl_rng_mt19937)
-        gsl_rng_set(rstate, seed)
-        # Create the tree
+    def __cinit__(self, halo_kit, method = 'Parkinson08', **params):
         cdef:
-            double[::1] z_target_mv = np.ravel(z_target).astype(np.double)
-            int n_target = z_target_mv.shape[0]
-            SplitKit kit_sp = SplitKit_Init(G0, gamma1, gamma2, m_res, eps1, eps2)
-        self.tree = MergeTree_Grow(
-            m_root, z_root, &z_target_mv[0], n_target, &self.halo_kit.hr, &kit_sp, rstate
-        )
-        SplitKit_Free(&kit_sp);
-        gsl_rng_free(rstate)
-        # Store all nodes in numpy array
-        dtype = [('z', 'f8'), ('mass', 'f8'), ('idx_tail', 'i4'), ('idx_next', 'i4')]
-        self.nodes = np.array(<Node[:self.tree.n_node]>self.tree.data).astype(dtype)
-        self.nodes['z'] = self.halo_kit.D2Z(self.nodes['z'])
+            gsl_rng *rstate
+            double [::1] z_target_mv
+            SplitKit kit_sp
+
+        self.halo_kit = halo_kit
+        if method == 'empty':
+            self.tree = NodeVector_Init(params['n_base'])
+        elif method == 'Parkinson08':
+            params_method = {
+                'm_root':1e12, 'z_root':0., 'z_target':1.,
+                'G0':1., 'gamma1':0., 'gamma2':0.,
+                'm_res':1e8, 'eps1':0.1, 'eps2':0.1, 'seed':2092
+            }
+            params_method.update(params)
+            m_root = params_method['m_root']
+            z_root = params_method['z_root']
+            z_target = params_method['z_target']
+            G0 = params_method['G0']
+            gamma1 = params_method['gamma1']
+            gamma2 = params_method['gamma2']
+            m_res = params_method['m_res']
+            eps1 = params_method['eps1']
+            eps2 = params_method['eps2']
+            seed = params_method['seed']
+            #
+            if m_root <= halo_kit.m_min or m_root >= halo_kit.m_max:
+                raise ValueError("Mass of root halo beyond mass interpolation range")
+            if m_res <= halo_kit.m_min or m_res >= halo_kit.m_max:
+                raise ValueError("Mass resolution halo beyond mass interpolation range")
+            # Create random number generator
+            rstate = gsl_rng_alloc(gsl_rng_mt19937)
+            gsl_rng_set(rstate, seed)
+            # Create the tree
+            z_target_mv = np.ravel(z_target).astype(np.double)
+            n_target = z_target_mv.shape[0]
+            kit_sp = SplitKit_Init(G0, gamma1, gamma2, m_res, eps1, eps2)
+            self.tree = MergeTree_Grow(
+                m_root, z_root, &z_target_mv[0], n_target, &self.halo_kit.hr, &kit_sp, rstate
+            )
+            SplitKit_Free(&kit_sp);
+            gsl_rng_free(rstate)
+            # Store all nodes in numpy array
+            dtype = [('z', 'f8'), ('mass', 'f8'), ('idx_tail', 'i4'), ('idx_next', 'i4')]
+            self.nodes = np.array(<Node[:self.tree.n_node]>self.tree.data).astype(dtype)
+            self.nodes['z'] = self.halo_kit.D2Z(self.nodes['z'])
+        else:
+            raise ValueError("Method %s is not understood"%method)
 
 
     def __dealloc__(self):
