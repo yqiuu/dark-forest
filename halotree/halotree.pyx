@@ -152,7 +152,6 @@ cdef class HaloMergeTree:
     cdef:
         NodeVector tree
         HaloKit halo_kit
-        gsl_rng* rstate
         object nodes
 
 
@@ -172,17 +171,18 @@ cdef class HaloMergeTree:
         if m_res <= halo_kit.m_min or m_res >= halo_kit.m_max:
             raise ValueError("Mass resolution halo beyond mass interpolation range")
         self.halo_kit = halo_kit
-        self.rstate = gsl_rng_alloc(gsl_rng_mt19937)
-        gsl_rng_set(self.rstate, seed)
+        rstate = gsl_rng_alloc(gsl_rng_mt19937)
+        gsl_rng_set(rstate, seed)
         # Create the tree
         cdef:
             double[::1] z_target_mv = np.ravel(z_target).astype(np.double)
             int n_target = z_target_mv.shape[0]
             SplitKit kit_sp = SplitKit_Init(G0, gamma1, gamma2, m_res, eps1, eps2)
         self.tree = MergeTree_Grow(
-            m_root, z_root, &z_target_mv[0], n_target, &self.halo_kit.hr, &kit_sp, self.rstate
+            m_root, z_root, &z_target_mv[0], n_target, &self.halo_kit.hr, &kit_sp, rstate
         )
         SplitKit_Free(&kit_sp);
+        gsl_rng_free(rstate)
         # Store all nodes in numpy array
         dtype = [('z', 'f8'), ('mass', 'f8'), ('idx_tail', 'i4'), ('idx_next', 'i4')]
         self.nodes = np.array(<Node[:self.tree.n_node]>self.tree.data).astype(dtype)
@@ -191,6 +191,5 @@ cdef class HaloMergeTree:
 
     def __dealloc__(self):
         NodeVector_Free(&self.tree)
-        gsl_rng_free(self.rstate)
 
 
