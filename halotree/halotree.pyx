@@ -61,7 +61,7 @@ cdef extern from "clib/halotree.h":
 
 
     ctypedef struct Node:
-        double delta
+        double trace
         double mass
         int idx_tail
         int idx_next

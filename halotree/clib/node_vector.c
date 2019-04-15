@@ -8,7 +8,7 @@ int NodeVector_Append(NodeVector *vector, double delta, double mass) {
     }
     int idx = (vector->n_node)++;
     Node* node = vector->data + idx;
-    node->delta = delta;
+    node->trace = delta;
     node->mass = mass;
     node->idx_tail = -1;
     node->idx_next = -1;

@@ -53,7 +53,7 @@ int MergeTree_BinarySplit(
     gsl_spline *alpha = hr->alpha;
     // Initialise the binary tree
     NodeVector tree_binary = NodeVector_Init(N_BASE_GROW);
-    NodeVector_Append(&tree_binary, tree->data[idx_root].delta, tree->data[idx_root].mass);
+    NodeVector_Append(&tree_binary, tree->data[idx_root].trace, tree->data[idx_root].mass);
     // Plant tree
     double mu, G1, G2;
     double d_start;
@@ -72,7 +72,7 @@ int MergeTree_BinarySplit(
     int idx_first = -1;
     int idx = 0;
     while(idx < tree_binary.n_node) {
-        d_start = tree_binary.data[idx].delta;
+        d_start = tree_binary.data[idx].trace;
         m_start = tree_binary.data[idx].mass;
         dd_target = d_target - d_start;
         save = 0;

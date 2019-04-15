@@ -49,7 +49,7 @@ void HaloRelation_Free(HaloRelation *hr);
 
 
 typedef struct Node {
-    double delta;
+    double trace;
     double mass;
     int idx_tail;
     int idx_next;
