@@ -167,6 +167,11 @@ cdef class HaloMergeTree:
         object redshifts
 
 
+    property m_root:
+        def __get__(self):
+            return self.tree.data[0].mass
+
+
     property redshifts:
         def __get__(self):
             return np.array(self.redshifts)
@@ -243,6 +248,32 @@ cdef class HaloMergeTree:
 
     def __dealloc__(self):
         NodeVector_Free(&self.tree)
+
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#                                                                               #
+# Functions to analyse trees                                                    #
+#                                                                               #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+def EstimateConditionalMassFunction(tree, level, frac_bins = None):
+    tree = np.ravel(tree)
+    level = np.ravel(level)
+    # Set fraction bins
+    if frac_bins is None:
+        frac_bins = np.logspace(-4, 0, 21)
+    lnfrac_bins = np.log(frac_bins)
+    dlnfrac = np.diff(lnfrac_bins)
+    frac_mid = np.exp(lnfrac_bins[1:] + .5*dlnfrac)
+    #
+    cmf = np.zeros([len(tree), len(level), len(frac_mid)])
+    for i_tree, tree_single in enumerate(tree):
+        m_root = tree_single.m_root
+        mass_bins = frac_bins*m_root
+        for i_level, level_single in enumerate(level):
+            m_prog = tree_single.Nodes(level_single)['mass']
+            for i_bin, (l, u) in enumerate(zip(mass_bins[:-1], mass_bins[1:])):
+                cmf[i_tree, i_level, i_bin] = np.sum(m_prog[(m_prog > l) & (m_prog < u)])/m_root
+    return frac_mid, cmf/dlnfrac
 
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
