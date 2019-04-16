@@ -162,14 +162,7 @@ cdef class HaloKit:
 
 
 cdef class HaloMergeTree:
-    cdef:
-        NodeVector tree
-        object nodes
-
-
-    cdef void _build_array(self):
-        dtype = [('z', 'f8'), ('mass', 'f8'), ('idx_tail', 'i4'), ('idx_next', 'i4')]
-        self.nodes = np.array(<Node[:self.tree.n_node]>self.tree.data).astype(dtype)
+    cdef NodeVector tree
 
 
     cdef NodeVector* pointer(self):
@@ -177,18 +170,23 @@ cdef class HaloMergeTree:
 
 
     def Nodes(self, level = -1):
+        # Create a copy of all nodes with modified attribute name
+        dtype = [('z', 'f8'), ('mass', 'f8'), ('idx_tail', 'i4'), ('idx_next', 'i4')]
+        node_arr = np.asarray(<Node[:self.tree.n_node]>self.tree.data).astype(dtype)
         if level == -1:
-            return self.nodes
+            return node_arr
         else:
-            return self.nodes[self.nodes['z'] == np.unique(self.nodes['z'])[level]]
+            return node_arr[node_arr['z'] == np.unique(node_arr['z'])[level]]
 
 
     def __cinit__(self, method = 'Parkinson08', **params):
         cdef:
             gsl_rng *rstate
-            double [::1] z_target_mv
+            double[::1] z_target_mv
             HaloKit halo_kit
             SplitKit kit_sp
+
+            Node[::1] node_mv
 
         if method == 'empty':
             self.tree = NodeVector_Init(params['n_base'])
@@ -228,8 +226,8 @@ cdef class HaloMergeTree:
             SplitKit_Free(&kit_sp);
             gsl_rng_free(rstate)
             # Store all nodes in numpy array
-            self._build_array()
-            self.nodes['z'] = halo_kit.D2Z(self.nodes['z'])
+            node_arr = np.asarray(<Node[:self.tree.n_node]>self.tree.data)
+            node_arr['trace'] = halo_kit.D2Z(node_arr['trace'])
         else:
             raise ValueError("Method %s is not understood"%method)
 
