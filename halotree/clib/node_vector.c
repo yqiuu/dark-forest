@@ -1,7 +1,7 @@
 #include"halotree.h"
 
 
-int NodeVector_Append(NodeVector *vector, double delta, double mass) {
+int NodeVector_Append(NodeVector *vector, double trace, double mass) {
     if (vector->n_node == vector->n_max) {
         vector->n_max *= 2;
         void* buffer = realloc(vector->data, vector->n_max*sizeof(Node));
@@ -14,7 +14,7 @@ int NodeVector_Append(NodeVector *vector, double delta, double mass) {
     }
     int idx = (vector->n_node)++;
     Node* node = vector->data + idx;
-    node->trace = delta;
+    node->trace = trace;
     node->mass = mass;
     node->idx_tail = -1;
     node->idx_next = -1;
