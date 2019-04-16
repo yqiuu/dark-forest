@@ -162,7 +162,14 @@ cdef class HaloKit:
 
 
 cdef class HaloMergeTree:
-    cdef NodeVector tree
+    cdef:
+        NodeVector tree
+        object redshifts
+
+
+    property redshifts:
+        def __get__(self):
+            return np.array(self.redshifts)
 
 
     cdef NodeVector* pointer(self):
@@ -225,9 +232,11 @@ cdef class HaloMergeTree:
             )
             SplitKit_Free(&kit_sp);
             gsl_rng_free(rstate)
-            # Store all nodes in numpy array
+            # Convert delta to redshift
             node_arr = np.asarray(<Node[:self.tree.n_node]>self.tree.data)
-            node_arr['trace'] = halo_kit.D2Z(node_arr['trace'])
+            redshifts = halo_kit.D2Z(node_arr['trace'])
+            node_arr['trace'] = redshifts
+            self.redshifts = np.unique(redshifts)
         else:
             raise ValueError("Method %s is not understood"%method)
 
