@@ -225,7 +225,7 @@ cdef class HaloMergeTree:
                 raise ValueError("Mass of root halo beyond mass interpolation range")
             if m_res <= halo_kit.m_min or m_res >= halo_kit.m_max:
                 raise ValueError("Mass resolution halo beyond mass interpolation range")
-            # Create random number generator
+           # Create random number generator
             rstate = gsl_rng_alloc(gsl_rng_mt19937)
             gsl_rng_set(rstate, seed)
             # Create the tree
@@ -274,6 +274,29 @@ def EstimateConditionalMassFunction(tree, level, frac_bins = None):
             for i_bin, (l, u) in enumerate(zip(mass_bins[:-1], mass_bins[1:])):
                 cmf[i_tree, i_level, i_bin] = np.sum(m_prog[(m_prog > l) & (m_prog < u)])/m_root
     return frac_mid, cmf/dlnfrac
+
+
+cdef object _TrackMassAssemblyHistory(Node* node, int n_time):
+    cdef:
+        double[::1] mah = np.zeros(n_time)
+        int i_time
+        int idx = 0
+
+    for i_time in range(n_time):
+        mah[i_time] = node[idx].mass
+        idx = node[idx].idx_tail
+
+    return np.asarray(mah)
+
+
+def EstimateMassAssemblyHistory(tree):
+    tree = np.ravel(tree)
+    mah = np.empty(len(tree), dtype = object)
+    for i_tree, tree_single in enumerate(tree):
+        mah[i_tree] = _TrackMassAssemblyHistory(
+            (<HaloMergeTree>tree_single).pointer().data, len(tree_single.redshifts)
+        )/tree_single.m_root
+    return mah
 
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
