@@ -4,7 +4,13 @@
 int NodeVector_Append(NodeVector *vector, double delta, double mass) {
     if (vector->n_node == vector->n_max) {
         vector->n_max *= 2;
-        vector->data = realloc(vector->data, vector->n_max*sizeof(Node));
+        void* buffer = realloc(vector->data, vector->n_max*sizeof(Node));
+        if (buffer == NULL) {
+            printf("Error: fail to realloc the memory");
+            exit(EXIT_FAILURE);
+        }
+        else
+            vector->data = buffer;
     }
     int idx = (vector->n_node)++;
     Node* node = vector->data + idx;
