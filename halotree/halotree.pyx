@@ -328,10 +328,32 @@ class ProgenitorPool(dict):
             self[id_prog] = snap_prog, idx_prog, link_type, i_tree, idx_node_host
 
 
-def ReadVELOCIraptor(fname, indices, snap_start, snap_end = 0, key_mass = 'Mass_200crit'):
+class DataPool():
+    def Load(self, snap):
+        pool = self.pool
+        if snap in pool.keys():
+            logger.info("Read snapshot %d from the pool"%snap)
+        else:
+            logger.info("Read snapshot %d from the file"%snap)
+            if len(pool) == self.pool_size:
+                del pool[max(pool.keys())]
+            pool[snap] = self.fp.get('Snap_%03d'%snap)
+        return pool[snap]
+
+
+    def __init__(self, fp, pool_size):
+        self.fp = fp
+        self.pool_size = pool_size
+        self.pool = {}
+
+
+def ReadVELOCIraptor(
+    fname, indices, snap_start, snap_end = 0, key_mass = 'Mass_200crit', pool_size = 10
+):
     indices = np.ravel(indices)
     # Open the file
     fp = h5py.File(fname, "r")
+    data_pool = DataPool(fp, pool_size)
     # Read redshifts
     redshifts = np.zeros(snap_start + 1)
     for snap in range(snap_start + 1):
@@ -342,7 +364,7 @@ def ReadVELOCIraptor(fname, indices, snap_start, snap_end = 0, key_mass = 'Mass_
     pool = ProgenitorPool()
 
     snap_fp = snap_start
-    dataset = fp.get('Snap_%03d'%snap_fp)
+    dataset = data_pool.Load(snap_fp)
     mass = np.asarray(dataset[key_mass])
     tail = np.asarray(dataset['Tail'])
     z_start = redshifts[snap_start]
@@ -356,12 +378,10 @@ def ReadVELOCIraptor(fname, indices, snap_start, snap_end = 0, key_mass = 'Mass_
     #
     while len(pool) > 0:
         snap_target = max(snap for snap, *_ in pool.values())
-        logger.info(
-            "Read snapshot %d, Number of remaining halos in the pool %d"%(snap_target, len(pool))
-        )
+        print(snap_target)
         if snap_target != snap_fp:
             snap_fp = snap_target
-            dataset = fp.get('Snap_%03d'%snap_fp)
+            dataset = data_pool.Load(snap_fp)
             mass = np.asarray(dataset[key_mass])
             tail = np.asarray(dataset['Tail'])
             next_prog = np.asarray(dataset['NextProgenitor'])
@@ -382,6 +402,8 @@ def ReadVELOCIraptor(fname, indices, snap_start, snap_end = 0, key_mass = 'Mass_
                 pool.AddProgenitor(snap_end, key, tail[idx_prog], 'tail', i_tree, idx_node_new)
                 pool.AddProgenitor(-1, key, next_prog[idx_prog], 'next', i_tree, idx_node_new)
                 del pool[key]
+        logger.info("Number of pending progenitors %d"%len(pool))
+
     # Close the file
     fp.close()
     #
