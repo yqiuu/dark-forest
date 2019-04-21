@@ -185,6 +185,11 @@ cdef class HaloMergeTree:
         self.z_arr = z_arr
 
 
+    def MassTransfer(self, transfer_func):
+        node_arr = np.asarray(<Node[:self.tree.n_node]>self.tree.data)
+        node_arr['mass'] = transfer_func(node_arr['mass'])
+
+
     def Nodes(self, level = -1):
         # Create a copy of all nodes with modified attribute name
         dtype = [('z', 'f8'), ('mass', 'f8'), ('idx_tail', 'i4'), ('idx_next', 'i4')]
@@ -403,7 +408,10 @@ def ReadVELOCIraptor(
                 pool.AddProgenitor(-1, key, next_prog[idx_prog], 'next', i_tree, idx_node_new)
                 del pool[key]
         logger.info("Number of pending progenitors %d"%len(pool))
-
+    # Converit mass unit from 1e10 M_solar to h^-1 M_solar
+    h = fp.get('Header')['Simulation'].attrs['h_val']
+    for tree_single in tree_arr:
+        tree_single.MassTransfer(lambda m:m*1e10*h)
     # Close the file
     fp.close()
     #
