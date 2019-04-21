@@ -164,7 +164,7 @@ cdef class HaloKit:
 cdef class HaloMergeTree:
     cdef:
         NodeVector tree
-        object redshifts
+        object z_arr
 
 
     property m_root:
@@ -174,11 +174,15 @@ cdef class HaloMergeTree:
 
     property redshifts:
         def __get__(self):
-            return np.array(self.redshifts)
+            return np.array(self.z_arr)
 
 
-    cdef NodeVector* pointer(self):
+    cdef NodeVector* Pointer(self):
         return &self.tree
+
+
+    cdef void SetRedshifts(self, z_arr):
+        self.z_arr = z_arr
 
 
     def Nodes(self, level = -1):
@@ -202,6 +206,7 @@ cdef class HaloMergeTree:
 
         if method == 'empty':
             self.tree = NodeVector_Init(params['n_base'])
+            self.z_arr = np.zeros(1)
         elif method == 'Parkinson08':
             params_method = {
                 'm_root':1e12, 'z_root':0., 'z_target':1.,
@@ -241,7 +246,7 @@ cdef class HaloMergeTree:
             node_arr = np.asarray(<Node[:self.tree.n_node]>self.tree.data)
             redshifts = halo_kit.D2Z(node_arr['trace'])
             node_arr['trace'] = redshifts
-            self.redshifts = np.unique(redshifts)
+            self.z_arr = np.unique(redshifts)
         else:
             raise ValueError("Method %s is not understood"%method)
 
@@ -294,7 +299,7 @@ def EstimateMassAssemblyHistory(tree):
     mah = np.empty(len(tree), dtype = object)
     for i_tree, tree_single in enumerate(tree):
         mah[i_tree] = _TrackMassAssemblyHistory(
-            (<HaloMergeTree>tree_single).pointer().data, len(tree_single.redshifts)
+            (<HaloMergeTree>tree_single).Pointer().data, len(tree_single.redshifts)
         )/tree_single.m_root
     return mah
 
@@ -307,85 +312,77 @@ def EstimateMassAssemblyHistory(tree):
 DEF N_MAX_HALO = 10**12
 
 
-cdef inline tuple _ID2S(long i):
-    """
-    Convert halo ID to snapshot and index respectively.
-    """
-    return (i//N_MAX_HALO, i%N_MAX_HALO)
+cdef inline int VELOCIraptor_ID2I(long i):
+    return i%N_MAX_HALO - 1
 
 
-def ReadVELOCIraptor(fname, snap_min, snap_max, m_min, m_max, key_mass = 'Mass_200crit'):
+cdef inline int VELOCIraptor_ID2S(long i):
+    return i//N_MAX_HALO
+
+
+class ProgenitorPool(dict):
+    def AddProgenitor(self, snap_min, id_self, id_prog, link_type, i_tree, idx_node_host):
+        snap_prog = VELOCIraptor_ID2S(id_prog)
+        idx_prog = VELOCIraptor_ID2I(id_prog)
+        if id_self != id_prog and snap_prog >= snap_min:
+            self[id_prog] = snap_prog, idx_prog, link_type, i_tree, idx_node_host
+
+
+def ReadVELOCIraptor(fname, indices, snap_start, snap_end = 0, key_mass = 'Mass_200crit'):
+    indices = np.ravel(indices)
     # Open the file
     fp = h5py.File(fname, "r")
-    # Read Cosmology parameters
-    attrs = fp.get('Header')['Simulation'].attrs
-    h = attrs['h_val']
-    Om0 = attrs['Omega_m']
-    halo_kit = HaloKit(
-        MassFunction(Mmin = 3, dlog10m = 0.05, cosmo_params = {'H0':100.*h, 'Om0':Om0})
-    )
-    # Convert little h
-    m_min /= 1e10*h
-    m_max /= 1e10*h
     # Read redshifts
-    redshifts = np.zeros(snap_max + 1)
-    for snap in range(snap_max + 1):
+    redshifts = np.zeros(snap_start + 1)
+    for snap in range(snap_start + 1):
         redshifts[snap] = 1./fp.get('Snap_%03d'%snap).attrs['scalefactor'] - 1.
-    # Select and initialise root halos
-    cdef:
-        NodeVector* tree_ptr = NULL
-
-    grp = fp.get('Snap_%03d'%snap_max)
-    mass = np.asarray(grp[key_mass])
-    cond = (mass > m_min) & (mass < m_max)
-    mass = mass[cond]
-    tail = np.asarray(grp['Tail'])[cond]
-
-    n_gal = len(mass)
+    # Read and initialise root halos
+    n_gal = len(indices)
     tree_arr = np.empty(n_gal, dtype = object)
-    pool_arr = np.empty(n_gal, dtype = object)
+    pool = ProgenitorPool()
 
-    logger.info("Read %d root halos at given mass range"%n_gal)
-    for i_gal in range(n_gal):
-        tree = HaloMergeTree(halo_kit, method = 'empty', n_base = 10**5)
-        tree_arr[i_gal] = tree
-
-        pool = {}
-        idx_node_new = NodeVector_Append(tree.pointer(), redshifts[snap_max], mass[i_gal])
-        pool[idx_node_new] = _ID2S(tail[i_gal])
-        pool_arr[i_gal] = pool
-    # Read progentiros
-    for snap in range(snap_max - 1, snap_min - 1, -1):
-        logger.info("Read progenitors at snapshot %d"%snap)
-        z = redshifts[snap]
-        grp = fp.get('Snap_%03d'%snap)
-        mass = np.asarray(grp[key_mass])
-        tail = np.asarray(grp['Tail'])
-        prog_next = np.asarray(grp['NextProgenitor'])
-        for i_gal in range(n_gal):
-            tree_ptr = (<HaloMergeTree>tree_arr[i_gal]).pointer()
-            pool = pool_arr[i_gal]
-            for idx_node_desc in list(pool):
-                snap_tail, idx_tail = pool[idx_node_desc]
-                if snap == snap_tail:
-                    idx_node_new = NodeVector_Append(tree_ptr, z, mass[idx_tail])
-                    tree_ptr.data[idx_node_desc].idx_tail = idx_node_new
-                    # Read next progenitors
-                    idx_node_prev = idx_node_new
-                    idx_prev = idx_tail
-                    while True:
-                        snap_next, idx_next = _ID2S(prog_next[idx_prev])
-                        if idx_next != idx_prev and snap == snap_next:
-                            idx_node_new = NodeVector_Append(tree_ptr, z, mass[idx_next])
-                            tree_ptr.data[idx_node_prev].idx_next = idx_node_new
-                            idx_node_prev = idx_node_new
-                            idx_prev = idx_next
-                        else:
-                            break
-                    del pool[idx_node_desc]
-    dtype = [('z', 'f8'), ('mass', 'f8'), ('idx_tail', 'i4'), ('idx_next', 'i4')]
-    for i_gal in range(n_gal):
-        tree_arr[i_gal]._build_array()
+    snap_fp = snap_start
+    dataset = fp.get('Snap_%03d'%snap_fp)
+    mass = np.asarray(dataset[key_mass])
+    tail = np.asarray(dataset['Tail'])
+    z_start = redshifts[snap_start]
+    for i_tree, idx in enumerate(indices):
+        tree = HaloMergeTree(method = 'empty', n_base = 10**5)
+        tree.SetRedshifts(redshifts)
+        tree_arr[i_tree] = tree
+        idx_node_new = NodeVector_Append(tree.Pointer(), z_start, mass[idx])
+        #
+        pool.AddProgenitor(snap_end, None, tail[idx], 'tail', i_tree, idx_node_new)
+    #
+    while len(pool) > 0:
+        snap_target = max(snap for snap, *_ in pool.values())
+        logger.info(
+            "Read snapshot %d, Number of remaining halos in the pool %d"%(snap_target, len(pool))
+        )
+        if snap_target != snap_fp:
+            snap_fp = snap_target
+            dataset = fp.get('Snap_%03d'%snap_fp)
+            mass = np.asarray(dataset[key_mass])
+            tail = np.asarray(dataset['Tail'])
+            next_prog = np.asarray(dataset['NextProgenitor'])
+        z_target = redshifts[snap_target]
+        for key in list(pool.keys()):
+            snap_prog, idx_prog, link_type, i_tree, idx_node_host = pool[key]
+            if snap_prog == snap_target:
+                # Add a new halo to the corresponding tree
+                tree_ptr = (<HaloMergeTree>tree_arr[i_tree]).Pointer()
+                idx_node_new = NodeVector_Append(tree_ptr, z_target, mass[idx_prog])
+                # Set tail/next index of the host halo
+                if link_type == 'tail':
+                    tree_ptr.data[idx_node_host].idx_tail = idx_node_new
+                elif link_type == 'next':
+                    tree_ptr.data[idx_node_host].idx_next = idx_node_new
+                else:
+                    raise ValueError("unknown link_type: %s"%link_type)
+                pool.AddProgenitor(snap_end, key, tail[idx_prog], 'tail', i_tree, idx_node_new)
+                pool.AddProgenitor(-1, key, next_prog[idx_prog], 'next', i_tree, idx_node_new)
+                del pool[key]
     # Close the file
     fp.close()
+    #
     return tree_arr
