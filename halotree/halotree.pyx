@@ -198,7 +198,7 @@ cdef class HaloMergeTree:
         node_arr['mass'] = transfer_func(node_arr['mass'])
 
 
-    def Nodes(self, level = -1):
+    def Halos(self, level = -1):
         # Create a copy of all nodes with modified attribute name
         dtype = [('z', 'f8'), ('mass', 'f8'), ('idx_tail', 'i4'), ('idx_next', 'i4')]
         node_arr = np.asarray(<Node[:self.tree.n_node]>self.tree.data).astype(dtype)
@@ -288,7 +288,7 @@ def EstimateConditionalMassFunction(tree, level, frac_bins = None):
         m_root = tree_single.m_root
         mass_bins = frac_bins*m_root
         for i_level, level_single in enumerate(level):
-            m_prog = tree_single.Nodes(level_single)['mass']
+            m_prog = tree_single.Halos(level_single)['mass']
             for i_bin, (l, u) in enumerate(zip(mass_bins[:-1], mass_bins[1:])):
                 cmf[i_tree, i_level, i_bin] = np.sum(m_prog[(m_prog > l) & (m_prog < u)])/m_root
     return frac_mid, cmf/dlnfrac
