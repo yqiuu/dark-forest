@@ -367,6 +367,7 @@ def ReadVELOCIraptor(
     dataset = data_pool.Load(snap_fp)
     mass = np.asarray(dataset[key_mass])
     tail = np.asarray(dataset['Tail'])
+    id_self = np.asarray(dataset['ID'])
     z_start = redshifts[snap_start]
     for i_tree, idx in enumerate(indices):
         tree = HaloMergeTree(method = 'empty', n_base = 10**5)
@@ -374,11 +375,10 @@ def ReadVELOCIraptor(
         tree_arr[i_tree] = tree
         idx_node_new = NodeVector_Append(tree.Pointer(), z_start, mass[idx])
         #
-        pool.AddProgenitor(snap_end, None, tail[idx], 'tail', i_tree, idx_node_new)
+        pool.AddProgenitor(snap_end, id_self[idx], tail[idx], 'tail', i_tree, idx_node_new)
     #
     while len(pool) > 0:
         snap_target = max(snap for snap, *_ in pool.values())
-        print(snap_target)
         if snap_target != snap_fp:
             snap_fp = snap_target
             dataset = data_pool.Load(snap_fp)
