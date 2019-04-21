@@ -337,13 +337,16 @@ class DataPool():
             logger.info("Read snapshot %d from the file"%snap)
             if len(pool) == self.pool_size:
                 del pool[max(pool.keys())]
-            pool[snap] = self.fp.get('Snap_%03d'%snap)
+            dataset = self.fp.get('Snap_%03d'%snap)
+            pool[snap] = [np.asarray(dataset[key]) for key in self.keys]
         return pool[snap]
 
 
-    def __init__(self, fp, pool_size):
+    def __init__(self, fp, pool_size, *keys):
         self.fp = fp
         self.pool_size = pool_size
+        self.keys = keys
+        #
         self.pool = {}
 
 
@@ -353,7 +356,7 @@ def ReadVELOCIraptor(
     indices = np.ravel(indices)
     # Open the file
     fp = h5py.File(fname, "r")
-    data_pool = DataPool(fp, pool_size)
+    data_pool = DataPool(fp, pool_size, key_mass, 'Tail', 'NextProgenitor')
     # Read redshifts
     redshifts = np.zeros(snap_start + 1)
     for snap in range(snap_start + 1):
@@ -364,7 +367,7 @@ def ReadVELOCIraptor(
     pool = ProgenitorPool()
 
     snap_fp = snap_start
-    dataset = data_pool.Load(snap_fp)
+    dataset = fp.get('Snap_%03d'%snap_fp)
     mass = np.asarray(dataset[key_mass])
     tail = np.asarray(dataset['Tail'])
     id_self = np.asarray(dataset['ID'])
@@ -381,10 +384,7 @@ def ReadVELOCIraptor(
         snap_target = max(snap for snap, *_ in pool.values())
         if snap_target != snap_fp:
             snap_fp = snap_target
-            dataset = data_pool.Load(snap_fp)
-            mass = np.asarray(dataset[key_mass])
-            tail = np.asarray(dataset['Tail'])
-            next_prog = np.asarray(dataset['NextProgenitor'])
+            mass, tail, next_prog = data_pool.Load(snap_fp)
         z_target = redshifts[snap_target]
         for key in list(pool.keys()):
             snap_prog, idx_prog, link_type, i_tree, idx_node_host = pool[key]
