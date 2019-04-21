@@ -185,6 +185,14 @@ cdef class HaloMergeTree:
         self.z_arr = z_arr
 
 
+    def GetLevel(self, z, tol = 0.01):
+        level = np.argmin(abs(self.redshifts - z))
+        z_level = self.redshifts[level]
+        if abs(z_level - z) > tol:
+            logger.warning("Fail to find a redshift within the tolerance")
+        return level
+
+
     def MassTransfer(self, transfer_func):
         node_arr = np.asarray(<Node[:self.tree.n_node]>self.tree.data)
         node_arr['mass'] = transfer_func(node_arr['mass'])
