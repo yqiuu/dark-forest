@@ -364,12 +364,12 @@ class DataPool():
 
 
 def ReadVELOCIraptor(
-    fname, indices, snap_start, snap_end = 0, key_mass = 'Mass_200crit', pool_size = 10
+    fname, indices, snap_start, snap_end = 0, mass_entry = 'Mass_200crit', pool_size = 10
 ):
     indices = np.ravel(indices)
     # Open the file
     fp = h5py.File(fname, "r")
-    data_pool = DataPool(fp, pool_size, key_mass, 'Tail', 'NextProgenitor')
+    data_pool = DataPool(fp, pool_size, mass_entry, 'Tail', 'NextProgenitor')
     # Read redshifts
     redshifts = np.zeros(snap_start + 1)
     for snap in range(snap_start + 1):
@@ -381,7 +381,7 @@ def ReadVELOCIraptor(
 
     snap_fp = snap_start
     dataset = fp.get('Snap_%03d'%snap_fp)
-    mass = np.asarray(dataset[key_mass])
+    mass = np.asarray(dataset[mass_entry])
     tail = np.asarray(dataset['Tail'])
     id_self = np.asarray(dataset['ID'])
     z_start = redshifts[snap_start]
