@@ -259,7 +259,7 @@ cdef class HaloMergeTree:
             node_arr = np.asarray(<Node[:self.tree.n_node]>self.tree.data)
             redshifts = halo_kit.D2Z(node_arr['trace'])
             node_arr['trace'] = redshifts
-            self.z_arr = np.unique(redshifts)
+            self.z_arr = np.unique(redshifts)[::-1]
         else:
             raise ValueError("Method %s is not understood"%method)
 
