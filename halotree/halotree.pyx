@@ -281,7 +281,7 @@ def EstimateConditionalMassFunction(tree, level, frac_bins = None):
         frac_bins = np.logspace(-4, 0, 21)
     lnfrac_bins = np.log(frac_bins)
     dlnfrac = np.diff(lnfrac_bins)
-    frac_mid = np.exp(lnfrac_bins[1:] + .5*dlnfrac)
+    frac_mid = np.exp(lnfrac_bins[:-1] + .5*dlnfrac)
     #
     cmf = np.zeros([len(tree), len(level), len(frac_mid)])
     for i_tree, tree_single in enumerate(tree):
