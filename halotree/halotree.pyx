@@ -205,7 +205,7 @@ cdef class HaloMergeTree:
         if level == -1:
             return node_arr
         else:
-            return node_arr[node_arr['z'] == np.unique(node_arr['z'])[level]]
+            return node_arr[node_arr['z'] == self.redshifts[level]]
 
 
     def __cinit__(self, method = 'Parkinson08', **params):
