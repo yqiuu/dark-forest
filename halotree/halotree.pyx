@@ -363,24 +363,78 @@ class DataPool():
         self.pool = {}
 
 
-def ReadVELOCIraptor(
+def ReadVELOCIraptorForward(
     fname, indices, snap_start, snap_end = 0, mass_entry = 'Mass_200crit', pool_size = 10
 ):
-    indices = np.ravel(indices)
     # Open the file
     fp = h5py.File(fname, "r")
-    data_pool = DataPool(fp, pool_size, mass_entry, 'Tail', 'NextProgenitor')
+    # Read redshifts
+    redshifts = np.zeros(snap_start + 1)
+    for snap in range(snap_start + 1):
+        redshifts[snap] = 1./fp.get('Snap_%03d'%snap).attrs['scalefactor'] - 1.
+    #
+    dataset = fp.get('Snap_%03d'%snap_start)
+    logger.info("Choose %d halos"%len(indices))
+    indices = np.ravel(indices)
+    indices = indices[np.asarray(dataset['hostHaloID'])[indices] == -1]
+    logger.info("Reselect %d halos"%len(indices))
+    # Initialise trees
+    tree_arr = np.empty(len(indices), dtype = object)
+    for i_tree, idx in enumerate(indices):
+        tree = HaloMergeTree(method = 'empty', n_base = 10**4)
+        tree.SetRedshifts(redshifts)
+        tree_arr[i_tree] = tree
+    # Construct check table
+    halo_id = np.asarray(dataset['ID'])
+    flag = np.full(len(halo_id), -1, dtype = int)
+    flag[indices] = np.arange(len(indices))
+    check_table = dict(zip(halo_id, flag))
+    #
+    for snap in range(snap_end, snap_start + 1):
+        logger.info("Read halos in Snapshot %d"%snap)
+        z = redshifts[snap]
+        dataset = fp.get('Snap_%03d'%snap)
+        cond = np.asarray(dataset['hostHaloID']) == -1
+        for mass, final_id in zip(
+            np.asarray(dataset[mass_entry])[cond],
+            np.asarray(dataset['FinalDescendant'])[cond]
+        ):
+            try:
+                i_tree = check_table[final_id]
+            except KeyError:
+                i_tree = -1
+            if i_tree != -1:
+                NodeVector_Append((<HaloMergeTree>tree_arr[i_tree]).Pointer(), z, mass)
+    # Converit mass unit from 1e10 M_solar to h^-1 M_solar
+    h = fp.get('Header')['Simulation'].attrs['h_val']
+    for tree_single in tree_arr:
+        tree_single.MassTransfer(lambda m:m*1e10*h)
+    # Close the file
+    fp.close()
+    #
+    return tree_arr
+
+
+def ReadVELOCIraptorBackward(
+    fname, indices, snap_start, snap_end = 0, mass_entry = 'Mass_200crit', pool_size = 10
+):
+    # Open the file
+    fp = h5py.File(fname, "r")
+    snap_fp = snap_start
+    dataset = fp.get('Snap_%03d'%snap_fp)
+    data_pool = DataPool(fp, pool_size, mass_entry, 'Tail', 'hostHaloID', 'NextProgenitor')
     # Read redshifts
     redshifts = np.zeros(snap_start + 1)
     for snap in range(snap_start + 1):
         redshifts[snap] = 1./fp.get('Snap_%03d'%snap).attrs['scalefactor'] - 1.
     # Read and initialise root halos
+    logger.info("Choose %d halos"%len(indices))
+    indices = np.ravel(indices)
+    indices = indices[np.asarray(dataset['hostHaloID'])[indices] == -1]
     n_gal = len(indices)
+    logger.info("Reselect %d halos"%len(indices))
     tree_arr = np.empty(n_gal, dtype = object)
     pool = ProgenitorPool()
-
-    snap_fp = snap_start
-    dataset = fp.get('Snap_%03d'%snap_fp)
     mass = np.asarray(dataset[mass_entry])
     tail = np.asarray(dataset['Tail'])
     id_self = np.asarray(dataset['ID'])
@@ -397,7 +451,7 @@ def ReadVELOCIraptor(
         snap_target = max(snap for snap, *_ in pool.values())
         if snap_target != snap_fp:
             snap_fp = snap_target
-            mass, tail, next_prog = data_pool.Load(snap_fp)
+            mass, tail, host_id, next_prog = data_pool.Load(snap_fp)
         z_target = redshifts[snap_target]
         for key in list(pool.keys()):
             snap_prog, idx_prog, link_type, i_tree, idx_node_host = pool[key]
