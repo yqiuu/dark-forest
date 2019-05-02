@@ -185,12 +185,12 @@ cdef class HaloMergeTree:
         self.z_arr = z_arr
 
 
-    def GetLevel(self, z, tol = 0.01):
-        level = np.argmin(abs(self.redshifts - z))
-        z_level = self.redshifts[level]
-        if abs(z_level - z) > tol:
+    def GetSnapshot(self, z, tol = 0.01):
+        snapshot = np.argmin(abs(self.redshifts - z))
+        z_snapshot = self.redshifts[snapshot]
+        if abs(z_snapshot - z) > tol:
             logger.warning("Fail to find a redshift within the tolerance")
-        return level
+        return snapshot
 
 
     def MassTransfer(self, transfer_func):
@@ -198,14 +198,14 @@ cdef class HaloMergeTree:
         node_arr['mass'] = transfer_func(node_arr['mass'])
 
 
-    def Halos(self, level = -1):
+    def Halos(self, snapshot = -1):
         # Create a copy of all nodes with modified attribute name
         dtype = [('z', 'f8'), ('mass', 'f8'), ('idx_tail', 'i4'), ('idx_next', 'i4')]
         node_arr = np.asarray(<Node[:self.tree.n_node]>self.tree.data).astype(dtype)
-        if level == -1:
+        if snapshot == -1:
             return node_arr
         else:
-            return node_arr[node_arr['z'] == self.redshifts[level]]
+            return node_arr[node_arr['z'] == self.redshifts[snapshot]]
 
 
     def __cinit__(self, method = 'Parkinson08', **params):
@@ -243,7 +243,7 @@ cdef class HaloMergeTree:
                 raise ValueError("Mass of root halo beyond mass interpolation range")
             if m_res <= halo_kit.m_min or m_res >= halo_kit.m_max:
                 raise ValueError("Mass resolution halo beyond mass interpolation range")
-           # Create random number generator
+            # Create random number generator
             rstate = gsl_rng_alloc(gsl_rng_mt19937)
             gsl_rng_set(rstate, seed)
             # Create the tree
@@ -256,10 +256,12 @@ cdef class HaloMergeTree:
             SplitKit_Free(&kit_sp);
             gsl_rng_free(rstate)
             # Convert delta to redshift
+            z_arr = np.append(z_target[::-1], z_root)
+            self.z_arr = z_arr
             node_arr = np.asarray(<Node[:self.tree.n_node]>self.tree.data)
-            redshifts = halo_kit.D2Z(node_arr['trace'])
-            node_arr['trace'] = redshifts
-            self.z_arr = np.unique(redshifts)[::-1]
+            for i_delta, delta in enumerate(reversed(np.unique(node_arr['trace']))):
+                trace = node_arr['trace']
+                trace[trace == delta] = z_arr[i_delta]
         else:
             raise ValueError("Method %s is not understood"%method)
 
