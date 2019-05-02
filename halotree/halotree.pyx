@@ -1,8 +1,9 @@
 from libc.stdlib cimport malloc, free
 from libc.math cimport sqrt
 
-import logging
 import struct as binary
+
+from .logger import CreateLogger
 
 import numpy as np, h5py
 from scipy.interpolate import InterpolatedUnivariateSpline as spl
@@ -10,14 +11,7 @@ from hmf.growth_factor import GrowthFactor
 from hmf.hmf import MassFunction
 
 
-def CreateLogger():
-    logger = logging.getLogger(__name__)
-    stream_handler = logging.StreamHandler()
-    stream_handler.setLevel(logging.DEBUG)
-    stream_handler.setFormatter(logging.Formatter('%(name)s - %(levelname)s:%(message)s'))
-    logger.addHandler(stream_handler)
-    return logger
-logger = CreateLogger()
+logger = CreateLogger(__name__)
 
 
 cdef extern from "<gsl/gsl_rng.h>":
