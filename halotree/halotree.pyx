@@ -181,8 +181,20 @@ cdef class HaloMergeTree:
         return &self.tree
 
 
-    cdef void SetRedshifts(self, z_arr):
+    cpdef void SetRedshifts(self, z_arr):
         self.z_arr = z_arr
+
+
+    cpdef int Append(self, z, mass):
+        return NodeVector_Append(&self.tree, z, mass)
+
+
+    cpdef void LinkTailIndex(self, idx, idx_tail):
+        self.tree.data[idx].idx_tail = idx_tail
+
+
+    cpdef void LinkNextIndex(self, idx, idx_next):
+        self.tree.data[idx].idx_next = idx_next
 
 
     def GetSnapshot(self, z, tol = 0.01):
