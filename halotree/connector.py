@@ -1,6 +1,7 @@
 import os
 
 from .logger import CreateLogger
+from .halotree import *
 
 import numpy as np
 import pandas as pd
@@ -38,6 +39,12 @@ class DataReader:
 
 
 class VELOCIraptorReader(DataReader):
+    def ReadRedshifts(self, snap_max):
+        redshifts = np.zeros(snap_max + 1)
+        for snap in range(snap_max + 1):
+            redshifts[snap] = 1./self.fp.get('Snap_%03d'%snap).attrs['scalefactor'] - 1.
+
+
     def ReadSnapshot(self, snap):
         self.dataset = self.fp.get('Snap_%03d'%snap)
 
@@ -75,7 +82,7 @@ def SaveOutput(data, columns, snap, path, prefix):
 
 
 def ConstructHaloConnector(reader, snap_start, snap_end, keys, path = './', prefix = 'hc'):
-    columns = ['Progenitor', 'ProgenitorSnap', 'ProgenitorIndex']
+    columns = ['ID', 'Snap']
     columns.extend(keys)
     #
     n_snap = snap_end + 1
@@ -98,26 +105,49 @@ def ConstructHaloConnector(reader, snap_start, snap_end, keys, path = './', pref
                     desc_pool[host_id] = progenitors
                 del desc_pool[halo_id]
         # Save existing descendants
-        n_gal = len(halo_id_arr)
-        snap_link = np.full(n_gal, -1, dtype = int)
-        idx_link = np.full(n_gal, -1, dtype = int)
-        cond = [True if halo_id in desc_pool else False for halo_id in halo_id_arr]
-        n_save = np.sum(cond)
-        if n_save > 0:
-            snap_link[cond] = snap
-            idx_link[cond] = np.arange(n_save)
-            SaveOutput(desc_pool, columns, snap, path, prefix)
+        SaveOutput(desc_pool, columns, snap, path, prefix)
         # Walk forward
         desc_id_arr = reader['Descendant']
         desc_snap_arr = reader['DescendantSnap']
         props_arr = np.asarray([reader[k] for k in keys])
-        for desc_id, desc_snap, host_id, halo_id, halo_snap, halo_idx, *props in zip(
-            desc_id_arr, desc_snap_arr, host_id_arr, halo_id_arr, snap_link, idx_link, *props_arr
+        for desc_id, desc_snap, host_id, halo_id, *props in zip(
+            desc_id_arr, desc_snap_arr, host_id_arr, halo_id_arr, *props_arr
         ):
             if host_id == -1:
                 target_pool = desc_pool_arr[desc_snap]
                 try:
-                    target_pool[desc_id].append((halo_id, halo_snap, halo_idx, *props))
+                    target_pool[desc_id].append((halo_id, snap, *props))
                 except KeyError:
-                    target_pool[desc_id] = [(halo_id, halo_snap, halo_idx, *props)]
+                    target_pool[desc_id] = [(halo_id, snap, *props)]
+        desc_pool_arr[snap] = None
+
+
+"""
+def AppendProgenitor:
+
+
+def ReadHaloConnector(reader, indices, snap_start, snap_end, mass_key):
+    # Reselect host halos
+    n_in = indices
+    reader.ReadSnapshot(snap)
+    host_id = reader['hostHaloID'][indices]
+    indices = indices[host_id != -1]
+    n_gal = len(indices)
+    logger.info("Fraction of host halos %d/%d"%(n_in, n_gal))
+    #
+    redshifts = reader.SetReadshifts(snap_start)
+    #
+    z_root = redshifts[snap_start]
+    m_root_arr = reader[mass_key]
+    tree_arr = np.empty(n_gal, dtype = object)
+    for i_tree, m_root in enumerate(m_root_arr):
+        tree = HaloMergeTree(method = 'empty', n_base = 10**4)
+        tree.SetRedshifts(redshifts)
+        tree.Append(z_root, m_root)
+        tree_arr[i_tree] = tree
+"""
+
+
+
+
 
