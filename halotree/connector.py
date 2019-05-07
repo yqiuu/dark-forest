@@ -10,7 +10,8 @@ import h5py
 __all__ = [
     'DataReader',
     'VELOCIraptorReader',
-    'ConstructHaloConnector'
+    'ConstructHaloConnector',
+    'ReadHaloConnector'
 ]
 
 
@@ -43,6 +44,7 @@ class VELOCIraptorReader(DataReader):
         redshifts = np.zeros(snap_max + 1)
         for snap in range(snap_max + 1):
             redshifts[snap] = 1./self.fp.get('Snap_%03d'%snap).attrs['scalefactor'] - 1.
+        return redshifts
 
 
     def ReadSnapshot(self, snap):
@@ -122,32 +124,56 @@ def ConstructHaloConnector(reader, snap_start, snap_end, keys, path = './', pref
         desc_pool_arr[snap] = None
 
 
-"""
-def AppendProgenitor:
-
-
-def ReadHaloConnector(reader, indices, snap_start, snap_end, mass_key):
+def ReadHaloConnector(reader, indices, snap_start, snap_end, mass_key, path, prefix):
+    indices = np.ravel(indices)
     # Reselect host halos
-    n_in = indices
-    reader.ReadSnapshot(snap)
+    n_in = len(indices)
+    reader.ReadSnapshot(snap_start)
     host_id = reader['hostHaloID'][indices]
-    indices = indices[host_id != -1]
+    indices = indices[host_id == -1]
     n_gal = len(indices)
-    logger.info("Fraction of host halos %d/%d"%(n_in, n_gal))
+    logger.info("Fraction of host halos %d/%d"%(n_gal, n_in))
     #
-    redshifts = reader.SetReadshifts(snap_start)
-    #
+    redshifts = reader.ReadRedshifts(snap_start)
+    # Initialise root halos and the pool to read progenitors
     z_root = redshifts[snap_start]
-    m_root_arr = reader[mass_key]
+    m_root_arr = reader[mass_key][indices]
+    halo_id_arr = reader['ID'][indices]
     tree_arr = np.empty(n_gal, dtype = object)
-    for i_tree, m_root in enumerate(m_root_arr):
+    pool = [[]]*(snap_start + 1)
+    for i_tree, (halo_id, m_root) in enumerate(zip(halo_id_arr, m_root_arr)):
         tree = HaloMergeTree(method = 'empty', n_base = 10**4)
         tree.SetRedshifts(redshifts)
         tree.Append(z_root, m_root)
         tree_arr[i_tree] = tree
-"""
-
-
-
-
-
+        pool[snap_start].append((i_tree, 0, halo_id))
+    # Read Progenitors
+    for snap in range(snap_start, snap_end - 1, -1):
+        logger.info("Read snapshot %d"%snap)
+        z = redshifts[snap - 1]
+        prog_data = pd.read_hdf(os.path.join(path, '%s_prog_%d.hdf5'%(prefix, snap))).to_records()
+        host_info = pd.read_hdf(os.path.join(path, '%s_host_%d.hdf5'%(prefix, snap)))
+        keys = list(host_info.index)
+        prog_start = host_info.values
+        prog_end = np.append(prog_start[1:], len(prog_data))
+        prog_dict = dict(zip(keys, zip(prog_start, prog_end)))
+        for i_tree, idx_node_host, host_id in pool[snap]:
+            if host_id in prog_dict:
+                tree = tree_arr[i_tree]
+                start, end = prog_dict[host_id]
+                progenitors = prog_data[start:end]
+                for i_prog, prog in enumerate(progenitors):
+                    halo_id = prog['ID']
+                    halo_snap = prog['Snap']
+                    mass = prog[mass_key]
+                    idx_node_new = tree.Append(z, mass)
+                    if i_prog == 0:
+                        # Append first progenitor
+                        tree.LinkTailIndex(idx_node_host, idx_node_new)
+                    else:
+                        # Append next progenitor
+                        tree.LinkNextIndex(idx_node_prev, idx_node_new)
+                    pool[halo_snap].append((i_tree, idx_node_new, halo_id))
+                    idx_node_prev = idx_node_new
+        pool[snap] = None
+    return tree_arr
