@@ -9,8 +9,8 @@ import pandas as pd
 import h5py
 
 __all__ = [
-    'DataReader',
-    'VELOCIraptorReader',
+    'DataHandler',
+    'VELOCIraptorHandler',
     'ConstructHaloConnector',
     'ReadHaloConnector'
 ]
@@ -19,9 +19,9 @@ __all__ = [
 logger = CreateLogger(__name__)
 
 
-class DataReader(ABC):
+class DataHandler(ABC):
     @abstractmethod
-    def ReadSnapshot(self, snap):
+    def CacheSnapshot(self, snap):
         pass
 
 
@@ -45,7 +45,7 @@ class DataReader(ABC):
         pass
 
 
-class VELOCIraptorReader(DataReader):
+class VELOCIraptorHandler(DataHandler):
     def ReadRedshifts(self, snap_max):
         redshifts = np.zeros(snap_max + 1)
         for snap in range(snap_max + 1):
@@ -53,7 +53,7 @@ class VELOCIraptorReader(DataReader):
         return redshifts
 
 
-    def ReadSnapshot(self, snap):
+    def CacheSnapshot(self, snap):
         self.dataset = self.fp.get('Snap_%03d'%snap)
 
 
@@ -89,7 +89,7 @@ def SaveOutput(data, columns, snap, path, prefix):
     df_desc.to_hdf(os.path.join(path, '%s_host_%d.hdf5'%(prefix, snap)), "w")
 
 
-def ConstructHaloConnector(reader, snap_start, snap_end, keys, path = './', prefix = 'hc'):
+def ConstructHaloConnector(handler, snap_start, snap_end, keys, path = './', prefix = 'hc'):
     columns = ['ID', 'Snap']
     columns.extend(keys)
     #
@@ -97,11 +97,11 @@ def ConstructHaloConnector(reader, snap_start, snap_end, keys, path = './', pref
     desc_pool_arr = np.asarray([{} for snap in range(n_snap)])
     for snap in range(snap_start, n_snap):
         logger.info("Processing snaphost %d"%snap)
-        reader.ReadSnapshot(snap)
+        handler.CacheSnapshot(snap)
         # Merge subhalos to their host halo
         desc_pool = desc_pool_arr[snap]
-        halo_id_arr = reader['ID']
-        host_id_arr = reader['hostHaloID']
+        halo_id_arr = handler['ID']
+        host_id_arr = handler['hostHaloID']
         host_table = dict(zip(halo_id_arr, host_id_arr))
         for halo_id in list(desc_pool.keys()):
             host_id = host_table[halo_id]
@@ -115,9 +115,9 @@ def ConstructHaloConnector(reader, snap_start, snap_end, keys, path = './', pref
         # Save existing descendants
         SaveOutput(desc_pool, columns, snap, path, prefix)
         # Walk forward
-        desc_id_arr = reader['Descendant']
-        desc_snap_arr = reader['DescendantSnap']
-        props_arr = np.asarray([reader[k] for k in keys])
+        desc_id_arr = handler['Descendant']
+        desc_snap_arr = handler['DescendantSnap']
+        props_arr = np.asarray([handler[k] for k in keys])
         for desc_id, desc_snap, host_id, halo_id, *props in zip(
             desc_id_arr, desc_snap_arr, host_id_arr, halo_id_arr, *props_arr
         ):
@@ -130,21 +130,21 @@ def ConstructHaloConnector(reader, snap_start, snap_end, keys, path = './', pref
         desc_pool_arr[snap] = None
 
 
-def ReadHaloConnector(reader, indices, snap_start, snap_end, mass_key, path, prefix):
+def ReadHaloConnector(handler, indices, snap_start, snap_end, mass_key, path, prefix):
     indices = np.ravel(indices)
     # Reselect host halos
     n_in = len(indices)
-    reader.ReadSnapshot(snap_start)
-    host_id = reader['hostHaloID'][indices]
+    handler.CacheSnapshot(snap_start)
+    host_id = handler['hostHaloID'][indices]
     indices = indices[host_id == -1]
     n_gal = len(indices)
     logger.info("Fraction of host halos %d/%d"%(n_gal, n_in))
     #
-    redshifts = reader.ReadRedshifts(snap_start)
+    redshifts = handler.ReadRedshifts(snap_start)
     # Initialise root halos and the pool to read progenitors
     z_root = redshifts[snap_start]
-    m_root_arr = reader[mass_key][indices]
-    halo_id_arr = reader['ID'][indices]
+    m_root_arr = handler[mass_key][indices]
+    halo_id_arr = handler['ID'][indices]
     tree_arr = np.empty(n_gal, dtype = object)
     pool = [[]]*(snap_start + 1)
     for i_tree, (halo_id, m_root) in enumerate(zip(halo_id_arr, m_root_arr)):
