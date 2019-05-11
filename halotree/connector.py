@@ -46,9 +46,26 @@ class DataHandler(ABC):
 
 
 class VELOCIraptorHandler(DataHandler):
-    def ReadRedshifts(self, snap_max):
-        redshifts = np.zeros(snap_max + 1)
-        for snap in range(snap_max + 1):
+    def HubbleConstant(self):
+        return self.fp.get('Header')['Simulation'].attrs['h_val']
+
+
+    def NSnap(self):
+        n_snap = 0
+        keys = list(self.fp.keys())
+        for k in keys:
+            if k.startswith('Snap'):
+                n_snap += 1
+        return n_snap
+
+
+    def Redshifts(self, snap_max = -1):
+        if snap_max == -1:
+            n_snap = self.NSnap()
+        else:
+            n_snap = snap_max + 1
+        redshifts = np.zeros(n_snap)
+        for snap in range(n_snap):
             redshifts[snap] = 1./self.fp.get('Snap_%03d'%snap).attrs['scalefactor'] - 1.
         return redshifts
 
@@ -140,7 +157,7 @@ def ReadHaloConnector(handler, indices, snap_start, snap_end, mass_key, path, pr
     n_gal = len(indices)
     logger.info("Fraction of host halos %d/%d"%(n_gal, n_in))
     #
-    redshifts = handler.ReadRedshifts(snap_start)
+    redshifts = handler.Redshifts(snap_start)
     # Initialise root halos and the pool to read progenitors
     z_root = redshifts[snap_start]
     m_root_arr = handler[mass_key][indices]
