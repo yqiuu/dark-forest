@@ -1,4 +1,5 @@
 import os
+from abc import ABC, abstractmethod
 
 from .logger import CreateLogger
 from .halotree import *
@@ -18,23 +19,28 @@ __all__ = [
 logger = CreateLogger(__name__)
 
 
-class DataReader:
+class DataReader(ABC):
+    @abstractmethod
     def ReadSnapshot(self, snap):
         pass
 
 
+    @abstractmethod
     def __getitem__(self, key):
         pass
 
     
+    @abstractmethod
     def __enter__(self):
         pass
 
 
+    @abstractmethod
     def __exit__(self, *args):
         pass
 
 
+    @abstractmethod
     def __init__(self, fp):
         pass
 
