@@ -104,7 +104,7 @@ int MergeTree_BinarySplit(
             dd1 = eps1*SQRT2*sqrt(sigmasq_half - sigmasq_start);
             // Compute ddelta2
             alpha_half = gsl_spline_eval(alpha, m_half, alpha_acc);
-            mu = gamma1 < 0. ? -log(sigma_half/sigma_res)/log(2.*q_res) : alpha_half;
+            mu = gamma1 < 0. ? -log(sigma_res/sigma_half)/log(2.*q_res) : alpha_half;
             eta = beta - 1 - gamma1*mu;
             pow_diff = pow(.5, eta) - pow(q_res, eta);
             G2 = G1*pow(sigma_half/sigma_start, gamma1)*pow(0.5, mu*gamma1);
