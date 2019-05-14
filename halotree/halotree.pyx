@@ -75,9 +75,14 @@ cdef extern from "clib/halotree.h":
     )
 
 
+def RebuildHaloKit(*rebuild_args):
+    return HaloKit(None, rebuild_args = rebuild_args)
+
+
 cdef class HaloKit:
     cdef:
         HaloRelation hr
+        tuple rebuild_args
 
         public object sigma
         public object sigmasq
@@ -102,52 +107,62 @@ cdef class HaloKit:
         return m_root/m*self.ConditionalMassFunction(m, z, m_root, z_root)
 
 
-    def __cinit__(self, hmf, z_grid = None, save = None):
-        hmf.update(z = 0)
-        self.m_min = 10**hmf.Mmin
-        self.m_max = 10**hmf.Mmax
-        # Compute sigma_m
-        cdef:
-            double[::1] m = np.copy(hmf.m)
-            double[::1] sigma = np.copy(hmf.sigma)
-            double[::1] sigmasq = np.copy(hmf.sigma*hmf.sigma)
-        self.sigma = spl(hmf.m, hmf.sigma)
-        self.sigmasq = spl(hmf.m, hmf.sigma*hmf.sigma)
-        # Compute alpha_m
-        logm = np.log(hmf.m)
-        lnsigma = spl(logm, hmf.lnsigma)
-        cdef:
-            double[::1] alpha = lnsigma.derivative(n = 1)(logm)
-        self.alpha = spl(hmf.m, np.asarray(alpha))
-        # Compute delta_z
-        if z_grid is None:
-            z_grid = np.linspace(0, 200, 1000)
+    def __reduce__(self):
+        return (RebuildHaloKit, self.rebuild_args)
+
+
+    def __cinit__(self, hmf, z_grid = None, save = None, rebuild_args = None):
+        if rebuild_args is None:
+            hmf.update(z = 0)
+            self.m_min = 10**hmf.Mmin
+            self.m_max = 10**hmf.Mmax
+            # Compute sigma_m
+            m_arr = np.copy(hmf.m)
+            sigma_arr = np.copy(hmf.sigma)
+            # Compute alpha_m
+            logm = np.log(hmf.m)
+            lnsigma = spl(logm, hmf.lnsigma)
+            alpha_arr = lnsigma.derivative(n = 1)(logm)
+            # Compute delta_z
+            if z_grid is None:
+                z_arr = np.linspace(0, 200, 1000)
+            else:
+                z_arr = np.copy(z_grid)
+            gf = GrowthFactor(hmf.cosmo)
+            delta_arr = hmf.delta_c/np.array([gf.growth_factor(z) for z in z_arr])
         else:
-            z_grid = np.copy(z_grid)
-        delta_c0 = hmf.delta_c
-        gf = GrowthFactor(hmf.cosmo)
-        delta_c = delta_c0/np.array([gf.growth_factor(z) for z in z_grid])
-        self.Z2D = spl(z_grid, delta_c)
-        self.D2Z = spl(delta_c, z_grid)
-        cdef:
-            double[::1] z_mv = z_grid
-            double[::1] delta_mv = delta_c
+            self.m_min, self.m_max, m_arr, sigma_arr, alpha_arr, z_arr, delta_arr = rebuild_args
+        # Set rebuild args
+        self.rebuild_args = (self.m_min, self.m_max, m_arr, sigma_arr, alpha_arr, z_arr, delta_arr)
+        # Set splines
+        self.sigma = spl(m_arr, sigma_arr)
+        self.sigmasq = spl(m_arr, sigma_arr*sigma_arr)
+        self.alpha = spl(m_arr, alpha_arr)
+        self.Z2D = spl(z_arr, delta_arr)
+        self.D2Z = spl(delta_arr, z_arr)
         # Save a binary file of necessary arrays for external uses
         if save is not None:
             with open(save, "wb") as fp:
-                n_mass = m.shape[0]
+                n_mass = m_arr.size
                 fp.write(binary.pack('i', n_mass))
-                fp.write(binary.pack('%dd'%n_mass, *np.asarray(m)))
-                fp.write(binary.pack('%dd'%n_mass, *np.asarray(sigma)))
-                fp.write(binary.pack('%dd'%n_mass, *np.asarray(alpha)))
+                fp.write(binary.pack('%dd'%n_mass, *m_arr))
+                fp.write(binary.pack('%dd'%n_mass, *sigma_arr))
+                fp.write(binary.pack('%dd'%n_mass, *alpha_arr))
 
-                n_z = z_mv.shape[0]
+                n_z = z_arr.size
                 fp.write(binary.pack('i', n_z))
-                fp.write(binary.pack('%dd'%n_z, *z_grid))
-                fp.write(binary.pack('%dd'%n_z, *delta_c))
+                fp.write(binary.pack('%dd'%n_z, *z_arr))
+                fp.write(binary.pack('%dd'%n_z, *delta_arr))
         # Initialisation
+        cdef:
+            double[::1] mv_m_arr = m_arr
+            double[::1] mv_sigma_arr = sigma_arr
+            double[::1] mv_alpha_arr = alpha_arr
+            double[::1] mv_z_arr = z_arr
+            double[::1] mv_delta_arr = delta_arr
         self.hr = HaloRelation_Init(
-            &m[0], &sigma[0], &alpha[0], m.shape[0], &z_mv[0], &delta_mv[0], z_mv.shape[0]
+            &mv_m_arr[0], &mv_sigma_arr[0], &mv_alpha_arr[0], mv_m_arr.shape[0],
+            &mv_z_arr[0], &mv_delta_arr[0], mv_z_arr.shape[0]
         )
 
 
