@@ -264,10 +264,11 @@ cdef class HaloMergeTree:
             # Convert delta to redshift
             z_arr = np.append(z_target[::-1], z_root)
             self.z_arr = z_arr
+            last_snap = len(z_arr) - 1
             node_arr = np.asarray(<Node[:self.tree.n_node]>self.tree.data)
-            for i_delta, delta in enumerate(reversed(np.unique(node_arr['trace']))):
+            for i_delta, delta in enumerate(np.unique(node_arr['trace'])):
                 trace = node_arr['trace']
-                trace[trace == delta] = z_arr[i_delta]
+                trace[trace == delta] = z_arr[last_snap - i_delta]
         else:
             raise ValueError("Method %s is not understood"%method)
 
