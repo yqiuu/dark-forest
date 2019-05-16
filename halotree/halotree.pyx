@@ -268,7 +268,8 @@ cdef class HaloMergeTree:
             rstate = gsl_rng_alloc(gsl_rng_mt19937)
             gsl_rng_set(rstate, seed)
             # Create the tree
-            z_target_mv = np.ravel(z_target).astype(np.double)
+            z_target = np.ravel(z_target).astype(np.double)
+            z_target_mv = z_target
             n_target = z_target_mv.shape[0]
             kit_sp = SplitKit_Init(G0, gamma1, gamma2, m_res, eps1, eps2)
             self.tree = MergeTree_Grow(
