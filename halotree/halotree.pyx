@@ -186,6 +186,49 @@ cdef class HaloMergeTree:
             return np.array(self.z_arr)
 
 
+    cdef _InitEmpty(self, int n_base):
+        self.tree = NodeVector_Init(n_base)
+        self.z_arr = np.zeros(1)
+
+
+    cdef _InitParkinson08(self,
+        HaloKit halo_kit, double m_root, double z_root, object z_target, double m_res,
+        double G0, double gamma1, double gamma2, double eps1, double eps2, long seed
+    ):
+        cdef:
+            gsl_rng *rstate
+            double[::1] z_target_mv
+            SplitKit kit_sp
+            Node[::1] node_mv
+
+        #
+        if m_root <= halo_kit.m_min or m_root >= halo_kit.m_max:
+            raise ValueError("Mass of root halo beyond mass interpolation range")
+        if m_res <= halo_kit.m_min or m_res >= halo_kit.m_max:
+            raise ValueError("Mass resolution halo beyond mass interpolation range")
+        # Create random number generator
+        rstate = gsl_rng_alloc(gsl_rng_mt19937)
+        gsl_rng_set(rstate, seed)
+        # Create the tree
+        z_target = np.ravel(z_target).astype(np.double)
+        z_target_mv = z_target
+        n_target = z_target_mv.shape[0]
+        kit_sp = SplitKit_Init(G0, gamma1, gamma2, m_res, eps1, eps2)
+        self.tree = MergeTree_Grow(
+            m_root, z_root, &z_target_mv[0], n_target, &halo_kit.hr, &kit_sp, rstate
+        )
+        SplitKit_Free(&kit_sp);
+        gsl_rng_free(rstate)
+        # Convert delta to redshift
+        z_arr = np.append(z_target[::-1], z_root)
+        self.z_arr = z_arr
+        last_snap = len(z_arr) - 1
+        node_arr = np.asarray(<Node[:self.tree.n_node]>self.tree.data)
+        for i_delta, delta in enumerate(np.unique(node_arr['trace'])):
+            trace = node_arr['trace']
+            trace[trace == delta] = z_arr[last_snap - i_delta]
+
+
     cdef NodeVector* Pointer(self):
         return &self.tree
 
@@ -230,61 +273,20 @@ cdef class HaloMergeTree:
 
 
     def __cinit__(self, method = 'Parkinson08', **params):
-        cdef:
-            gsl_rng *rstate
-            double[::1] z_target_mv
-            HaloKit halo_kit
-            SplitKit kit_sp
-
-            Node[::1] node_mv
-
         if method == 'empty':
-            self.tree = NodeVector_Init(params['n_base'])
-            self.z_arr = np.zeros(1)
+            self._InitEmpty(params['n_base'])
         elif method == 'Parkinson08':
             params_method = {
-                'm_root':1e12, 'z_root':0., 'z_target':1.,
-                'G0':1., 'gamma1':0., 'gamma2':0.,
-                'm_res':1e8, 'eps1':0.1, 'eps2':0.1, 'seed':2092
+                'm_root':1e12, 'z_root':0., 'z_target':1., 'm_res':1e8,
+                'G0':1., 'gamma1':0., 'gamma2':0., 'eps1':0.1, 'eps2':0.1, 'seed':2092
             }
             params_method.update(params)
-            halo_kit = params_method['halo_kit']
-            m_root = params_method['m_root']
-            z_root = params_method['z_root']
-            z_target = params_method['z_target']
-            G0 = params_method['G0']
-            gamma1 = params_method['gamma1']
-            gamma2 = params_method['gamma2']
-            m_res = params_method['m_res']
-            eps1 = params_method['eps1']
-            eps2 = params_method['eps2']
-            seed = params_method['seed']
-            #
-            if m_root <= halo_kit.m_min or m_root >= halo_kit.m_max:
-                raise ValueError("Mass of root halo beyond mass interpolation range")
-            if m_res <= halo_kit.m_min or m_res >= halo_kit.m_max:
-                raise ValueError("Mass resolution halo beyond mass interpolation range")
-            # Create random number generator
-            rstate = gsl_rng_alloc(gsl_rng_mt19937)
-            gsl_rng_set(rstate, seed)
-            # Create the tree
-            z_target = np.ravel(z_target).astype(np.double)
-            z_target_mv = z_target
-            n_target = z_target_mv.shape[0]
-            kit_sp = SplitKit_Init(G0, gamma1, gamma2, m_res, eps1, eps2)
-            self.tree = MergeTree_Grow(
-                m_root, z_root, &z_target_mv[0], n_target, &halo_kit.hr, &kit_sp, rstate
+            self._InitParkinson08(
+                params_method['halo_kit'], params_method['m_root'], params_method['z_root'],
+                params_method['z_target'], params_method['m_res'],
+                params_method['G0'], params_method['gamma1'], params_method['gamma2'],
+                params_method['eps1'], params_method['eps2'], params_method['seed']
             )
-            SplitKit_Free(&kit_sp);
-            gsl_rng_free(rstate)
-            # Convert delta to redshift
-            z_arr = np.append(z_target[::-1], z_root)
-            self.z_arr = z_arr
-            last_snap = len(z_arr) - 1
-            node_arr = np.asarray(<Node[:self.tree.n_node]>self.tree.data)
-            for i_delta, delta in enumerate(np.unique(node_arr['trace'])):
-                trace = node_arr['trace']
-                trace[trace == delta] = z_arr[last_snap - i_delta]
         else:
             raise ValueError("Method %s is not understood"%method)
 
