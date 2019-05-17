@@ -188,7 +188,6 @@ cdef class HaloMergeTree:
 
     cdef _InitEmpty(self, int n_base):
         self.tree = NodeVector_Init(n_base)
-        self.z_arr = np.zeros(1)
 
 
     cdef _InitParkinson08(self,
@@ -220,21 +219,16 @@ cdef class HaloMergeTree:
         SplitKit_Free(&kit_sp);
         gsl_rng_free(rstate)
         # Convert delta to redshift
-        z_arr = np.append(z_target[::-1], z_root)
-        self.z_arr = z_arr
-        last_snap = len(z_arr) - 1
+        z_arr = np.append(z_root, z_target)
+        self.SetRedshifts(z_arr)
         node_arr = np.asarray(<Node[:self.tree.n_node]>self.tree.data)
         for i_delta, delta in enumerate(np.unique(node_arr['trace'])):
             trace = node_arr['trace']
-            trace[trace == delta] = z_arr[last_snap - i_delta]
+            trace[trace == delta] = z_arr[i_delta]
 
 
     cdef NodeVector* Pointer(self):
         return &self.tree
-
-
-    cpdef void SetRedshifts(self, z_arr):
-        self.z_arr = z_arr
 
 
     cpdef int Append(self, z, mass):
@@ -249,12 +243,19 @@ cdef class HaloMergeTree:
         self.tree.data[idx].idx_next = idx_next
 
 
-    def GetSnapshot(self, z, tol = 0.01):
-        snapshot = np.argmin(abs(self.redshifts - z))
-        z_snapshot = self.redshifts[snapshot]
-        if abs(z_snapshot - z) > tol:
+    def SetRedshifts(self, z_arr):
+        if self.z_arr is None:
+            self.z_arr = np.sort(z_arr)
+        else:
+            logger.warning("Redshifts cannot be set once again")
+
+
+    def GetLevel(self, z, tol = 0.01):
+        level = np.argmin(abs(self.redshifts - z))
+        z_level = self.redshifts[level]
+        if abs(z_level - z) > tol:
             logger.warning("Fail to find a redshift within the tolerance")
-        return snapshot
+        return level
 
 
     def MassTransfer(self, transfer_func):
@@ -262,20 +263,19 @@ cdef class HaloMergeTree:
         node_arr['mass'] = transfer_func(node_arr['mass'])
 
 
-    def Halos(self, snapshot = -1):
+    def Halos(self, level = -1):
         # Create a copy of all nodes with modified attribute name
         dtype = [('z', 'f8'), ('mass', 'f8'), ('idx_tail', 'i4'), ('idx_next', 'i4')]
         node_arr = np.asarray(<Node[:self.tree.n_node]>self.tree.data).astype(dtype)
-        if snapshot == -1:
+        if level == -1:
             return node_arr
         else:
-            return node_arr[node_arr['z'] == self.redshifts[snapshot]]
+            return node_arr[node_arr['z'] == self.redshifts[level]]
 
 
     def __cinit__(self, method = 'Parkinson08', **params):
-        if method == 'empty':
-            self._InitEmpty(params['n_base'])
-        elif method == 'Parkinson08':
+        self.z_arr = None
+        if method == 'Parkinson08':
             params_method = {
                 'm_root':1e12, 'z_root':0., 'z_target':1., 'm_res':1e8,
                 'G0':1., 'gamma1':0., 'gamma2':0., 'eps1':0.1, 'eps2':0.1, 'seed':2092
@@ -287,6 +287,8 @@ cdef class HaloMergeTree:
                 params_method['G0'], params_method['gamma1'], params_method['gamma2'],
                 params_method['eps1'], params_method['eps2'], params_method['seed']
             )
+        elif method == 'empty':
+            self._InitEmpty(params['n_base'])
         else:
             raise ValueError("Method %s is not understood"%method)
 
