@@ -54,6 +54,15 @@ cdef extern from "clib/halotree.h":
     void SplitKit_Free(SplitKit *kit_sp)
 
 
+    ctypedef struct AugmentKit:
+        int n_trail
+        int n_max_trail
+        double eps;
+        double m_cut;
+
+    AugmentKit AugmentKit_Init(int n_trail, int n_max_trail, double eps, double m_cut)
+
+
     ctypedef struct Node:
         double trace
         double mass
@@ -72,6 +81,11 @@ cdef extern from "clib/halotree.h":
     NodeVector MergeTree_Grow(
         double m_root, double z_root, double *z_target, int n_target,
         HaloRelation* hr, SplitKit* kit_sp, gsl_rng* rstate
+    )
+
+    NodeVector MergeTree_Augment(
+        double *m_prog, int n_prog, double m_root, double z_root, double *z_target, int n_target,
+        HaloRelation* hr, AugmentKit *kit_ag, SplitKit *kit_sp, gsl_rng* rstate, int n_base
     )
 
 
@@ -186,6 +200,13 @@ cdef class HaloMergeTree:
             return np.array(self.z_arr)
 
 
+    cdef _CheckMassRange(self, HaloKit halo_kit, m_root, m_res):
+        if m_root <= halo_kit.m_min or m_root >= halo_kit.m_max:
+            raise ValueError("m_root beyond mass interpolation range")
+        if m_res <= halo_kit.m_min or m_res >= halo_kit.m_max:
+            raise ValueError("m_res beyond mass interpolation range")
+
+
     cdef _InitEmpty(self, int n_base):
         self.tree = NodeVector_Init(n_base)
 
@@ -219,6 +240,43 @@ cdef class HaloMergeTree:
         SplitKit_Free(&kit_sp);
         gsl_rng_free(rstate)
         # Convert delta to redshift
+        z_arr = np.append(z_root, z_target)
+        self.SetRedshifts(z_arr)
+        node_arr = np.asarray(<Node[:self.tree.n_node]>self.tree.data)
+        for i_delta, delta in enumerate(np.unique(node_arr['trace'])):
+            trace = node_arr['trace']
+            trace[trace == delta] = z_arr[i_delta]
+
+    
+    cdef _InitBenson16(self,
+        double[::1] m_prog, int n_prog, double m_root, double z_root,
+        double[::1] z_target, int n_target, HaloKit halo_kit,
+        int n_trail, int n_max_trail, double eps, double m_cut, dict kwargs_sp,
+        unsigned long seed, int n_base
+    ):
+        """
+        Wrapper of the C function to implement the algorithm of
+        Benson et al. 2016.
+        """
+        self._CheckMassRange(halo_kit, m_root, kwargs_sp['m_res'])
+        # Initialise algorithm parameters
+        cdef AugmentKit kit_ag = AugmentKit_Init(n_trail, n_max_trail, eps, m_cut)
+        cdef SplitKit kit_sp = SplitKit_Init(
+            kwargs_sp['G0'], kwargs_sp['gamma1'], kwargs_sp['gamma2'],
+            kwargs_sp['m_res'], kwargs_sp['eps1'], kwargs_sp['eps2']
+        )
+        # Initialise random number generator
+        cdef gsl_rng *rstate = gsl_rng_alloc(gsl_rng_mt19937)
+        gsl_rng_set(rstate, seed)
+        #
+        self.tree = MergeTree_Augment(
+            &m_prog[0], m_prog.shape[0], m_root, z_root, &z_target[0], z_target.shape[0],
+            &halo_kit.hr, &kit_ag, &kit_sp, rstate, n_base
+        )
+        # Free
+        SplitKit_Free(&kit_sp)
+        gsl_rng_free(rstate)
+        # Convert detlta to redshift
         z_arr = np.append(z_root, z_target)
         self.SetRedshifts(z_arr)
         node_arr = np.asarray(<Node[:self.tree.n_node]>self.tree.data)
@@ -286,6 +344,13 @@ cdef class HaloMergeTree:
                 params_method['z_target'], params_method['m_res'],
                 params_method['G0'], params_method['gamma1'], params_method['gamma2'],
                 params_method['eps1'], params_method['eps2'], params_method['seed']
+            )
+        elif method == 'Benson16':
+            self._InitBenson16(
+                params['m_prog'], params['n_prog'], params['m_root'], params['z_root'],
+                params['z_target'], params['n_target'], params['halo_kit'],
+                params['n_trail'], params['n_max_trail'], params['eps'], params['m_cut'],
+                params['kwargs_sp'], params['seed'], params['n_base']
             )
         elif method == 'empty':
             self._InitEmpty(params['n_base'])

@@ -91,3 +91,13 @@ void SplitKit_Free(SplitKit *kit_sp) {
     gsl_interp_accel_free(kit_sp->J_u_acc);
     gsl_spline_free(kit_sp->J_u);
 }
+
+
+AugmentKit AugmentKit_Init(int n_trail, int n_max_trail, double eps, double m_cut) {
+    AugmentKit kit_ag;
+    kit_ag.n_trail = n_trail;
+    kit_ag.n_max_trail = n_max_trail;
+    kit_ag.eps = eps;
+    kit_ag.m_cut = m_cut;
+    return kit_ag;
+}
