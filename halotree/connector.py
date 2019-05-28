@@ -7,6 +7,7 @@ from .halotree import *
 import numpy as np
 import pandas as pd
 import h5py
+from astropy.cosmology import FlatLambdaCDM
 
 __all__ = [
     'DataHandler',
@@ -50,6 +51,10 @@ class VELOCIraptorHandler(DataHandler):
         return self.fp.get('Header')['Simulation'].attrs['h_val']
 
 
+    def OmegaM(self):
+        return self.fp.get('Header')['Simulation'].attrs['Omega_m']
+
+
     def NSnap(self):
         n_snap = 0
         keys = list(self.fp.keys())
@@ -68,6 +73,17 @@ class VELOCIraptorHandler(DataHandler):
         for snap in range(n_snap):
             redshifts[snap] = 1./self.fp.get('Snap_%03d'%snap).attrs['scalefactor'] - 1.
         return redshifts
+
+
+    def Ages(self, snap_max = -1):
+        """
+        Returns
+        -------
+        array [Myr]
+            Age of the universe at each time step
+        """
+        cosmo = FlatLambdaCDM(H0 = 100*self.HubbleConstant(), Om0 = self.OmegaM())
+        return cosmo.age(self.Redshifts(snap_max)).value*1e3
 
 
     def CacheSnapshot(self, snap):
