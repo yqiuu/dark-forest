@@ -80,7 +80,7 @@ cdef extern from "clib/halotree.h":
 
     NodeVector MergeTree_Grow(
         double m_root, double z_root, double *z_target, int n_target,
-        HaloRelation* hr, SplitKit* kit_sp, gsl_rng* rstate
+        HaloRelation* hr, SplitKit* kit_sp, gsl_rng* rstate, int n_base
     )
 
     NodeVector MergeTree_Augment(
@@ -213,7 +213,7 @@ cdef class HaloMergeTree:
 
     cdef _InitParkinson08(self,
         HaloKit halo_kit, double m_root, double z_root, object z_target, double m_res,
-        double G0, double gamma1, double gamma2, double eps1, double eps2, long seed
+        double G0, double gamma1, double gamma2, double eps1, double eps2, long seed, int n_base
     ):
         cdef:
             gsl_rng *rstate
@@ -235,7 +235,7 @@ cdef class HaloMergeTree:
         n_target = z_target_mv.shape[0]
         kit_sp = SplitKit_Init(G0, gamma1, gamma2, m_res, eps1, eps2)
         self.tree = MergeTree_Grow(
-            m_root, z_root, &z_target_mv[0], n_target, &halo_kit.hr, &kit_sp, rstate
+            m_root, z_root, &z_target_mv[0], n_target, &halo_kit.hr, &kit_sp, rstate, n_base
         )
         SplitKit_Free(&kit_sp);
         gsl_rng_free(rstate)
@@ -335,14 +335,16 @@ cdef class HaloMergeTree:
         if method == 'Parkinson08':
             params_method = {
                 'm_root':1e12, 'z_root':0., 'z_target':1., 'm_res':1e8,
-                'G0':1., 'gamma1':0., 'gamma2':0., 'eps1':0.1, 'eps2':0.1, 'seed':2092
+                'G0':1., 'gamma1':0., 'gamma2':0., 'eps1':0.1, 'eps2':0.1, 'seed':2092,
+                'n_base':10000
             }
             params_method.update(params)
             self._InitParkinson08(
                 params_method['halo_kit'], params_method['m_root'], params_method['z_root'],
                 params_method['z_target'], params_method['m_res'],
                 params_method['G0'], params_method['gamma1'], params_method['gamma2'],
-                params_method['eps1'], params_method['eps2'], params_method['seed']
+                params_method['eps1'], params_method['eps2'], params_method['seed'],
+                params_method['n_base']
             )
         elif method == 'Benson16':
             self._InitBenson16(

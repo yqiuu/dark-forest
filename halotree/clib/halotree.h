@@ -78,7 +78,7 @@ void NodeVector_Free(NodeVector *vector);
 
 NodeVector MergeTree_Grow(
     double m_root, double z_root, double *z_target, int n_target,
-    HaloRelation* hr, SplitKit* kit_sp, gsl_rng* rstate
+    HaloRelation* hr, SplitKit* kit_sp, gsl_rng* rstate, int n_base
 );
 
 NodeVector MergeTree_Augment(

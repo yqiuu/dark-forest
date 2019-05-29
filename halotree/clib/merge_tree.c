@@ -3,7 +3,6 @@
 
 #define SQRT2 sqrt(2.)
 #define SQRT2OPI sqrt(2./M_PI)
-#define N_BASE_GROW 1000000
 #define INITIAL_FIT -1.
 
 
@@ -39,7 +38,7 @@ static inline int ReduceDelta(double dd_target, double *dd) {
 
 int MergeTree_BinarySplit(
     NodeVector *tree, int idx_root, double d_target,
-    HaloRelation* hr, SplitKit* kit_sp, gsl_rng* rstate
+    HaloRelation* hr, SplitKit* kit_sp, gsl_rng* rstate, int n_base
 ) {
     // Load algorithm parameters
     double G0 = kit_sp->G0;
@@ -54,7 +53,7 @@ int MergeTree_BinarySplit(
     gsl_spline *sigma = hr->sigma;
     gsl_spline *alpha = hr->alpha;
     // Initialise the binary tree
-    NodeVector tree_binary = NodeVector_Init(N_BASE_GROW);
+    NodeVector tree_binary = NodeVector_Init(n_base);
     NodeVector_Append(&tree_binary, tree->data[idx_root].trace, tree->data[idx_root].mass);
     // Plant tree
     double mu, G1, G2;
@@ -178,7 +177,7 @@ int MergeTree_BinarySplit(
 
 NodeVector MergeTree_Grow(
     double m_root, double z_root, double *z_target, int n_target,
-    HaloRelation* hr, SplitKit *kit_sp, gsl_rng* rstate
+    HaloRelation* hr, SplitKit *kit_sp, gsl_rng* rstate, int n_base
 ) {
     // Convet redshift to delta_c
     gsl_interp_accel *Z2D_acc = hr->Z2D_acc;
@@ -188,7 +187,7 @@ NodeVector MergeTree_Grow(
     for(int i_d = 0; i_d < n_target; ++i_d)
         delta_target[i_d] = gsl_spline_eval(Z2D, z_target[i_d], Z2D_acc);
     //
-    NodeVector tree = NodeVector_Init(N_BASE_GROW);
+    NodeVector tree = NodeVector_Init(n_base);
     NodeVector_Append(&tree, d_root, m_root);
     //
     int idx_root = 0;
@@ -200,7 +199,9 @@ NodeVector MergeTree_Grow(
         n_prog_next = 0;
         d_working = delta_target[i_d];
         for(int i_prog = 0; i_prog < n_prog; ++i_prog)
-            n_prog_next += MergeTree_BinarySplit(&tree, idx_root++, d_working, hr, kit_sp, rstate);
+            n_prog_next += MergeTree_BinarySplit(
+                &tree, idx_root++, d_working, hr, kit_sp, rstate, n_base
+            );
     }
     free(delta_target);
     return tree;
@@ -307,7 +308,7 @@ NodeVector MergeTree_Augment(
             }
         }
         // Generate a trail tree
-        tree = MergeTree_Grow(m_root, z_root, z_target, n_target, hr, kit_sp, rstate);
+        tree = MergeTree_Grow(m_root, z_root, z_target, n_target, hr, kit_sp, rstate, n_base);
         n_trail_prog = 0;
         m_trail_prog = SelectTrailProgs(tree.data, tree.n_node, d_trail, &n_trail_prog);
         //
