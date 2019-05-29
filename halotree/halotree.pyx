@@ -207,39 +207,7 @@ cdef class HaloMergeTree:
             raise ValueError("m_res beyond mass interpolation range")
 
 
-    cdef _InitEmpty(self, int n_base):
-        self.tree = NodeVector_Init(n_base)
-
-
-    cdef _InitParkinson08(self,
-        HaloKit halo_kit, double m_root, double z_root, object z_target, double m_res,
-        double G0, double gamma1, double gamma2, double eps1, double eps2, long seed, int n_base
-    ):
-        cdef:
-            gsl_rng *rstate
-            double[::1] z_target_mv
-            SplitKit kit_sp
-            Node[::1] node_mv
-
-        #
-        if m_root <= halo_kit.m_min or m_root >= halo_kit.m_max:
-            raise ValueError("Mass of root halo beyond mass interpolation range")
-        if m_res <= halo_kit.m_min or m_res >= halo_kit.m_max:
-            raise ValueError("Mass resolution halo beyond mass interpolation range")
-        # Create random number generator
-        rstate = gsl_rng_alloc(gsl_rng_mt19937)
-        gsl_rng_set(rstate, seed)
-        # Create the tree
-        z_target = np.ravel(z_target).astype(np.double)
-        z_target_mv = z_target
-        n_target = z_target_mv.shape[0]
-        kit_sp = SplitKit_Init(G0, gamma1, gamma2, m_res, eps1, eps2)
-        self.tree = MergeTree_Grow(
-            m_root, z_root, &z_target_mv[0], n_target, &halo_kit.hr, &kit_sp, rstate, n_base
-        )
-        SplitKit_Free(&kit_sp);
-        gsl_rng_free(rstate)
-        # Convert delta to redshift
+    cdef _ConvertRedshift(self, double z_root, double[::1] z_target):
         z_arr = np.append(z_root, z_target)
         self.SetRedshifts(z_arr)
         node_arr = np.asarray(<Node[:self.tree.n_node]>self.tree.data)
@@ -247,6 +215,31 @@ cdef class HaloMergeTree:
             trace = node_arr['trace']
             trace[trace == delta] = z_arr[i_delta]
 
+
+    cdef _InitEmpty(self, int n_base):
+        self.tree = NodeVector_Init(n_base)
+
+
+    cdef _InitParkinson08(self,
+        HaloKit halo_kit, double m_root, double z_root, double[::1] z_target, double m_res,
+        double G0, double gamma1, double gamma2, double eps1, double eps2,
+        unsigned long seed, int n_base
+    ):
+        self._CheckMassRange(halo_kit, m_root, m_res)
+        # Initialise algorithm parameters
+        cdef SplitKit kit_sp = SplitKit_Init(G0, gamma1, gamma2, m_res, eps1, eps2)
+        # Initialise random number generator
+        cdef gsl_rng* rstate = gsl_rng_alloc(gsl_rng_mt19937)
+        gsl_rng_set(rstate, seed)
+        # Create the tree
+        self.tree = MergeTree_Grow(
+            m_root, z_root, &z_target[0], z_target.shape[0], &halo_kit.hr, &kit_sp, rstate, n_base
+        )
+        # Free
+        SplitKit_Free(&kit_sp);
+        gsl_rng_free(rstate)
+        # Convert delta to redshift
+        self._ConvertRedshift(z_root, z_target)
     
     cdef _InitBenson16(self,
         HaloKit halo_kit, double m_root, double z_root, double[::1] m_prog, double[::1] z_target,
@@ -265,9 +258,9 @@ cdef class HaloMergeTree:
             kwargs_sp['m_res'], kwargs_sp['eps1'], kwargs_sp['eps2']
         )
         # Initialise random number generator
-        cdef gsl_rng *rstate = gsl_rng_alloc(gsl_rng_mt19937)
+        cdef gsl_rng* rstate = gsl_rng_alloc(gsl_rng_mt19937)
         gsl_rng_set(rstate, seed)
-        #
+        # Create the tree
         self.tree = MergeTree_Augment(
             m_root, z_root, &m_prog[0], m_prog.shape[0], &z_target[0], z_target.shape[0],
             &halo_kit.hr, &kit_ag, &kit_sp, rstate, n_base
@@ -276,12 +269,7 @@ cdef class HaloMergeTree:
         SplitKit_Free(&kit_sp)
         gsl_rng_free(rstate)
         # Convert detlta to redshift
-        z_arr = np.append(z_root, z_target)
-        self.SetRedshifts(z_arr)
-        node_arr = np.asarray(<Node[:self.tree.n_node]>self.tree.data)
-        for i_delta, delta in enumerate(np.unique(node_arr['trace'])):
-            trace = node_arr['trace']
-            trace[trace == delta] = z_arr[i_delta]
+        self._ConvertRedshift(z_root, z_target)
 
 
     cdef NodeVector* Pointer(self):
