@@ -84,7 +84,7 @@ cdef extern from "clib/halotree.h":
     )
 
     NodeVector MergeTree_Augment(
-        double *m_prog, int n_prog, double m_root, double z_root, double *z_target, int n_target,
+        double m_root, double z_root, double *m_prog, int n_prog, double *z_target, int n_target,
         HaloRelation* hr, AugmentKit *kit_ag, SplitKit *kit_sp, gsl_rng* rstate, int n_base
     )
 
@@ -249,9 +249,9 @@ cdef class HaloMergeTree:
 
     
     cdef _InitBenson16(self,
-        HaloKit halo_kit, double[::1] m_prog, int n_prog, double m_root, double z_root,
-        double[::1] z_target, int n_target, int n_trail, int n_max_trail, double eps,
-        double m_cut, dict kwargs_sp, unsigned long seed, int n_base
+        HaloKit halo_kit, double m_root, double z_root, double[::1] m_prog, double[::1] z_target,
+        int n_trail, int n_max_trail, double eps, double m_cut, dict kwargs_sp,
+        unsigned long seed, int n_base
     ):
         """
         Wrapper of the C function to implement the algorithm of
@@ -269,7 +269,7 @@ cdef class HaloMergeTree:
         gsl_rng_set(rstate, seed)
         #
         self.tree = MergeTree_Augment(
-            &m_prog[0], m_prog.shape[0], m_root, z_root, &z_target[0], z_target.shape[0],
+            m_root, z_root, &m_prog[0], m_prog.shape[0], &z_target[0], z_target.shape[0],
             &halo_kit.hr, &kit_ag, &kit_sp, rstate, n_base
         )
         # Free
@@ -346,8 +346,8 @@ cdef class HaloMergeTree:
             )
         elif method == 'Benson16':
             self._InitBenson16(
-                params['halo_kit'], params['m_prog'], params['n_prog'], params['m_root'],
-                params['z_root'], params['z_target'], params['n_target'],
+                params['halo_kit'], params['m_root'], params['z_root'],
+                params['m_prog'], params['z_target'],
                 params['n_trail'], params['n_max_trail'], params['eps'], params['m_cut'],
                 params['kwargs_sp'], params['seed'], params['n_base']
             )
@@ -362,7 +362,7 @@ cdef class HaloMergeTree:
 
 
 def Tree_Benson16(
-    halo_kit, m_prog, m_root, z_root, z_target, n_trail = 50, n_max_trail = 150,
+    halo_kit, m_root, z_root, m_prog, z_target, n_trail = 50, n_max_trail = 150,
     eps = 0.15, m_cut = 1e8, seed = 2092, n_base = 100, **kwargs_sp
 ):
     """
@@ -372,8 +372,8 @@ def Tree_Benson16(
     m_prog = np.array(m_prog, dtype = 'f8')
     z_target = np.ravel(z_target).astype('f8')
     return HaloMergeTree(
-        method = 'Benson16', halo_kit = halo_kit, m_prog = m_prog, n_prog = len(m_prog),
-        m_root = m_root, z_root = z_root, z_target = z_target,
+        method = 'Benson16', halo_kit = halo_kit, m_root = m_root, z_root = z_root,
+        m_prog = m_prog, z_target = z_target,
         n_trail = n_trail, n_max_trail = n_max_trail, eps = eps, m_cut = m_cut,
         kwargs_sp = kwargs_sp, seed = <unsigned long>seed, n_base = n_base
     )

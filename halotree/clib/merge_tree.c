@@ -261,7 +261,7 @@ static inline int FailCriterionC(
 
 
 NodeVector MergeTree_Augment(
-    double *m_prog, int n_prog, double m_root, double z_root, double *z_target, int n_target,
+    double m_root, double z_root, double *m_prog, int n_prog, double *z_target, int n_target,
     HaloRelation* hr, AugmentKit *kit_ag, SplitKit *kit_sp, gsl_rng* rstate, int n_base
 ) {
     // Augment a pruned branch of the halo merge tree
