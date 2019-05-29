@@ -321,18 +321,11 @@ cdef class HaloMergeTree:
     def __cinit__(self, method = 'Parkinson08', **params):
         self.z_arr = None
         if method == 'Parkinson08':
-            params_method = {
-                'm_root':1e12, 'z_root':0., 'z_target':1., 'm_res':1e8,
-                'G0':1., 'gamma1':0., 'gamma2':0., 'eps1':0.1, 'eps2':0.1, 'seed':2092,
-                'n_base':10000
-            }
-            params_method.update(params)
             self._InitParkinson08(
-                params_method['halo_kit'], params_method['m_root'], params_method['z_root'],
-                params_method['z_target'], params_method['m_res'],
-                params_method['G0'], params_method['gamma1'], params_method['gamma2'],
-                params_method['eps1'], params_method['eps2'], params_method['seed'],
-                params_method['n_base']
+                params['halo_kit'], params['m_root'], params['z_root'],
+                params['z_target'], params['m_res'],
+                params['G0'], params['gamma1'], params['gamma2'], params['eps1'], params['eps2'],
+                params['seed'], params['n_base']
             )
         elif method == 'Benson16':
             self._InitBenson16(
@@ -349,6 +342,18 @@ cdef class HaloMergeTree:
 
     def __dealloc__(self):
         NodeVector_Free(&self.tree)
+
+
+def Tree_Parkinson08(
+    halo_kit, m_root, z_root, z_target, m_res = 1e8, G0 = 0.57, gamma1 = 0.38,
+    gamma2 = -0.01, eps1 = 0.1, eps2 = 0.1, seed = 2092, n_base = 100000
+):
+    z_target = np.ravel(z_target).astype('f8')
+    return HaloMergeTree(
+        method = 'Parkinson08', halo_kit = halo_kit, m_root = m_root, z_root = z_root,
+        z_target = z_target, m_res = m_res, G0 = G0, gamma1 = gamma1, gamma2 = gamma2,
+        eps1 = eps1, eps2 = eps2, seed = seed, n_base = n_base
+    )
 
 
 def Tree_Benson16(
