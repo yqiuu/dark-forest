@@ -249,10 +249,9 @@ cdef class HaloMergeTree:
 
     
     cdef _InitBenson16(self,
-        double[::1] m_prog, int n_prog, double m_root, double z_root,
-        double[::1] z_target, int n_target, HaloKit halo_kit,
-        int n_trail, int n_max_trail, double eps, double m_cut, dict kwargs_sp,
-        unsigned long seed, int n_base
+        HaloKit halo_kit, double[::1] m_prog, int n_prog, double m_root, double z_root,
+        double[::1] z_target, int n_target, int n_trail, int n_max_trail, double eps,
+        double m_cut, dict kwargs_sp, unsigned long seed, int n_base
     ):
         """
         Wrapper of the C function to implement the algorithm of
@@ -347,8 +346,8 @@ cdef class HaloMergeTree:
             )
         elif method == 'Benson16':
             self._InitBenson16(
-                params['m_prog'], params['n_prog'], params['m_root'], params['z_root'],
-                params['z_target'], params['n_target'], params['halo_kit'],
+                params['halo_kit'], params['m_prog'], params['n_prog'], params['m_root'],
+                params['z_root'], params['z_target'], params['n_target'],
                 params['n_trail'], params['n_max_trail'], params['eps'], params['m_cut'],
                 params['kwargs_sp'], params['seed'], params['n_base']
             )
@@ -360,6 +359,24 @@ cdef class HaloMergeTree:
 
     def __dealloc__(self):
         NodeVector_Free(&self.tree)
+
+
+def Tree_Benson16(
+    halo_kit, m_prog, m_root, z_root, z_target, n_trail = 50, n_max_trail = 150,
+    eps = 0.15, m_cut = 1e8, seed = 2092, n_base = 100, **kwargs_sp
+):
+    """
+    Initialise an `HaloMergeTree` object using the algorithm described in
+    Benson et al. 2016
+    """
+    m_prog = np.array(m_prog, dtype = 'f8')
+    z_target = np.ravel(z_target).astype('f8')
+    return HaloMergeTree(
+        method = 'Benson16', halo_kit = halo_kit, m_prog = m_prog, n_prog = len(m_prog),
+        m_root = m_root, z_root = z_root, z_target = z_target,
+        n_trail = n_trail, n_max_trail = n_max_trail, eps = eps, m_cut = m_cut,
+        kwargs_sp = kwargs_sp, seed = <unsigned long>seed, n_base = n_base
+    )
 
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
