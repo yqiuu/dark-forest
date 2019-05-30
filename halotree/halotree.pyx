@@ -54,15 +54,6 @@ cdef extern from "clib/halotree.h":
     void SplitKit_Free(SplitKit *kit_sp)
 
 
-    ctypedef struct AugmentKit:
-        int n_trail
-        int n_max_trail
-        double eps;
-        double m_cut;
-
-    AugmentKit AugmentKit_Init(int n_trail, int n_max_trail, double eps, double m_cut)
-
-
     ctypedef struct Node:
         double trace
         double mass
@@ -81,11 +72,6 @@ cdef extern from "clib/halotree.h":
     NodeVector MergeTree_Grow(
         double m_root, double z_root, double *z_target, int n_target,
         HaloRelation* hr, SplitKit* kit_sp, gsl_rng* rstate, int n_base
-    )
-
-    NodeVector MergeTree_Augment(
-        double m_root, double z_root, double *m_prog, int n_prog, double *z_target, int n_target,
-        HaloRelation* hr, AugmentKit *kit_ag, SplitKit *kit_sp, gsl_rng* rstate, int n_base
     )
 
 
@@ -241,36 +227,6 @@ cdef class HaloMergeTree:
         # Convert delta to redshift
         self._ConvertRedshift(z_root, z_target)
     
-    cdef _InitBenson16(self,
-        HaloKit halo_kit, double m_root, double z_root, double[::1] m_prog, double[::1] z_target,
-        int n_trail, int n_max_trail, double eps, double m_cut, dict kwargs_sp,
-        unsigned long seed, int n_base
-    ):
-        """
-        Wrapper of the C function to implement the algorithm of
-        Benson et al. 2016.
-        """
-        self._CheckMassRange(halo_kit, m_root, kwargs_sp['m_res'])
-        # Initialise algorithm parameters
-        cdef AugmentKit kit_ag = AugmentKit_Init(n_trail, n_max_trail, eps, m_cut)
-        cdef SplitKit kit_sp = SplitKit_Init(
-            kwargs_sp['G0'], kwargs_sp['gamma1'], kwargs_sp['gamma2'],
-            kwargs_sp['m_res'], kwargs_sp['eps1'], kwargs_sp['eps2']
-        )
-        # Initialise random number generator
-        cdef gsl_rng* rstate = gsl_rng_alloc(gsl_rng_mt19937)
-        gsl_rng_set(rstate, seed)
-        # Create the tree
-        self.tree = MergeTree_Augment(
-            m_root, z_root, &m_prog[0], m_prog.shape[0], &z_target[0], z_target.shape[0],
-            &halo_kit.hr, &kit_ag, &kit_sp, rstate, n_base
-        )
-        # Free
-        SplitKit_Free(&kit_sp)
-        gsl_rng_free(rstate)
-        # Convert detlta to redshift
-        self._ConvertRedshift(z_root, z_target)
-
 
     cdef NodeVector* Pointer(self):
         return &self.tree
@@ -327,13 +283,6 @@ cdef class HaloMergeTree:
                 params['G0'], params['gamma1'], params['gamma2'], params['eps1'], params['eps2'],
                 params['seed'], params['n_base']
             )
-        elif method == 'Benson16':
-            self._InitBenson16(
-                params['halo_kit'], params['m_root'], params['z_root'],
-                params['m_prog'], params['z_target'],
-                params['n_trail'], params['n_max_trail'], params['eps'], params['m_cut'],
-                params['kwargs_sp'], params['seed'], params['n_base']
-            )
         elif method == 'empty':
             self._InitEmpty(params['n_base'])
         else:
@@ -353,24 +302,6 @@ def Tree_Parkinson08(
         method = 'Parkinson08', halo_kit = halo_kit, m_root = m_root, z_root = z_root,
         z_target = z_target, m_res = m_res, G0 = G0, gamma1 = gamma1, gamma2 = gamma2,
         eps1 = eps1, eps2 = eps2, seed = seed, n_base = n_base
-    )
-
-
-def Tree_Benson16(
-    halo_kit, m_root, z_root, m_prog, z_target, n_trail = 50, n_max_trail = 150,
-    eps = 0.15, m_cut = 1e8, seed = 2092, n_base = 100, **kwargs_sp
-):
-    """
-    Initialise an `HaloMergeTree` object using the algorithm described in
-    Benson et al. 2016
-    """
-    m_prog = np.array(m_prog, dtype = 'f8')
-    z_target = np.ravel(z_target).astype('f8')
-    return HaloMergeTree(
-        method = 'Benson16', halo_kit = halo_kit, m_root = m_root, z_root = z_root,
-        m_prog = m_prog, z_target = z_target,
-        n_trail = n_trail, n_max_trail = n_max_trail, eps = eps, m_cut = m_cut,
-        kwargs_sp = kwargs_sp, seed = <unsigned long>seed, n_base = n_base
     )
 
 
