@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import h5py
 from astropy.cosmology import FlatLambdaCDM
+from hmf.hmf import MassFunction
 
 __all__ = [
     'DataHandler',
@@ -53,6 +54,17 @@ class VELOCIraptorHandler(DataHandler):
 
     def OmegaM(self):
         return self.fp.get('Header')['Simulation'].attrs['Omega_m']
+
+
+    def HaloKit(self, **kwargs):
+        params = {'Mmin':5, 'dlog10m':0.05}
+        params.update(kwargs)
+        params['cosmo_params'] = {'H0':100*self.HubbleConstant(), 'Om0':self.OmegaM()}
+        # The following two parameters cannot be directly read from the output
+        params['sigma_8'] = 0.815
+        params['n'] = 0.9653
+        hmf = MassFunction(**params)
+        return HaloKit(hmf)
 
 
     def NSnap(self):
