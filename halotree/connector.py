@@ -169,7 +169,7 @@ def SaveHaloConnector(handler, snap_min, snap_max, keys, path = './', prefix = '
         for desc_id, desc_snap, host_id, halo_id, *props in zip(
             desc_id_arr, desc_snap_arr, host_id_arr, halo_id_arr, *props_arr
         ):
-            if host_id == -1:
+            if host_id == -1 and desc_snap <= snap_max:
                 target_pool = desc_pool_arr[desc_snap]
                 try:
                     target_pool[desc_id].append((halo_id, snap, *props))
