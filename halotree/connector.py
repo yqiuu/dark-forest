@@ -110,22 +110,37 @@ class VELOCIraptorHandler(DataHandler):
         self.fname = fname
 
 
-def SaveOutput(data, columns, snap, path, prefix):
+def SaveOutput(handler, data, keys, snap, path, prefix):
+    n_prog = len(data)
+    if n_prog == 0:
+        logger.warning("no progenitor for halos at snapshot %d"%snap)
+        return
+    columns = ['ID', 'Snap']
+    columns.extend(keys)
     plain_data = []
-    count = np.zeros(len(data), dtype = int)
+    count = np.zeros(n_prog, dtype = int)
     for i_prog, progenitors in enumerate(data.values()):
         plain_data.extend(progenitors)
         count[i_prog] = len(progenitors)
     df_prog = pd.DataFrame(plain_data, columns = columns)
+    df_prog.set_index('ID', inplace = True)
     df_prog.to_hdf(os.path.join(path, '%s_prog_%d.hdf5'%(prefix, snap)), "w")
-    df_desc = pd.Series(np.append(0, np.cumsum(count)[:-1]), index = list(data.keys()))
-    df_desc.to_hdf(os.path.join(path, '%s_host_%d.hdf5'%(prefix, snap)), "w")
+    #
+    count_cum = np.cumsum(count)
+    df_host = pd.DataFrame()
+    df_host['IndexStart'] = np.append(0, count_cum[:-1])
+    df_host['IndexEnd'] = count_cum
+    df_host['Number'] = count
+    df_host['ID'] = list(data.keys())
+    df_host.set_index('ID', inplace = True)
+    halo_id = handler['ID']
+    inds = np.asarray(pd.Series(np.arange(len(halo_id)), index = halo_id)[df_host.index])
+    for k in keys:
+        df_host[k] = handler[k][inds]
+    df_host.to_hdf(os.path.join(path, '%s_host_%d.hdf5'%(prefix, snap)), "w")
 
 
 def ConstructHaloConnector(handler, snap_start, snap_end, keys, path = './', prefix = 'hc'):
-    columns = ['ID', 'Snap']
-    columns.extend(keys)
-    #
     n_snap = snap_end + 1
     desc_pool_arr = np.asarray([{} for snap in range(n_snap)])
     for snap in range(snap_start, n_snap):
@@ -146,7 +161,7 @@ def ConstructHaloConnector(handler, snap_start, snap_end, keys, path = './', pre
                     desc_pool[host_id] = progenitors
                 del desc_pool[halo_id]
         # Save existing descendants
-        SaveOutput(desc_pool, columns, snap, path, prefix)
+        SaveOutput(handler, desc_pool, keys, snap, path, prefix)
         # Walk forward
         desc_id_arr = handler['Descendant']
         desc_snap_arr = handler['DescendantSnap']
@@ -192,10 +207,9 @@ def ReadHaloConnector(handler, indices, snap_start, snap_end, mass_key, path, pr
         z = redshifts[snap - 1]
         prog_data = pd.read_hdf(os.path.join(path, '%s_prog_%d.hdf5'%(prefix, snap))).to_records()
         host_info = pd.read_hdf(os.path.join(path, '%s_host_%d.hdf5'%(prefix, snap)))
-        keys = list(host_info.index)
-        prog_start = host_info.values
-        prog_end = np.append(prog_start[1:], len(prog_data))
-        prog_dict = dict(zip(keys, zip(prog_start, prog_end)))
+        prog_start = host_info['IndexStart']
+        prog_end = host_info['IndexEnd']
+        prog_dict = dict(zip(host_info.index, zip(prog_start, prog_end)))
         for i_tree, idx_node_host, host_id in pool[snap]:
             if host_id in prog_dict:
                 tree = tree_arr[i_tree]
