@@ -12,7 +12,7 @@ from astropy.cosmology import FlatLambdaCDM
 __all__ = [
     'DataHandler',
     'VELOCIraptorHandler',
-    'ConstructHaloConnector',
+    'SaveHaloConnector',
     'ReadHaloConnector'
 ]
 
@@ -140,10 +140,10 @@ def SaveOutput(handler, data, keys, snap, path, prefix):
     df_host.to_hdf(os.path.join(path, '%s_host_%d.hdf5'%(prefix, snap)), "w")
 
 
-def ConstructHaloConnector(handler, snap_start, snap_end, keys, path = './', prefix = 'hc'):
-    n_snap = snap_end + 1
+def SaveHaloConnector(handler, snap_min, snap_max, keys, path = './', prefix = 'hc'):
+    n_snap = snap_max + 1
     desc_pool_arr = np.asarray([{} for snap in range(n_snap)])
-    for snap in range(snap_start, n_snap):
+    for snap in range(snap_min, n_snap):
         logger.info("Processing snaphost %d"%snap)
         handler.CacheSnapshot(snap)
         # Merge subhalos to their host halo
@@ -178,31 +178,31 @@ def ConstructHaloConnector(handler, snap_start, snap_end, keys, path = './', pre
         desc_pool_arr[snap] = None
 
 
-def ReadHaloConnector(handler, indices, snap_start, snap_end, mass_key, path, prefix):
+def ReadHaloConnector(handler, indices, snap_max, snap_min, mass_key, path, prefix):
     indices = np.ravel(indices)
     # Reselect host halos
     n_in = len(indices)
-    handler.CacheSnapshot(snap_start)
+    handler.CacheSnapshot(snap_max)
     host_id = handler['hostHaloID'][indices]
     indices = indices[host_id == -1]
     n_gal = len(indices)
     logger.info("Fraction of host halos %d/%d"%(n_gal, n_in))
     #
-    redshifts = handler.Redshifts(snap_start)
+    redshifts = handler.Redshifts(snap_max)
     # Initialise root halos and the pool to read progenitors
-    z_root = redshifts[snap_start]
+    z_root = redshifts[snap_max]
     m_root_arr = handler[mass_key][indices]
     halo_id_arr = handler['ID'][indices]
     tree_arr = np.empty(n_gal, dtype = object)
-    pool = [[]]*(snap_start + 1)
+    pool = [[]]*(snap_max + 1)
     for i_tree, (halo_id, m_root) in enumerate(zip(halo_id_arr, m_root_arr)):
         tree = HaloMergeTree(method = 'empty', n_base = 10**4)
         tree.SetRedshifts(redshifts)
         tree.Append(z_root, m_root)
         tree_arr[i_tree] = tree
-        pool[snap_start].append((i_tree, 0, halo_id))
+        pool[snap_max].append((i_tree, 0, halo_id))
     # Read Progenitors
-    for snap in range(snap_start, snap_end - 1, -1):
+    for snap in range(snap_max, snap_min - 1, -1):
         logger.info("Read snapshot %d"%snap)
         z = redshifts[snap - 1]
         prog_data = pd.read_hdf(os.path.join(path, '%s_prog_%d.hdf5'%(prefix, snap))).to_records()
