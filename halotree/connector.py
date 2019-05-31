@@ -67,6 +67,16 @@ class VELOCIraptorHandler(DataHandler):
         return HaloKit(hmf)
 
 
+    def MassConversion(self):
+        """
+        Returns
+        -------
+        float:
+            A mass conversion factor to 10^10 h^-1 M_solar.
+        """
+        return 1e10*self.HubbleConstant()
+
+
     def NSnap(self):
         n_snap = 0
         keys = list(self.fp.keys())
