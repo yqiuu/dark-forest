@@ -87,3 +87,25 @@ def Augment(
                     m_best = m_prog_trail
                     n_best = n_prog_trail
     return m_prog_new[m_prog_new <= m_cut], i_max*n_trail + i_trail
+
+
+def ScatterHostData(host_data, seed, comm, master_rank):
+    if comm is None:
+        return host_data, seed
+    else:
+        i_rank = comm.Get_rank()
+        n_rank = comm.Get_size()
+        if i_rank == master_rank:
+            host_data.sort_values('Number', inplace = True)
+        for i_send in range(n_rank):
+            if i_send == master_rank:
+                host_data_retval = host_data[i_send::n_rank]
+                seed_retval = seed[i_send::n_rank]
+                continue
+            if i_rank == master_rank:
+                comm.send(host_data[i_send::n_rank], dest = i_send, tag = 0)
+                comm.send(seed[i_send::n_rank], dest = i_send, tag = 1)
+            elif i_rank == i_send:
+                host_data_retval = comm.recv(source = master_rank, tag = 0)
+                seed_retval = comm.recv(source = master_rank, tag = 1)
+    return host_data_retval, seed_retval
