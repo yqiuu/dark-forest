@@ -93,6 +93,8 @@ class VELOCIraptorHandler(DataHandler):
     def __getitem__(self, key):
         if key == 'DescendantSnap':
             return np.asarray(self.dataset['Descendant'])//10**12
+        elif key == 'HostHaloID':
+            return np.asarray(self.dataset['hostHaloID'])
         else:
             return np.asarray(self.dataset[key])
 
@@ -149,7 +151,7 @@ def SaveHaloConnector(handler, snap_min, snap_max, keys, path = './', prefix = '
         # Merge subhalos to their host halo
         desc_pool = desc_pool_arr[snap]
         halo_id_arr = handler['ID']
-        host_id_arr = handler['hostHaloID']
+        host_id_arr = handler['HostHaloID']
         host_table = dict(zip(halo_id_arr, host_id_arr))
         for halo_id in list(desc_pool.keys()):
             host_id = host_table[halo_id]
@@ -183,7 +185,7 @@ def ReadHaloConnector(handler, indices, snap_max, snap_min, mass_key, path, pref
     # Reselect host halos
     n_in = len(indices)
     handler.CacheSnapshot(snap_max)
-    host_id = handler['hostHaloID'][indices]
+    host_id = handler['HostHaloID'][indices]
     indices = indices[host_id == -1]
     n_gal = len(indices)
     logger.info("Fraction of host halos %d/%d"%(n_gal, n_in))
