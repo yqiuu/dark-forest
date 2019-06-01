@@ -1,8 +1,10 @@
 from .halotree import *
 from .logger import CreateLogger
 
-import numpy as np
+import os
 
+import numpy as np
+import pandas as pd
 
 logger = CreateLogger(__name__)
 
@@ -12,7 +14,7 @@ def Prune(m_root, t_root, m_prog, t_prog, z_prog, m_cut):
     This function has three purposes:
         a) Linearly interpolate the most massive progenitor with time, and
            sort the mass in descending order.
-        b) Find `z_target' and remove progentiros which are not at 'z_target'.
+        b) Find `z_target' and remove progenitors which are not at 'z_target'.
         c) Remove progenitors whose mass is below `m_cut`.
     Mass and time should be in linear space, and their units are irrelevant.    
     """
@@ -89,23 +91,90 @@ def Augment(
     return m_prog_new[m_prog_new <= m_cut], i_max*n_trail + i_trail
 
 
-def ScatterHostData(host_data, seed, comm, master_rank):
+def CreateRandomState(seed, comm):
     if comm is None:
-        return host_data, seed
+        return RandomStateGSL(seed)
+    else:
+        return RandomStateGSL(seed + comm.Get_rank())
+
+
+def ReadHaloData(hc_path, hc_prefix, snap, mass_key, m_cut, comm, master_rank):
+    if comm is None or comm.Get_rank() == master_rank:
+        host_data = pd.read_hdf(os.path.join(hc_path, '%s_host_%d.hdf5'%(hc_prefix, snap)))
+        host_data = host_data.loc[
+            host_data[mass_key] > m_cut, ('IndexStart', 'IndexEnd', 'Number', mass_key)
+        ]
+        host_data.sort_values('Number', ascending = False, inplace = True)
+        host_data = host_data.to_records()[['IndexStart', 'IndexEnd', mass_key]]
+        prog_data = pd.read_hdf(os.path.join(hc_path, '%s_prog_%d.hdf5'%(hc_prefix, snap)))
+        prog_data = prog_data.to_records()[['Snap', mass_key]]
+        return host_data, prog_data
+    else:
+        return None, None
+
+
+def GetChunkSize(host_chunk, comm, master_rank):
+    if comm is None:
+        n_host = host_chunk
+        return n_host, n_host
+    else:
+        n_host = len(host_chunk)
+        n_chunk = max(comm.allgather(n_host))
+        return n_chunk, n_host
+
+
+def ScatterHostData(host_data, comm, master_rank):
+    if comm is None:
+        return host_data
     else:
         i_rank = comm.Get_rank()
         n_rank = comm.Get_size()
         if i_rank == master_rank:
-            host_data.sort_values('Number', inplace = True)
-        for i_send in range(n_rank):
-            if i_send == master_rank:
-                host_data_retval = host_data[i_send::n_rank]
-                seed_retval = seed[i_send::n_rank]
-                continue
-            if i_rank == master_rank:
-                comm.send(host_data[i_send::n_rank], dest = i_send, tag = 0)
-                comm.send(seed[i_send::n_rank], dest = i_send, tag = 1)
-            elif i_rank == i_send:
-                host_data_retval = comm.recv(source = master_rank, tag = 0)
-                seed_retval = comm.recv(source = master_rank, tag = 1)
-    return host_data_retval, seed_retval
+            data = []
+            for i_scatter in range(n_rank):
+                data.append(host_data[i_scatter::n_rank])
+        else:
+            data = None
+        host_chunk = comm.scatter(data, root = master_rank)
+        return host_chunk
+
+
+def ScatterProgData(prog_data, index_start, index_end, comm, master_rank):
+    if comm is None:
+        return prog_data[index_start:index_end]
+    else:
+        i_rank = comm.Get_rank()
+        n_rank = comm.Get_size()
+        index_start_arr = comm.gather(index_start, root = master_rank)
+        index_end_arr = comm.gather(index_end, root = master_rank)
+        if i_rank == master_rank:
+            data = []
+            for idx_s, idx_e in zip(index_start_arr, index_end_arr):
+                data.append(prog_data[idx_s:idx_e])
+        else:
+            data = None
+        progenitors = comm.scatter(data, root = master_rank)
+        return progenitors
+
+
+def HybridGrowth(
+    handler, hc_path, hc_prefix, snap_min, snap_max, mass_key, m_cut, m_res,
+    params_ag, params_mc, seed = 209204, comm = None, master_rank = 0
+):
+    rstate = CreateRandomState(seed, comm)
+    for snap in range(snap_max, snap_min - 1, -1):
+        host_data, prog_data = ReadHaloData(
+            hc_path, hc_prefix, snap, mass_key, m_cut, comm, master_rank
+        )
+        host_chunk = ScatterHostData(host_data, comm, master_rank)
+        n_chunk, n_host = GetChunkSize(host_chunk, comm, master_rank)
+        for i_chunk in range(n_chunk):
+            if i_chunk < n_host:
+                index_start, index_end, m_root = host_chunk[i_chunk]
+            else:
+                index_start, index_end, m_root = 0, 1, None
+            progenitors = ScatterProgData(prog_data, index_start, index_end, comm, master_rank)
+            print(comm.Get_rank(), progenitors, m_root)
+
+
+
