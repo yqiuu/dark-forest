@@ -134,19 +134,21 @@ class VELOCIraptorHandler(DataHandler):
         self.fname = fname
 
 
-def SaveOutput(handler, data, keys, snap, path, prefix):
+def SaveOutput(handler, data, mass_key, snap, path, prefix):
     n_prog = len(data)
     if n_prog == 0:
         logger.warning("no progenitor for halos at snapshot %d"%snap)
         return
+    mass_unit = handler.MassConversion()
     columns = ['ID', 'Snap']
-    columns.extend(keys)
+    columns.extend(mass_key)
     plain_data = []
     count = np.zeros(n_prog, dtype = int)
     for i_prog, progenitors in enumerate(data.values()):
         plain_data.extend(progenitors)
         count[i_prog] = len(progenitors)
     df_prog = pd.DataFrame(plain_data, columns = columns)
+    df_prog[mass_key] *= mass_unit
     df_prog.set_index('ID', inplace = True)
     df_prog.to_hdf(os.path.join(path, '%s_prog_%d.hdf5'%(prefix, snap)), "w")
     #
@@ -159,12 +161,14 @@ def SaveOutput(handler, data, keys, snap, path, prefix):
     df_host.set_index('ID', inplace = True)
     halo_id = handler['ID']
     inds = np.asarray(pd.Series(np.arange(len(halo_id)), index = halo_id)[df_host.index])
-    for k in keys:
+    for k in mass_key:
         df_host[k] = handler[k][inds]
+    df_host[mass_key] *= mass_unit
     df_host.to_hdf(os.path.join(path, '%s_host_%d.hdf5'%(prefix, snap)), "w")
 
 
-def SaveHaloConnector(handler, snap_min, snap_max, keys, path = './', prefix = 'hc'):
+def SaveHaloConnector(handler, snap_min, snap_max, mass_key, path = './', prefix = 'hc'):
+    mass_key = np.ravel(mass_key)
     n_snap = snap_max + 1
     desc_pool_arr = np.asarray([{} for snap in range(n_snap)])
     for snap in range(snap_min, n_snap):
@@ -185,11 +189,11 @@ def SaveHaloConnector(handler, snap_min, snap_max, keys, path = './', prefix = '
                     desc_pool[host_id] = progenitors
                 del desc_pool[halo_id]
         # Save existing descendants
-        SaveOutput(handler, desc_pool, keys, snap, path, prefix)
+        SaveOutput(handler, desc_pool, mass_key, snap, path, prefix)
         # Walk forward
         desc_id_arr = handler['Descendant']
         desc_snap_arr = handler['DescendantSnap']
-        props_arr = np.asarray([handler[k] for k in keys])
+        props_arr = np.asarray([handler[k] for k in mass_key])
         for desc_id, desc_snap, host_id, halo_id, *props in zip(
             desc_id_arr, desc_snap_arr, host_id_arr, halo_id_arr, *props_arr
         ):
