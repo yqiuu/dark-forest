@@ -134,37 +134,35 @@ class VELOCIraptorHandler(DataHandler):
         self.fname = fname
 
 
-def SaveOutput(handler, data, mass_key, snap, path, prefix):
-    n_prog = len(data)
-    if n_prog == 0:
-        logger.warning("no progenitor for halos at snapshot %d"%snap)
-        return
+def SaveOutput(handler, prog_data, mass_key, snap, path, prefix):
     mass_unit = handler.MassConversion()
-    columns = ['ID', 'Snap']
-    columns.extend(mass_key)
-    plain_data = []
-    count = np.zeros(n_prog, dtype = int)
-    for i_prog, progenitors in enumerate(data.values()):
-        plain_data.extend(progenitors)
-        count[i_prog] = len(progenitors)
-    df_prog = pd.DataFrame(plain_data, columns = columns)
-    df_prog[mass_key] *= mass_unit
-    df_prog.set_index('ID', inplace = True)
-    df_prog.to_hdf(os.path.join(path, '%s_prog_%d.hdf5'%(prefix, snap)), "w")
-    #
-    count_cum = np.cumsum(count)
-    df_host = pd.DataFrame()
-    df_host['IndexStart'] = np.append(0, count_cum[:-1])
-    df_host['IndexEnd'] = count_cum
-    df_host['Number'] = count
-    df_host['ID'] = list(data.keys())
-    df_host.set_index('ID', inplace = True)
-    halo_id = handler['ID']
-    inds = np.asarray(pd.Series(np.arange(len(halo_id)), index = halo_id)[df_host.index])
+    # Select all host halos at the current snapshot
+    cond = handler['HostHaloID'] == -1
+    halo_id = handler['ID'][cond]
+    df_host = pd.DataFrame(halo_id, columns = ['ID'])
     for k in mass_key:
-        df_host[k] = handler[k][inds]
+        df_host[k] = handler[k][cond]
     df_host[mass_key] *= mass_unit
-    df_host.to_hdf(os.path.join(path, '%s_host_%d.hdf5'%(prefix, snap)), "w")
+    df_host.set_index('ID', inplace = True)
+    # Prepare progenitor data
+    n_prog = len(prog_data)
+    struct_prog = np.empty(n_prog, dtype = object)
+    number = np.zeros(n_prog, dtype = int)
+    dtype = [('ID', 'i8'), ('Snap', 'i4')] + [(k, 'f8') for k in mass_key]
+    for i_prog, progenitors in enumerate(prog_data.values()):
+        arr = np.array(progenitors, dtype = dtype)
+        for k in mass_key:
+            arr[k] *= mass_unit
+        struct_prog[i_prog] = arr
+        number[i_prog] = len(progenitors)
+    # Set progenitor info
+    df_host.insert(0, 'ProgIndex', -1)
+    df_host.insert(1, 'ProgNumber', 0)
+    df_host.loc[prog_data.keys(), 'ProgIndex'] = np.arange(n_prog)
+    df_host.loc[prog_data.keys(), 'ProgNumber'] = number
+    # Save data
+    np.save(os.path.join(path, '%s_host_%03d'%(prefix, snap)), df_host.to_records())
+    np.save(os.path.join(path, '%s_prog_%03d'%(prefix, snap)), struct_prog)
 
 
 def SaveHaloConnector(handler, snap_min, snap_max, mass_key, path = './', prefix = 'hc'):
@@ -233,16 +231,14 @@ def ReadHaloConnector(handler, indices, snap_max, snap_min, mass_key, path, pref
     for snap in range(snap_max, snap_min - 1, -1):
         logger.info("Read snapshot %d"%snap)
         z = redshifts[snap - 1]
-        prog_data = pd.read_hdf(os.path.join(path, '%s_prog_%d.hdf5'%(prefix, snap))).to_records()
-        host_info = pd.read_hdf(os.path.join(path, '%s_host_%d.hdf5'%(prefix, snap)))
-        prog_start = host_info['IndexStart']
-        prog_end = host_info['IndexEnd']
-        prog_dict = dict(zip(host_info.index, zip(prog_start, prog_end)))
+        prog_data = np.load(os.path.join(path, '%s_prog_%03d.npy'%(prefix, snap)))
+        host_data = np.load(os.path.join(path, '%s_host_%03d.npy'%(prefix, snap)))
+        host_data = host_data[host_data['ProgNumber'] > 0]
+        prog_dict = dict(zip(host_data['ID'], host_data['ProgIndex']))
         for i_tree, idx_node_host, host_id in pool[snap]:
             if host_id in prog_dict:
                 tree = tree_arr[i_tree]
-                start, end = prog_dict[host_id]
-                progenitors = prog_data[start:end]
+                progenitors = prog_data[prog_dict[host_id]]
                 for i_prog, prog in enumerate(progenitors):
                     halo_id = prog['ID']
                     halo_snap = prog['Snap']
