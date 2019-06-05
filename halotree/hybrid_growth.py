@@ -18,6 +18,7 @@ def CreateRandomState(seed, comm):
 
 def ReadHaloData(hc_path, hc_prefix, snap, comm, master_rank):
     if comm is None or comm.Get_rank() == master_rank:
+        logger.info("Read snapshot %d"%snap)
         prog_data = np.load(os.path.join(hc_path, '%s_prog_%03d.npy'%(hc_prefix, snap)))
         host_data = np.load(os.path.join(hc_path, '%s_host_%03d.npy'%(hc_prefix, snap)))
         return host_data, prog_data
@@ -42,6 +43,7 @@ def ScatterData(host_data_raw, prog_data_raw, next_host_data, mass_key, m_cut, c
         cond = host_data['ProgNumber'] > 0
         prog_data[cond] = prog_data_raw[host_data[cond]['ProgIndex']]
         host_data['ProgIndex'][cond] = np.arange(np.sum(cond))
+        logger.info("Process %d host halos"%len(host_data))
     if comm is None:
         return host_data, prog_data
     else:
@@ -112,11 +114,11 @@ def Augment(
     while True:
         if i_max == n_max:
             if best_fit == initial_fit:
-                logger.warning("cannot find a match and return an empty array")
+                logger.warning("Cannot find a match and return an empty array")
                 m_prog_new = np.array([])
                 break
             else:
-                logger.warning("cannot find a match and return the best match")
+                logger.warning("Cannot find a match and return the best match")
                 m_prog_new = m_best[n_prog:]
                 break
         use_best = False
