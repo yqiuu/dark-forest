@@ -232,7 +232,8 @@ def ReadHaloConnector(handler, indices, snap_max, snap_min, mass_key, path, pref
         logger.info("Read snapshot %d"%snap)
         z = redshifts[snap - 1]
         prog_data = np.load(os.path.join(path, '%s_prog_%03d.npy'%(prefix, snap)))
-        host_data = np.load(os.path.join(path, '%s_host_%03d.npy'%(prefix, snap)))
+        host_data = pd.read_hdf(os.path.join(path, '%s_host_%03d.hdf5'%(prefix, snap)))
+        host_data = host_data.to_records()
         host_data = host_data[host_data['ProgNumber'] > 0]
         prog_dict = dict(zip(host_data['ID'], host_data['ProgIndex']))
         for i_tree, idx_node_host, host_id in pool[snap]:

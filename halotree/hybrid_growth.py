@@ -16,11 +16,12 @@ def CreateRandomState(seed, comm):
         return RandomStateGSL(seed + comm.Get_rank())
 
 
-def ReadHaloData(hc_path, hc_prefix, snap, comm, master_rank):
+def ReadHaloData(path, prefix, snap, comm, master_rank):
     if comm is None or comm.Get_rank() == master_rank:
         logger.info("Read snapshot %d"%snap)
-        prog_data = np.load(os.path.join(hc_path, '%s_prog_%03d.npy'%(hc_prefix, snap)))
-        host_data = np.load(os.path.join(hc_path, '%s_host_%03d.npy'%(hc_prefix, snap)))
+        prog_data = np.load(os.path.join(path, '%s_prog_%03d.npy'%(prefix, snap)))
+        host_data = pd.read_hdf(os.path.join(path, '%s_host_%03d.hdf5'%(prefix, snap)))
+        host_data = host_data.to_records()
         return host_data, prog_data
     else:
         return None, None
