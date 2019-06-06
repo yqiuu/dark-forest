@@ -31,7 +31,7 @@ class DataHandler(ABC):
     def __getitem__(self, key):
         pass
 
-    
+
     @abstractmethod
     def __enter__(self):
         pass
@@ -125,10 +125,10 @@ class VELOCIraptorHandler(DataHandler):
         self.fp = h5py.File(self.fname, "r")
         return self
 
-    
+
     def __exit__(self, *args):
         self.fp.close()
-        
+
 
     def __init__(self, fname):
         self.fname = fname
@@ -161,7 +161,7 @@ def SaveOutput(handler, prog_data, mass_key, snap, path, prefix):
     df_host.loc[prog_data.keys(), 'ProgIndex'] = np.arange(n_prog)
     df_host.loc[prog_data.keys(), 'ProgNumber'] = number
     # Save data
-    np.save(os.path.join(path, '%s_host_%03d'%(prefix, snap)), df_host.to_records())
+    df_host.to_hdf(os.path.join(path, '%s_host_%03d.hdf5'%(prefix, snap)), 'HostHalo')
     np.save(os.path.join(path, '%s_prog_%03d'%(prefix, snap)), struct_prog)
 
 
