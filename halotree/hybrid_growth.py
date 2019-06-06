@@ -89,7 +89,7 @@ def GatherData(
     if i_rank == master_rank:
         cond = host_data['ProgNumber'] > 0
         new_prog_data = new_prog_data[cond]
-        host_data['ProgIndex'][cond]= np.arange(np.sum(cond))
+        host_data['ProgIndex'][cond] = np.arange(np.sum(cond))
         return host_data, new_prog_data, next_host_data, n_trail_data
     else:
         return None, None, None, None
@@ -228,10 +228,10 @@ def AugmentChunk(
             next_host = np.full(n_unres, -1, dtype = dtype_host)
             next_host['ID'] = -new_id
             next_host['ProgNumber'] = 0
-            next_host[mass_key] =  m_unres
+            next_host[mass_key] = m_unres
             next_host_chunk[i_chunk] = next_host
         else:
-            new_prog_chunk[i_chunk] = np.array([], dtype = dtype_prog)
+            new_prog_chunk[i_chunk] = prog
             next_host_chunk[i_chunk] = np.array([], dtype = dtype_host)
     next_host_chunk = np.concatenate(next_host_chunk)
     # Fix offset in new IDs
