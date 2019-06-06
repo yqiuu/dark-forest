@@ -204,7 +204,7 @@ def SaveHaloConnector(handler, snap_min, snap_max, mass_key, path = './', prefix
         desc_pool_arr[snap] = None
 
 
-def ReadHaloConnector(handler, indices, snap_max, snap_min, mass_key, path, prefix):
+def ReadHaloConnector(handler, indices, snap_min, snap_max, mass_key, path, prefix):
     indices = np.ravel(indices)
     # Reselect host halos
     n_in = len(indices)
