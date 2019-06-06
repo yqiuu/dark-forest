@@ -63,17 +63,44 @@ def ScatterData(host_data_raw, prog_data_raw, next_host_data, mass_key, m_cut, c
 
 
 def GatherData(
-    host_data, new_prog_chunk, next_host_chunk, n_trail_chunk, n_new_halo, comm, master_rank
+    host_chunk, new_prog_chunk, next_host_chunk, n_trail_chunk, comm, master_rank
 ):
     if comm is None:
-        return host_data, new_prog_chunk
+        i_rank = master_rank
+        host_data = host_chunk
+        new_prog_data = new_prog_chunk
+        next_host_data = next_host_chunk
+        n_trail_data = n_trail_chunk
+    else:
+        i_rank = comm.Get_rank()
+        # Gather data
+        host_data = comm.gather(host_chunk, root = master_rank)
+        new_prog_list = comm.gather(new_prog_chunk, root = master_rank)
+        next_host_data = comm.gather(next_host_chunk, root = master_rank)
+        n_trail_data = comm.gather(n_trail_chunk, root = master_rank)
+        if i_rank == master_rank:
+            host_data = np.concatenate(host_data)
+            new_prog_data = []
+            for item in new_prog_list:
+                new_prog_data.extend(item)
+            new_prog_data = np.asarray(new_prog_data, dtype = object)
+            next_host_data = np.concatenate(next_host_data)
+            n_trail_data = np.concatenate(n_trail_data)
+    if i_rank == master_rank:
+        cond = host_data['ProgNumber'] > 0
+        new_prog_data = new_prog_data[cond]
+        host_data['ProgIndex'][cond]= np.arange(np.sum(cond))
+        return host_data, new_prog_data, next_host_data, n_trail_data
+    else:
+        return None, None, None, None
 
 
-def SaveData(path, prefix, host_data, prog_data, snap, comm, master_rank):
+def SaveData(path, prefix, host_data, prog_data, n_trail_data, snap, comm, master_rank):
     if comm is None or comm.Get_rank() == master_rank:
         np.save(os.path.join(path, '%s_prog_%03d'%(prefix, snap)), prog_data)
         df_host = pd.DataFrame(host_data)
         df_host.set_index('ID', inplace = True)
+        df_host.insert(2, 'Trail', n_trail_data)
         df_host.to_hdf(os.path.join(path, '%s_host_%03d.hdf5'%(prefix, snap)), 'HostHalo')
 
 
@@ -158,8 +185,9 @@ def Augment(
 
 def AugmentChunk(
     host_chunk, prog_chunk, mass_key, snap, z_root, t_root, z_target, t_target, redshifts, ages,
-    halo_kit, m_cut, m_res, params_ag, params_mc, rstate, n_base
+    halo_kit, m_cut, m_res, params_ag, params_mc, rstate, n_base, comm,
 ):
+    dtype_host = host_chunk.dtype
     dtype_prog = np.dtype([('ID', 'i8'), ('Snap', 'i4'), (mass_key, 'f8')])
     # Make empty arrays for outputs
     n_host_chunk = len(host_chunk)
@@ -185,24 +213,36 @@ def AugmentChunk(
         )
         # Generate new halo ID
         n_unres = len(m_unres)
-        new_id = n_new_halo + np.arange(n_unres)
-        n_new_halo += n_unres
-        host['ProgNumber'] += n_unres
-        # Process new progenitor data
-        prog = np.array(prog[list(dtype_prog.names)], dtype = dtype_prog)
-        prog_unres = np.full(n_unres, -1, dtype = dtype_prog)
-        prog_unres['ID'] = -new_id
-        prog_unres['Snap'] = np.full(n_unres, snap - 1, dtype = 'i4')
-        prog_unres[mass_key] = m_unres
-        new_prog_chunk[i_chunk] = np.append(prog, prog_unres)
-        # Process next host data
-        next_host = np.full(n_unres, -1, dtype = host_chunk.dtype)
-        next_host['ID'] = new_id
-        next_host['ProgNumber'] = 0
-        next_host[mass_key] =  m_unres
-        next_host_chunk[i_chunk] = next_host
+        if n_unres > 0:
+            new_id = 1 + (snap - 1)*10**12 + n_new_halo + np.arange(n_unres)
+            n_new_halo += n_unres
+            host['ProgNumber'] += n_unres
+            # Process new progenitor data
+            prog = np.array(prog[list(dtype_prog.names)], dtype = dtype_prog)
+            prog_unres = np.full(n_unres, -1, dtype = dtype_prog)
+            prog_unres['ID'] = -new_id
+            prog_unres['Snap'] = np.full(n_unres, snap - 1, dtype = 'i4')
+            prog_unres[mass_key] = m_unres
+            new_prog_chunk[i_chunk] = np.append(prog, prog_unres)
+            # Process next host data
+            next_host = np.full(n_unres, -1, dtype = dtype_host)
+            next_host['ID'] = -new_id
+            next_host['ProgNumber'] = 0
+            next_host[mass_key] =  m_unres
+            next_host_chunk[i_chunk] = next_host
+        else:
+            new_prog_chunk[i_chunk] = np.array([], dtype = dtype_prog)
+            next_host_chunk[i_chunk] = np.array([], dtype = dtype_host)
     next_host_chunk = np.concatenate(next_host_chunk)
-    return new_prog_chunk, next_host_chunk, n_trail_chunk, n_new_halo
+    # Fix offset in new IDs
+    if comm is not None:
+        i_rank = comm.Get_rank()
+        offset = comm.allgather(n_new_halo)
+        offset = np.append(0, np.cumsum(offset))[i_rank]
+        for new_prog in new_prog_chunk:
+            new_prog['ID'] -= offset
+        next_host_chunk['ID'] -= offset
+    return new_prog_chunk, next_host_chunk, n_trail_chunk
 
 
 def HybridGrowth(
@@ -220,13 +260,14 @@ def HybridGrowth(
         )
         z_root, t_root = redshifts[snap], ages[snap]
         z_target, t_target = redshifts[snap - 1], ages[snap - 1]
-        new_prog_chunk, next_host_chunk, n_trail_chunk, n_new_halo = AugmentChunk(
+        new_prog_chunk, next_host_chunk, n_trail_chunk = AugmentChunk(
             host_chunk, prog_chunk, mass_key, snap, z_root, t_root, z_target, t_target,
-            redshifts, ages, halo_kit, m_cut, m_res, params_ag, params_mc, rstate, n_base
+            redshifts, ages, halo_kit, m_cut, m_res, params_ag, params_mc, rstate, n_base, comm
         )
-        SaveData(out_path, out_prefix, host_chunk, new_prog_chunk, snap, comm, master_rank)
-
-
-
-
+        host_data, prog_data, next_host_data, n_trail_data = GatherData(
+            host_chunk, new_prog_chunk, next_host_chunk, n_trail_chunk, comm, master_rank
+        )
+        SaveData(
+            out_path, out_prefix, host_data, prog_data, n_trail_data, snap, comm, master_rank
+        )
 
