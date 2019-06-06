@@ -71,8 +71,10 @@ def GatherData(
 
 def SaveData(path, prefix, host_data, prog_data, snap, comm, master_rank):
     if comm is None or comm.Get_rank() == master_rank:
-        np.save(os.path.join(path, '%s_host_%03d'%(prefix, snap)), host_data)
         np.save(os.path.join(path, '%s_prog_%03d'%(prefix, snap)), prog_data)
+        df_host = pd.DataFrame(host_data)
+        df_host.set_index('ID', inplace = True)
+        df_host.to_hdf(os.path.join(path, '%s_host_%03d.hdf5'%(prefix, snap)), 'HostHalo')
 
 
 def Prune(m_root, t_root, m_prog, z_prog, t_prog, z_target, t_target, m_cut):
