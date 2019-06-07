@@ -204,36 +204,30 @@ def SaveHaloConnector(handler, snap_min, snap_max, mass_key, path = './', prefix
         desc_pool_arr[snap] = None
 
 
-def ReadHaloConnector(handler, indices, snap_min, snap_max, mass_key, path, prefix):
-    indices = np.ravel(indices)
-    # Reselect host halos
-    n_in = len(indices)
-    handler.CacheSnapshot(snap_max)
-    host_id = handler['HostHaloID'][indices]
-    indices = indices[host_id == -1]
-    n_gal = len(indices)
-    logger.info("Fraction of host halos %d/%d"%(n_gal, n_in))
-    #
-    redshifts = handler.Redshifts(snap_max)
-    # Initialise root halos and the pool to read progenitors
-    z_root = redshifts[snap_max]
-    m_root_arr = handler[mass_key][indices]
-    halo_id_arr = handler['ID'][indices]
-    tree_arr = np.empty(n_gal, dtype = object)
-    pool = [[]]*(snap_max + 1)
-    for i_tree, (halo_id, m_root) in enumerate(zip(halo_id_arr, m_root_arr)):
-        tree = HaloMergeTree(method = 'empty', n_base = 10**4)
-        tree.SetRedshifts(redshifts)
-        tree.Append(z_root, m_root)
-        tree_arr[i_tree] = tree
-        pool[snap_max].append((i_tree, 0, halo_id))
+def ReadHaloConnector(path, prefix, indices, snap_min, snap_max, mass_key, redshifts):
     # Read Progenitors
     for snap in range(snap_max, snap_min - 1, -1):
         logger.info("Read snapshot %d"%snap)
         z = redshifts[snap - 1]
+        # Read data
         prog_data = np.load(os.path.join(path, '%s_prog_%03d.npy'%(prefix, snap)))
         host_data = pd.read_hdf(os.path.join(path, '%s_host_%03d.hdf5'%(prefix, snap)))
         host_data = host_data.to_records()
+        if snap == snap_max:
+            # Initialise root halos and the pool to read progenitors
+            indices = np.ravel(indices)
+            z_root = redshifts[snap_max]
+            m_root_arr = host_data[mass_key][indices]
+            halo_id_arr = host_data['ID'][indices]
+            tree_arr = np.empty(len(indices), dtype = object)
+            pool = [[]]*(snap_max + 1)
+            for i_tree, (halo_id, m_root) in enumerate(zip(halo_id_arr, m_root_arr)):
+                tree = HaloMergeTree(method = 'empty', n_base = 10**4)
+                tree.SetRedshifts(redshifts)
+                tree.Append(z_root, m_root)
+                tree_arr[i_tree] = tree
+                pool[snap_max].append((i_tree, 0, halo_id))
+        # Trace progenitors
         host_data = host_data[host_data['ProgNumber'] > 0]
         prog_dict = dict(zip(host_data['ID'], host_data['ProgIndex']))
         for i_tree, idx_node_host, host_id in pool[snap]:
