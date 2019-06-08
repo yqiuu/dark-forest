@@ -146,23 +146,23 @@ def SaveOutput(handler, prog_data, mass_key, snap, path, prefix):
     df_host.set_index('ID', inplace = True)
     # Prepare progenitor data
     n_prog = len(prog_data)
-    struct_prog = np.empty(n_prog, dtype = object)
+    plain_data = []
     number = np.zeros(n_prog, dtype = int)
-    dtype = [('ID', 'i8'), ('Snap', 'i4')] + [(k, 'f8') for k in mass_key]
-    for i_prog, progenitors in enumerate(prog_data.values()):
-        arr = np.array(progenitors, dtype = dtype)
-        for k in mass_key:
-            arr[k] *= mass_unit
-        struct_prog[i_prog] = arr
-        number[i_prog] = len(progenitors)
+    for i_prog, prog in enumerate(prog_data.values()):
+        number[i_prog] = len(prog)
+        plain_data.extend(prog)
+    df_prog = pd.DataFrame(plain_data, columns = ['ID', 'Snap'] + [k for k in mass_key])
+    df_prog[mass_key] *= mass_unit
+    df_prog.set_index('ID', inplace = True)
     # Set progenitor info
     df_host.insert(0, 'ProgIndex', -1)
     df_host.insert(1, 'ProgNumber', 0)
-    df_host.loc[prog_data.keys(), 'ProgIndex'] = np.arange(n_prog)
+    df_host.loc[prog_data.keys(), 'ProgIndex'] = np.append(0, np.cumsum(number)[:-1])
     df_host.loc[prog_data.keys(), 'ProgNumber'] = number
     # Save data
-    df_host.to_hdf(os.path.join(path, '%s_host_%03d.hdf5'%(prefix, snap)), 'HostHalo')
-    np.save(os.path.join(path, '%s_prog_%03d'%(prefix, snap)), struct_prog)
+    with pd.HDFStore(os.path.join(path, '%s_%03d.hdf5'%(prefix, snap))) as store:
+        store.append('Prog', df_prog)
+        store.append('Host', df_host)
 
 
 def SaveHaloConnector(handler, snap_min, snap_max, mass_key, path = './', prefix = 'hc'):
@@ -210,9 +210,9 @@ def ReadHaloConnector(path, prefix, indices, snap_min, snap_max, mass_key, redsh
         logger.info("Read snapshot %d"%snap)
         z = redshifts[snap - 1]
         # Read data
-        prog_data = np.load(os.path.join(path, '%s_prog_%03d.npy'%(prefix, snap)))
-        host_data = pd.read_hdf(os.path.join(path, '%s_host_%03d.hdf5'%(prefix, snap)))
-        host_data = host_data.to_records()
+        with pd.HDFStore(os.path.join(path, '%s_%03d.hdf5'%(prefix, snap))) as store:
+            prog_data = pd.read_hdf(store, 'Prog').to_records()
+            host_data = pd.read_hdf(store, 'Host').to_records()
         if snap == snap_max:
             # Initialise root halos and the pool to read progenitors
             indices = np.ravel(indices)
@@ -229,11 +229,12 @@ def ReadHaloConnector(path, prefix, indices, snap_min, snap_max, mass_key, redsh
                 pool[snap_max].append((i_tree, 0, halo_id))
         # Trace progenitors
         host_data = host_data[host_data['ProgNumber'] > 0]
-        prog_dict = dict(zip(host_data['ID'], host_data['ProgIndex']))
+        prog_dict = dict(zip(host_data['ID'], host_data[['ProgIndex', 'ProgNumber']]))
         for i_tree, idx_node_host, host_id in pool[snap]:
             if host_id in prog_dict:
                 tree = tree_arr[i_tree]
-                progenitors = prog_data[prog_dict[host_id]]
+                idx, num = prog_dict[host_id]
+                progenitors = prog_data[idx:idx + num]
                 for i_prog, prog in enumerate(progenitors):
                     halo_id = prog['ID']
                     halo_snap = prog['Snap']
