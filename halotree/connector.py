@@ -220,7 +220,7 @@ def ReadHaloConnector(path, prefix, indices, snap_min, snap_max, mass_key, redsh
             m_root_arr = host_data[mass_key][indices]
             halo_id_arr = host_data['ID'][indices]
             tree_arr = np.empty(len(indices), dtype = object)
-            pool = [[]]*(snap_max + 1)
+            pool = [[] for i_snap in range(snap_max + 1)]
             for i_tree, (halo_id, m_root) in enumerate(zip(halo_id_arr, m_root_arr)):
                 tree = HaloMergeTree(method = 'empty', n_base = 10**4)
                 tree.SetRedshifts(redshifts)
