@@ -160,7 +160,7 @@ def SaveOutput(handler, prog_data, mass_key, snap, path, prefix):
     df_host.loc[prog_data.keys(), 'ProgIndex'] = np.append(0, np.cumsum(number)[:-1])
     df_host.loc[prog_data.keys(), 'ProgNumber'] = number
     # Save data
-    with pd.HDFStore(os.path.join(path, '%s_%03d.hdf5'%(prefix, snap))) as store:
+    with pd.HDFStore(os.path.join(path, '%s_%03d.hdf5'%(prefix, snap)), "w") as store:
         store.append('Prog', df_prog)
         store.append('Host', df_host)
 
@@ -212,13 +212,13 @@ def ReadHaloConnector(path, prefix, indices, snap_min, snap_max, mass_key, redsh
         # Read data
         with pd.HDFStore(os.path.join(path, '%s_%03d.hdf5'%(prefix, snap))) as store:
             prog_data = pd.read_hdf(store, 'Prog').to_records()
-            host_data = pd.read_hdf(store, 'Host').to_records()
+            host_data = pd.read_hdf(store, 'Host')
         if snap == snap_max:
             # Initialise root halos and the pool to read progenitors
-            indices = np.ravel(indices)
             z_root = redshifts[snap_max]
-            m_root_arr = host_data[mass_key][indices]
-            halo_id_arr = host_data['ID'][indices]
+            indices = np.ravel(indices)
+            halo_id_arr = host_data.index[indices]
+            m_root_arr = host_data.loc[halo_id_arr, mass_key]
             tree_arr = np.empty(len(indices), dtype = object)
             pool = [[] for i_snap in range(snap_max + 1)]
             for i_tree, (halo_id, m_root) in enumerate(zip(halo_id_arr, m_root_arr)):
@@ -228,25 +228,27 @@ def ReadHaloConnector(path, prefix, indices, snap_min, snap_max, mass_key, redsh
                 tree_arr[i_tree] = tree
                 pool[snap_max].append((i_tree, 0, halo_id))
         # Trace progenitors
-        host_data = host_data[host_data['ProgNumber'] > 0]
-        prog_dict = dict(zip(host_data['ID'], host_data[['ProgIndex', 'ProgNumber']]))
-        for i_tree, idx_node_host, host_id in pool[snap]:
-            if host_id in prog_dict:
-                tree = tree_arr[i_tree]
-                idx, num = prog_dict[host_id]
-                progenitors = prog_data[idx:idx + num]
-                for i_prog, prog in enumerate(progenitors):
-                    halo_id = prog['ID']
-                    halo_snap = prog['Snap']
-                    mass = prog[mass_key]
-                    idx_node_new = tree.Append(z, mass)
-                    if i_prog == 0:
-                        # Append first progenitor
-                        tree.LinkTailIndex(idx_node_host, idx_node_new)
-                    else:
-                        # Append next progenitor
-                        tree.LinkNextIndex(idx_node_prev, idx_node_new)
-                    pool[halo_snap].append((i_tree, idx_node_new, halo_id))
-                    idx_node_prev = idx_node_new
+        current_pool = np.asarray(pool[snap])
+        if len(current_pool) == 0:
+            continue
+        prog_pointer = host_data.loc[current_pool[:, -1], ['ProgIndex', 'ProgNumber']].values
+        cond = prog_pointer[:, -1] > 0
+        current_pool = current_pool[cond]
+        prog_pointer = prog_pointer[cond]
+        for (i_tree, idx_node_host, host_id), (idx, num) in zip(current_pool, prog_pointer):
+            tree = tree_arr[i_tree]
+            for i_prog, prog in enumerate(prog_data[idx:idx + num]):
+                halo_id = prog['ID']
+                halo_snap = prog['Snap']
+                mass = prog[mass_key]
+                idx_node_new = tree.Append(z, mass)
+                if i_prog == 0:
+                    # Append first progenitor
+                    tree.LinkTailIndex(idx_node_host, idx_node_new)
+                else:
+                    # Append next progenitor
+                    tree.LinkNextIndex(idx_node_prev, idx_node_new)
+                pool[halo_snap].append((i_tree, idx_node_new, halo_id))
+                idx_node_prev = idx_node_new
         pool[snap] = None
     return tree_arr
