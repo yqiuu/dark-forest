@@ -140,8 +140,8 @@ def SaveOutput(handler, prog_data, mass_key, snap, path, prefix):
     cond = handler['HostHaloID'] == -1
     halo_id = handler['ID'][cond]
     df_host = pd.DataFrame(halo_id, columns = ['ID'])
-    for k in mass_key:
-        df_host[k] = handler[k][cond]
+    for key in np.append(['Descendant', 'DescendantSnap'], mass_key):
+        df_host[key] = handler[key][cond]
     df_host[mass_key] *= mass_unit
     df_host.set_index('ID', inplace = True)
     # Prepare progenitor data
