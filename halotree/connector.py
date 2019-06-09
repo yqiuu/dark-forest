@@ -211,8 +211,8 @@ def ReadHaloConnector(path, prefix, indices, snap_min, snap_max, mass_key, redsh
         z = redshifts[snap - 1]
         # Read data
         with pd.HDFStore(os.path.join(path, '%s_%03d.hdf5'%(prefix, snap))) as store:
-            prog_data = pd.read_hdf(store, 'Prog').to_records()
-            host_data = pd.read_hdf(store, 'Host')
+            prog_data = pd.read_hdf(store, 'Prog', columns = ['Snap', mass_key]).to_records()
+            host_data = pd.read_hdf(store, 'Host', columns = ['ProgIndex', 'ProgNumber', mass_key])
         if snap == snap_max:
             # Initialise root halos and the pool to read progenitors
             z_root = redshifts[snap_max]
