@@ -16,12 +16,14 @@ def CreateRandomState(seed, comm):
         return RandomStateGSL(seed + comm.Get_rank())
 
 
-def ReadHaloData(path, prefix, snap, comm, master_rank):
+def ReadHaloData(path, prefix, snap, mass_key, comm, master_rank):
     if comm is None or comm.Get_rank() == master_rank:
         logger.info("Read snapshot %d"%snap)
-        prog_data = np.load(os.path.join(path, '%s_prog_%03d.npy'%(prefix, snap)))
-        host_data = pd.read_hdf(os.path.join(path, '%s_host_%03d.hdf5'%(prefix, snap)))
-        host_data = host_data.to_records()
+        with pd.HDFStore(os.path.join(path, '%s_%03d.hdf5'%(prefix, snap))) as store:
+            prog_data = pd.read_hdf(store, 'Prog', columns = ['Snap', mass_key])
+            prog_data = prog_data.to_records()
+            host_data = pd.read_hdf(store, 'Host', columns = ['ProgIndex', 'ProgNumber', mass_key])
+            host_data = host_data.to_records()
         return host_data, prog_data
     else:
         return None, None
@@ -40,10 +42,14 @@ def ScatterData(host_data_raw, prog_data_raw, next_host_data, mass_key, m_cut, c
         )
         host_data = np.append(host_data, next_host_data, axis = 0)
         host_data[::-1].sort(order = ['ProgNumber', mass_key])
+        prog_data_raw = list(prog_data_raw)
         prog_data = np.full(len(host_data), None)
         cond = host_data['ProgNumber'] > 0
-        prog_data[cond] = prog_data_raw[host_data[cond]['ProgIndex']]
-        host_data['ProgIndex'][cond] = np.arange(np.sum(cond))
+        idx_arr = host_data['ProgIndex'][cond]
+        num_arr = host_data['ProgNumber'][cond]
+        prog_data[np.where(cond)] = list(
+            map(lambda idx, num:prog_data_raw[idx:idx + num], idx_arr, num_arr)
+        )
         logger.info("Process %d host halos"%len(host_data))
     if comm is None:
         return host_data, prog_data
@@ -89,7 +95,7 @@ def GatherData(
     if i_rank == master_rank:
         cond = host_data['ProgNumber'] > 0
         new_prog_data = new_prog_data[cond]
-        host_data['ProgIndex'][cond] = np.arange(np.sum(cond))
+        host_data['ProgIndex'][cond] = np.append(0, np.cumsum(host_data['ProgNumber'][cond])[:-1])
         return host_data, new_prog_data, next_host_data, n_trail_data
     else:
         return None, None, None, None
@@ -97,11 +103,15 @@ def GatherData(
 
 def SaveData(path, prefix, host_data, prog_data, n_trail_data, snap, comm, master_rank):
     if comm is None or comm.Get_rank() == master_rank:
-        np.save(os.path.join(path, '%s_prog_%03d'%(prefix, snap)), prog_data)
+        prog_data = np.concatenate(prog_data)
+        df_prog = pd.DataFrame(prog_data)
+        df_prog.set_index('ID', inplace = True)
         df_host = pd.DataFrame(host_data)
         df_host.set_index('ID', inplace = True)
         df_host.insert(2, 'Trail', n_trail_data)
-        df_host.to_hdf(os.path.join(path, '%s_host_%03d.hdf5'%(prefix, snap)), 'HostHalo')
+        with pd.HDFStore(os.path.join(path, '%s_%03d.hdf5'%(prefix, snap)), "w") as store:
+            store.append('Prog', df_prog)
+            store.append('Host', df_host)
 
 
 def Prune(m_root, t_root, m_prog, z_prog, t_prog, z_target, t_target, m_cut):
@@ -203,6 +213,7 @@ def AugmentChunk(
             prog = np.array([], dtype = dtype_prog)
             m_pruned = np.array([], dtype = 'f8')
         else:
+            prog = np.asarray(prog, dtype = dtype_prog)
             m_prog = prog[mass_key]
             z_prog = redshifts[prog['Snap']]
             t_prog = ages[prog['Snap']]
@@ -254,7 +265,9 @@ def HybridGrowth(
     dtype_host = [('ID', 'i8'), ('ProgIndex', 'i4'), ('ProgNumber', 'i4'), (mass_key, 'f8')]
     next_host_data = np.array([], dtype = dtype_host)
     for snap in range(snap_max, snap_min - 1, -1):
-        host_data_raw, prog_data_raw = ReadHaloData(hc_path, hc_prefix, snap, comm, master_rank)
+        host_data_raw, prog_data_raw = ReadHaloData(
+            hc_path, hc_prefix, snap, mass_key, comm, master_rank
+        )
         host_chunk, prog_chunk = ScatterData(
             host_data_raw, prog_data_raw, next_host_data, mass_key, m_cut, comm, master_rank
         )
