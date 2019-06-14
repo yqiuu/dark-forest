@@ -64,7 +64,7 @@ class VELOCIraptorHandler(DataHandler):
         params['sigma_8'] = 0.815
         params['n'] = 0.9653
         hmf = MassFunction(**params)
-        return HaloKit(hmf)
+        return HaloKit(hmf), hmf
 
 
     def MassConversion(self):
