@@ -56,6 +56,11 @@ class VELOCIraptorHandler(DataHandler):
         return self.fp.get('Header')['Simulation'].attrs['Omega_m']
 
 
+    def Volume(self):
+        boxsize = self.fp.get('Header')['Simulation'].attrs['Period']
+        return boxsize*boxsize*boxsize
+
+
     def HaloKit(self, **kwargs):
         params = {'Mmin':5, 'dlog10m':0.05}
         params.update(kwargs)
