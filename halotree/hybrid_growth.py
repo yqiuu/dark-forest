@@ -96,6 +96,7 @@ def GatherData(
         cond = host_data['ProgNumber'] > 0
         new_prog_data = new_prog_data[cond]
         host_data['ProgIndex'][cond] = np.append(0, np.cumsum(host_data['ProgNumber'][cond])[:-1])
+        host_data['ProgIndex'][~cond] = -1
         return host_data, new_prog_data, next_host_data, n_trail_data
     else:
         return None, None, None, None
