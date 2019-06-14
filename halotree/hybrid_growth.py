@@ -114,28 +114,33 @@ def SaveData(path, prefix, host_data, prog_data, n_trail_data, snap, comm, maste
             store.append('Host', df_host)
 
 
-def Prune(m_root, t_root, m_prog, z_prog, t_prog, z_target, t_target, m_cut):
-    """
-    This function has three purposes:
-        a) Linearly interpolate the most massive progenitor with time, and
-           sort the mass in descending order.
-        b) Remove progenitors which are not at 'z_target'.
-        c) Remove progenitors whose mass is below `m_cut`.
-    Mass and time should be in linear space, and their units are irrelevant.
-    """
-
-    ind_m_max = np.argmax(m_prog)
-    m2 = m_prog[ind_m_max]
-    t2 = t_prog[ind_m_max]
-    m_intp = m_root + (m2 - m_root)/(t2 - t_root)*(t_target - t_root)
-    m_prog[ind_m_max] = m_intp
-    z_prog[ind_m_max] = z_target
-    #
-    m_prog = m_prog[z_prog == z_target]
-    m_prog = m_prog[m_prog > m_cut]
-    m_prog[::-1].sort()
-
-    return m_prog
+def Prune(host, prog, mass_key, t_root, z_target, t_target, redshifts, ages, m_cut):
+    # Apply mass cut to progenitors
+    m_prog = prog[mass_key]
+    cond = m_prog > m_cut
+    prog = prog[cond]
+    m_prog = m_prog[cond]
+    # Change the number of progentiors (inplace)
+    n_prog = len(prog)
+    host['ProgNumber'] = n_prog
+    if n_prog > 0:
+        # Set some local variables
+        snap = prog['Snap']
+        z_prog = redshifts[snap]
+        t_prog = ages[snap]
+        m_root = host[mass_key]
+        # Intepolate the mass of the most massive object with time
+        ind_m_max = np.argmax(m_prog)
+        m2 = m_prog[ind_m_max]
+        t2 = t_prog[ind_m_max]
+        m_intp = m_root + (m2 - m_root)/(t2 - t_root)*(t_target - t_root)
+        m_prog[ind_m_max] = m_intp
+        z_prog[ind_m_max] = z_target
+        # Select all progenitors at the target redshift
+        m_prog = m_prog[z_prog == z_target]
+        # Sort progenitors by mass
+        m_prog[::-1].sort()
+    return prog, m_prog
 
 
 def Augment(
@@ -214,30 +219,30 @@ def AugmentChunk(
             m_pruned = np.array([], dtype = 'f8')
         else:
             prog = np.asarray(prog, dtype = dtype_prog)
-            m_prog = prog[mass_key]
-            z_prog = redshifts[prog['Snap']]
-            t_prog = ages[prog['Snap']]
-            m_pruned = Prune(m_root, t_root, m_prog, z_prog, t_prog, z_target, t_target, m_cut)
+            prog, m_pruned = Prune(
+                host, prog, mass_key, t_root, z_target, t_target, redshifts, ages, m_cut
+            )
         m_unres, n_trail_chunk[i_chunk] = Augment(
             halo_kit, m_root, z_root, m_pruned, z_target, m_cut, m_res,
             params_mc = params_mc, rstate = rstate, n_base = n_base, **params_ag
         )
-        # Generate new halo ID
         n_unres = len(m_unres)
         if n_unres > 0:
+            # Generate new halo ID
             new_id = 1 + (snap - 1)*10**12 + n_new_halo + np.arange(n_unres)
+            new_id = -new_id
             n_new_halo += n_unres
             host['ProgNumber'] += n_unres
             # Process new progenitor data
             prog = np.array(prog[list(dtype_prog.names)], dtype = dtype_prog)
             prog_unres = np.full(n_unres, -1, dtype = dtype_prog)
-            prog_unres['ID'] = -new_id
+            prog_unres['ID'] = new_id
             prog_unres['Snap'] = np.full(n_unres, snap - 1, dtype = 'i4')
             prog_unres[mass_key] = m_unres
             new_prog_chunk[i_chunk] = np.append(prog, prog_unres)
             # Process next host data
             next_host = np.full(n_unres, -1, dtype = dtype_host)
-            next_host['ID'] = -new_id
+            next_host['ID'] = new_id
             next_host['ProgNumber'] = 0
             next_host[mass_key] = m_unres
             next_host_chunk[i_chunk] = next_host
@@ -251,7 +256,7 @@ def AugmentChunk(
         offset = comm.allgather(n_new_halo)
         offset = np.append(0, np.cumsum(offset))[i_rank]
         for new_prog in new_prog_chunk:
-            new_prog['ID'] -= offset
+            new_prog['ID'][new_prog['ID'] < 0] -= offset
         next_host_chunk['ID'] -= offset
     return new_prog_chunk, next_host_chunk, n_trail_chunk
 
