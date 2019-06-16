@@ -115,6 +115,11 @@ def SaveData(path, prefix, host_data, prog_data, n_trail_data, snap, comm, maste
             store.append('Host', df_host)
 
 
+def NewID(n_halo, snap, offset):
+    new_id = 1 + snap*10**12 + offset + np.arange(n_halo)
+    return -new_id
+
+
 def Prune(host, prog, mass_key, t_root, z_target, t_target, redshifts, ages, m_cut):
     # Apply mass cut to progenitors
     m_prog = prog[mass_key]
@@ -230,8 +235,7 @@ def AugmentChunk(
         n_unres = len(m_unres)
         if n_unres > 0:
             # Generate new halo ID
-            new_id = 1 + (snap - 1)*10**12 + n_new_halo + np.arange(n_unres)
-            new_id = -new_id
+            new_id = NewID(n_unres, snap - 1, n_new_halo)
             n_new_halo += n_unres
             host['ProgNumber'] += n_unres
             # Process new progenitor data
@@ -264,12 +268,21 @@ def AugmentChunk(
 
 def HybridGrowth(
     hc_path, hc_prefix, out_path, out_prefix, snap_min, snap_max, mass_key,
-    redshifts, ages, halo_kit, m_cut, m_res, params_ag, params_mc,
+    redshifts, ages, halo_kit, m_cut, m_res, params_ag, params_mc, new_halos = None,
     seed = 209204, n_base = 5000, comm = None, master_rank = 0
 ):
     rstate = CreateRandomState(seed, comm)
+    # Initialise new halos
     dtype_host = [('ID', 'i8'), ('ProgIndex', 'i4'), ('ProgNumber', 'i4'), (mass_key, 'f8')]
-    next_host_data = np.array([], dtype = dtype_host)
+    if new_halos is None:
+        next_host_data = np.array([], dtype = dtype_host)
+    else:
+        n_new = len(new_halos)
+        next_host_data = np.zeros(n_new, dtype = dtype_host)
+        next_host_data['ID'] = NewID(n_new, snap_max, 0)
+        next_host_data['ProgIndex'] = np.full(n_new, -1, dtype = 'i4')
+        next_host_data[mass_key] = new_halos
+    #
     for snap in range(snap_max, snap_min - 1, -1):
         host_data_raw, prog_data_raw = ReadHaloData(
             hc_path, hc_prefix, snap, mass_key, comm, master_rank
