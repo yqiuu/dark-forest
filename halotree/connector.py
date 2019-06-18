@@ -211,6 +211,7 @@ def SaveHaloConnector(handler, snap_min, snap_max, mass_key, path = './', prefix
 
 def ReadHaloConnector(path, prefix, indices, snap_min, snap_max, mass_key, redshifts):
     # Read Progenitors
+    logger.info("Select %d halos at snapshot %d"%(len(indices), snap_max))
     for snap in range(snap_max, snap_min - 1, -1):
         logger.info("Read snapshot %d"%snap)
         z = redshifts[snap - 1]
