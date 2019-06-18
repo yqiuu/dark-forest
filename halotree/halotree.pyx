@@ -329,7 +329,7 @@ def Tree_Parkinson08(
 # Functions to analyse trees                                                    #
 #                                                                               #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-def EstimateConditionalMassFunction(tree, level, frac_bins = None):
+def EstimateConditionalMassFunction(tree, level, frac_bins = None, mean = True):
     tree = np.ravel(tree)
     level = np.ravel(level)
     # Set fraction bins
@@ -347,6 +347,9 @@ def EstimateConditionalMassFunction(tree, level, frac_bins = None):
             m_prog = tree_single.Halos(level_single)['mass']
             for i_bin, (l, u) in enumerate(zip(mass_bins[:-1], mass_bins[1:])):
                 cmf[i_tree, i_level, i_bin] = np.sum(m_prog[(m_prog > l) & (m_prog < u)])/m_root
+    #
+    if mean:
+        cmf = cmf.mean(axis = 0)
     return frac_mid, cmf/dlnfrac
 
 
