@@ -30,6 +30,33 @@ def ReadHaloData(path, prefix, snap, mass_key, comm, master_rank):
 
 
 def ScatterData(host_data_raw, prog_data_raw, next_host_data, mass_key, m_cut, comm, master_rank):
+    """
+    Scatter the raw data to different cores.
+
+    Notes:
+        This function applies the mass cut to host halo data.
+        If a host halo has no progenitors, the coresponding progenitor data
+        is `None`.
+
+    Parameters
+    ----------
+        host_data_raw: pandas.DataFrame
+            Raw host halo data read from the disk.
+        prog_data_raw: pandas.DataFrame
+            Raw progenitor data read from the disk.
+        next_host_data: numpy structured array
+            Extra host halo data. These can be from manually added halos or new
+            halos generated in a previous snapshot.
+        mass_key: string
+            The name of the mass key.
+        m_cut: float
+            The mass cut applied to the host halos.
+        comm: MPI.Comm
+            An MPI communicator. Use `None` when MPI is not used.
+        master_rank: int
+            The rank of the master core.
+    """
+
     if comm is not None:
         i_rank = comm.Get_rank()
         n_rank = comm.Get_size()
