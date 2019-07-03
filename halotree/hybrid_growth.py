@@ -176,7 +176,7 @@ def InitialPrune(prog, m_prog, m_root, t_root, t_target, ages, m_cut):
 
 def Augment(
     halo_kit, m_root, z_root, m_prog, z_target, m_min_cut, m_res,
-    eps_cut, eps_match, n_max_cut, n_max_match, params_mc, rstate, n_base
+    eps_cut, eps_match, n_max_cut, n_max_match, n_max_trail, params_mc, rstate, n_base
 ):
     """
     Given a pruned branch, generate Monte Carlo tree to find a match.
@@ -206,6 +206,9 @@ def Augment(
             if best_fit != initial_fit:
                 use_best = True
         # Create a new realisation of a simple branck
+        if n_trail == n_max_trail:
+            m_prog_new = np.array([], dtype = 'f8')
+            break
         if use_best:
             m_prog_trail = m_best
             n_prog_trail = n_best
@@ -219,7 +222,7 @@ def Augment(
             n_trail += 1
         # Check matching condition
         n_prog = len(m_prog)
-        if n_prog_trail >= n_prog and all(m_prog_trail[n_prog:] < m_cut):
+        if n_prog_trail >= n_prog and all(m_prog_trail[n_prog:] < m_cut) or n_prog == 1:
             fit_arr = abs(m_prog_trail[:n_prog]/m_prog - 1.)
             if all(fit_arr < eps_match):
                 m_prog_new = m_prog_trail[n_prog:]
