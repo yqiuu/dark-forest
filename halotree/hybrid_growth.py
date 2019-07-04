@@ -150,28 +150,21 @@ def NewID(n_halo, snap, offset):
     return -new_id
 
 
-def InitialPrune(prog, m_prog, m_root, t_root, t_target, ages, m_cut):
+def InitialPrune(m_prog, s_prog, m_root, t_root, t_target, ages, m_cut):
     """
-    This function does the following steps:
-        1) Apply the minimum mass cut.
-        3) Interploate the mass of the most massive progenitor with time.
-        4) Sort the progenitor by mass.
+    Inplace change `m_prog` following the steps:
+        1) Interploate the mass of the most massive progenitor with time.
+        2) Sort the progenitor by mass.
     """
-    # Apply the minimum mass cut
-    cond = m_prog > m_cut
-    prog = prog[cond]
-    m_prog = m_prog[cond]
-    #
     if len(m_prog) > 0:
         # Interpolate the mass of the most massive progenitor with time
         ind_primary = np.argmax(m_prog)
         m_primary = m_prog[ind_primary]
-        t_primary = ages[prog['Snap'][ind_primary]]
+        t_primary = ages[s_prog[ind_primary]]
         m_intp = m_root + (m_primary - m_root)/(t_primary - t_root)*(t_target - t_root)
         m_prog[ind_primary] = m_intp
         # Sort progenitors by mass
         m_prog[::-1].sort()
-    return prog, m_prog
 
 
 def Augment(
@@ -198,7 +191,7 @@ def Augment(
             m_cut *= (1 + eps_cut)
             if len(m_prog) > 0:
                 m_cut = min(m_cut, max(m_prog))
-            m_prog = m_prog[m_prog >= m_cut]
+            m_prog = m_prog[m_prog > m_cut]
         elif n_match == n_max_match:
             n_cut = 0
             n_match = 0
@@ -258,24 +251,25 @@ def AugmentChunk(
         m_root = host[mass_key]
         if prog is None:
             prog = np.array([], dtype = dtype_prog)
-            m_prog = np.array([], dtype = 'f8')
         else:
             prog = np.asarray(prog, dtype = dtype_prog)
-            m_prog = prog[mass_key]
+            # Apply mass cut to progenitor data
+            prog = prog[prog[mass_key] > m_cut]
+            # Fix host data
+            host['ProgNumber'] = len(prog)
+        m_prog = np.copy(prog[mass_key])
         if any(m_prog > m_root):
             m_unres = np.array([], dtype = 'f8')
             m_cut_fix = m_cut
             eps_match_fix = params_ag['eps_match']
             n_trail = 0
         else:
-            prog, m_prog = InitialPrune(prog, m_prog, m_root, t_root, t_target, ages, m_cut)
+            InitialPrune(m_prog, prog['Snap'], m_root, t_root, t_target, ages, m_cut)
             m_unres, m_cut_fix, eps_match_fix, n_trail = Augment(
                 halo_kit, m_root, z_root, m_prog, z_target, m_cut, m_res,
                 params_mc = params_mc, rstate = rstate, n_base = n_base, **params_ag
             )
         stats_chunk[i_chunk] = m_cut_fix, eps_match_fix, n_trail
-        # Fix host data
-        host['ProgNumber'] = len(prog)
         # Create new progenitor and next host data
         n_unres = len(m_unres)
         if n_unres > 0:
