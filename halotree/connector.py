@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from .logger import CreateLogger
 from .halotree import *
 
+from tqdm import tqdm
 import numpy as np
 import pandas as pd
 import h5py
@@ -209,10 +210,15 @@ def SaveHaloConnector(handler, snap_min, snap_max, mass_key, path = './', prefix
         desc_pool_arr[snap] = None
 
 
-def ReadHaloConnector(path, prefix, indices, snap_min, snap_max, mass_key, redshifts):
+def ReadHaloConnector(
+    path, prefix, indices, snap_min, snap_max, mass_key, redshifts, progress_bar = False
+):
     # Read Progenitors
     logger.info("Select %d halos at snapshot %d"%(len(indices), snap_max))
-    for snap in range(snap_max, snap_min - 1, -1):
+    snap_range = range(snap_max, snap_min - 1, -1)
+    if progress_bar:
+        snap_range = tqdm(snap_range, desc = "Reading progenitors of %d halos"%len(indices))
+    for snap in snap_range:
         logger.info("Read snapshot %d"%snap)
         z = redshifts[snap - 1]
         # Read data
