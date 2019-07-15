@@ -21,15 +21,15 @@ def ReadHaloData(path, prefix, snap, mass_key, comm, master_rank):
         logger.info("Read snapshot %d"%snap)
         with pd.HDFStore(os.path.join(path, '%s_%03d.hdf5'%(prefix, snap))) as store:
             prog_data = pd.read_hdf(store, 'Prog', columns = ['Snap', mass_key])
-            prog_data = prog_data.to_records()
             host_data = pd.read_hdf(store, 'Host', columns = ['ProgIndex', 'ProgNumber', mass_key])
-            host_data = host_data.to_records()
         return host_data, prog_data
     else:
         return None, None
 
 
-def ScatterData(host_data_raw, prog_data_raw, next_host_data, mass_key, m_cut, comm, master_rank):
+def ScatterData(
+    host_data_raw, prog_data_raw, next_host_data, pool_data, mass_key, m_cut, comm, master_rank
+):
     """
     Scatter the raw data to different cores.
 
@@ -63,13 +63,18 @@ def ScatterData(host_data_raw, prog_data_raw, next_host_data, mass_key, m_cut, c
     else:
         i_rank = master_rank
     if i_rank == master_rank:
-        host_data = host_data_raw[host_data_raw[mass_key] > m_cut]
+        if pool_data is None:
+            host_data = host_data_raw[host_data_raw[mass_key] > m_cut]
+        else:
+            host_data = host_data_raw.loc[pool_data]
+        host_data = host_data.to_records()
         host_data = np.asarray(
             host_data[list(next_host_data.dtype.names)], dtype = next_host_data.dtype
         )
         host_data = np.append(host_data, next_host_data, axis = 0)
         host_data[::-1].sort(order = ['ProgNumber', mass_key])
-        prog_data_raw = list(prog_data_raw)
+        #
+        prog_data_raw = list(prog_data_raw.to_records())
         prog_data = np.full(len(host_data), None)
         cond = host_data['ProgNumber'] > 0
         idx_arr = host_data['ProgIndex'][cond]
@@ -96,13 +101,14 @@ def ScatterData(host_data_raw, prog_data_raw, next_host_data, mass_key, m_cut, c
 
 
 def GatherData(
-    host_chunk, new_prog_chunk, next_host_chunk, stats_chunk, comm, master_rank
+    host_chunk, new_prog_chunk, next_host_chunk, pool_chunk, stats_chunk, comm, master_rank
 ):
     if comm is None:
         i_rank = master_rank
         host_data = host_chunk
         new_prog_data = new_prog_chunk
         next_host_data = next_host_chunk
+        pool_data = pool_chunk
         stats_data = stats_chunk
     else:
         i_rank = comm.Get_rank()
@@ -110,6 +116,7 @@ def GatherData(
         host_data = comm.gather(host_chunk, root = master_rank)
         new_prog_list = comm.gather(new_prog_chunk, root = master_rank)
         next_host_data = comm.gather(next_host_chunk, root = master_rank)
+        pool_data = comm.gather(pool_chunk, root = master_rank)
         stats_data = comm.gather(stats_chunk, root = master_rank)
         if i_rank == master_rank:
             host_data = np.concatenate(host_data)
@@ -118,15 +125,16 @@ def GatherData(
                 new_prog_data.extend(item)
             new_prog_data = np.asarray(new_prog_data, dtype = object)
             next_host_data = np.concatenate(next_host_data)
+            pool_data = np.concatenate(pool_data)
             stats_data = np.concatenate(stats_data)
     if i_rank == master_rank:
         cond = host_data['ProgNumber'] > 0
         new_prog_data = new_prog_data[cond]
         host_data['ProgIndex'][cond] = np.append(0, np.cumsum(host_data['ProgNumber'][cond])[:-1])
         host_data['ProgIndex'][~cond] = -1
-        return host_data, new_prog_data, next_host_data, stats_data
+        return host_data, new_prog_data, next_host_data, pool_data, stats_data
     else:
-        return None, None, None, None
+        return None, None, None, None, None
 
 
 def SaveData(path, prefix, host_data, prog_data, stats_data, snap, comm, master_rank):
@@ -167,13 +175,37 @@ def InitialPrune(m_prog, s_prog, m_root, t_root, t_target, ages, m_cut):
         m_prog[::-1].sort()
 
 
+def InterploateMass(prog, mass_key, m_root, t_root, t_target, ages):
+    if len(prog) > 0:
+        # Soort progenitor by mass
+        prog[::-1].sort(order = mass_key)
+        # Interpolate the mass of the most massive progenitor with time
+        m_primary = prog[mass_key][0]
+        t_primary = ages[prog['Snap'][0]]
+        m_intp = m_root + (m_primary - m_root)/(t_primary - t_root)*(t_target - t_root)
+        prog[mass_key][0] = m_intp
+
+
 def Augment(
-    halo_kit, m_root, z_root, m_prog, z_target, m_min_cut, m_res,
-    eps_cut, eps_match, n_max_cut, n_max_match, n_max_trail, params_mc, rstate, n_base
+    host, prog, mass_key, m_root, z_root, z_target,
+    halo_kit, m_res, params_ag, params_mc, rstate, n_base
 ):
     """
     Given a pruned branch, generate Monte Carlo tree to find a match.
     """
+    # Load algorithm parameters
+    m_min_cut = params_ag['m_min_cut']
+    m_max_cut = params_ag['m_max_cut']
+    eps_cut = params_ag['eps_cut']
+    n_trail_cut = params_ag['n_trail_cut']
+    
+    eps_match = eps_match_0 = params_ag['eps_match']
+    n_trail_match = params_ag['n_trail_match']
+
+    n_max_trail = params_ag['n_max_trail']
+    # Initialise loop variables
+    m_prog = prog[mass_key]
+
     m_cut = m_min_cut
     next_level = 1
     initial_fit = -1.
@@ -182,23 +214,30 @@ def Augment(
     n_cut = 0
     n_match = 0
     n_trail = 0
+    #
     while True:
+        # Relax matching condition
         use_best = False
-        if n_cut == n_max_cut:
+        if n_cut == n_trail_cut:
             n_cut = 0
             n_match = 0
             best_fit = initial_fit
-            m_cut *= (1 + eps_cut)
             if len(m_prog) > 0:
-                m_cut = min(m_cut, max(m_prog))
-            m_prog = m_prog[m_prog > m_cut]
-        elif n_match == n_max_match:
+                m_cut *= (1 + eps_cut)
+                m_cut = min(m_cut, m_max_cut, max(m_prog))
+            else:
+                m_cut = m_max_cut
+            # Apply mass cut
+            prog = prog[m_prog > m_cut]
+            host['ProgNumber'] = len(prog)
+            m_prog = prog[mass_key]
+        elif n_match == n_trail_match:
             n_cut = 0
             n_match = 0
-            eps_match *= (1 + eps_match)
+            eps_match *= (1 + eps_match_0)
             if best_fit != initial_fit:
                 use_best = True
-        # Create a new realisation of a simple branck
+        # Create a new realisation of a simple branch
         if n_trail == n_max_trail:
             m_prog_new = np.array([], dtype = 'f8')
             break
@@ -215,12 +254,13 @@ def Augment(
             n_trail += 1
         # Check matching condition
         n_prog = len(m_prog)
-        if n_prog_trail >= n_prog and all(m_prog_trail[n_prog:] < m_cut) or n_prog == 1:
+        if n_prog_trail >= n_prog and all(m_prog_trail[n_prog:] < m_cut):
             fit_arr = abs(m_prog_trail[:n_prog]/m_prog - 1.)
             if all(fit_arr < eps_match):
                 m_prog_new = m_prog_trail[n_prog:]
                 break
             else:
+                # Save the best fit
                 fit = np.sum(fit_arr);
                 if fit < best_fit or best_fit == initial_fit:
                     best_fit = fit
@@ -229,11 +269,12 @@ def Augment(
                 n_match += 1
         else:
             n_cut += 1
-    return m_prog_new[m_prog_new < m_min_cut], m_cut, eps_match, n_trail
+    return prog, m_prog_new, m_cut, eps_match, n_trail
 
 
 def AugmentChunk(
-    host_chunk, prog_chunk, mass_key, snap, z_root, t_root, z_target, t_target, redshifts, ages,
+    host_chunk, prog_chunk, pool_list_chunk, mass_key, snap,
+    z_root, t_root, z_target, t_target, redshifts, ages,
     halo_kit, m_cut, m_res, params_ag, params_mc, rstate, n_base, comm,
 ):
     dtype_host = host_chunk.dtype
@@ -264,16 +305,16 @@ def AugmentChunk(
             eps_match_fix = params_ag['eps_match']
             n_trail = 0
         else:
-            InitialPrune(m_prog, prog['Snap'], m_root, t_root, t_target, ages, m_cut)
-            m_unres, m_cut_fix, eps_match_fix, n_trail = Augment(
-                halo_kit, m_root, z_root, m_prog, z_target, m_cut, m_res,
-                params_mc = params_mc, rstate = rstate, n_base = n_base, **params_ag
+            InterploateMass(prog, mass_key, m_root, t_root, t_target, ages)
+            prog, m_unres, m_cut_fix, eps_match_fix, n_trail = Augment(
+                host, prog, mass_key, m_root, z_root, z_target,
+                halo_kit, m_res, params_ag, params_mc, rstate, n_base
             )
         stats_chunk[i_chunk] = m_cut_fix, eps_match_fix, n_trail
         # Create new progenitor and next host data
         n_unres = len(m_unres)
         if n_unres > 0:
-            # Generate new halo ID
+            # Generate new halo IDs
             new_id = NewID(n_unres, snap - 1, n_new_halo)
             n_new_halo += n_unres
             host['ProgNumber'] += n_unres
@@ -283,7 +324,8 @@ def AugmentChunk(
             prog_unres['ID'] = new_id
             prog_unres['Snap'] = np.full(n_unres, snap - 1, dtype = 'i4')
             prog_unres[mass_key] = m_unres
-            new_prog_chunk[i_chunk] = np.append(prog, prog_unres)
+            prog = np.append(prog, prog_unres)
+            new_prog_chunk[i_chunk] = prog
             # Process next host data
             next_host = np.full(n_unres, -1, dtype = dtype_host)
             next_host['ID'] = new_id
@@ -293,6 +335,10 @@ def AugmentChunk(
         else:
             new_prog_chunk[i_chunk] = prog
             next_host_chunk[i_chunk] = np.array([], dtype = dtype_host)
+        # Add progenitor IDs to the pool
+        for prog_id, prog_snap, _ in prog:
+            if prog_id > 0:
+                pool_list_chunk[prog_snap].append(prog_id)
     next_host_chunk = np.concatenate(next_host_chunk)
     # Fix offset in new IDs
     if comm is not None:
@@ -311,6 +357,7 @@ def HybridGrowth(
     seed = 209204, n_base = 5000, comm = None, master_rank = 0
 ):
     rstate = CreateRandomState(seed, comm)
+    m_cut = params_ag['m_min_cut']
     # Initialise new halos
     dtype_host = [('ID', 'i8'), ('ProgIndex', 'i4'), ('ProgNumber', 'i4'), (mass_key, 'f8')]
     if new_halos is None:
@@ -322,21 +369,26 @@ def HybridGrowth(
         next_host_data['ProgIndex'] = np.full(n_new, -1, dtype = 'i4')
         next_host_data[mass_key] = new_halos
     #
+    pool_data, pool_list_chunk = None, [[] for i in range(snap_max + 1)]
+    #
     for snap in range(snap_max, snap_min - 1, -1):
         host_data_raw, prog_data_raw = ReadHaloData(
             hc_path, hc_prefix, snap, mass_key, comm, master_rank
         )
         host_chunk, prog_chunk = ScatterData(
-            host_data_raw, prog_data_raw, next_host_data, mass_key, m_cut, comm, master_rank
+            host_data_raw, prog_data_raw, next_host_data, pool_data,
+            mass_key, m_cut, comm, master_rank
         )
         z_root, t_root = redshifts[snap], ages[snap]
         z_target, t_target = redshifts[snap - 1], ages[snap - 1]
         new_prog_chunk, next_host_chunk, stats_chunk = AugmentChunk(
-            host_chunk, prog_chunk, mass_key, snap, z_root, t_root, z_target, t_target,
-            redshifts, ages, halo_kit, m_cut, m_res, params_ag, params_mc, rstate, n_base, comm
+            host_chunk, prog_chunk, pool_list_chunk, mass_key, snap,
+            z_root, t_root, z_target, t_target, redshifts, ages,
+            halo_kit, m_cut, m_res, params_ag, params_mc, rstate, n_base, comm
         )
-        host_data, prog_data, next_host_data, stats_data = GatherData(
-            host_chunk, new_prog_chunk, next_host_chunk, stats_chunk, comm, master_rank
+        host_data, prog_data, next_host_data, pool_data, stats_data = GatherData(
+            host_chunk, new_prog_chunk, next_host_chunk,
+            pool_list_chunk[snap - 1], stats_chunk, comm, master_rank
         )
         SaveData(
             out_path, out_prefix, host_data, prog_data, stats_data, snap, comm, master_rank
