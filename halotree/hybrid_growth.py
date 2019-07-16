@@ -28,7 +28,8 @@ def ReadHaloData(path, prefix, snap, mass_key, comm, master_rank):
 
 
 def ScatterData(
-    host_data_raw, prog_data_raw, next_host_data, pool_data, mass_key, m_cut, comm, master_rank
+    host_data_raw, prog_data_raw, next_host_data, pool_data,
+    mass_key, m_cut, filters, comm, master_rank
 ):
     """
     Scatter the raw data to different cores.
@@ -65,9 +66,14 @@ def ScatterData(
     if i_rank == master_rank:
         if pool_data is None:
             host_data = host_data_raw[host_data_raw[mass_key] > m_cut]
+            host_data = host_data.to_records()
+            cond = np.full(len(host_data), True)
+            for key, item in filters.items():
+                cond &= item(host_data[key])
+            host_data = host_data[cond]
         else:
             host_data = host_data_raw.loc[pool_data]
-        host_data = host_data.to_records()
+            host_data = host_data.to_records()
         host_data = np.asarray(
             host_data[list(next_host_data.dtype.names)], dtype = next_host_data.dtype
         )
@@ -354,7 +360,7 @@ def AugmentChunk(
 def HybridGrowth(
     hc_path, hc_prefix, out_path, out_prefix, snap_min, snap_max, mass_key,
     redshifts, ages, halo_kit, m_cut, m_res, params_ag, params_mc, new_halos = None,
-    seed = 209204, n_base = 5000, comm = None, master_rank = 0
+    filters = {}, seed = 209204, n_base = 5000, comm = None, master_rank = 0
 ):
     rstate = CreateRandomState(seed, comm)
     m_cut = params_ag['m_min_cut']
@@ -377,7 +383,7 @@ def HybridGrowth(
         )
         host_chunk, prog_chunk = ScatterData(
             host_data_raw, prog_data_raw, next_host_data, pool_data,
-            mass_key, m_cut, comm, master_rank
+            mass_key, m_cut, filters, comm, master_rank
         )
         z_root, t_root = redshifts[snap], ages[snap]
         z_target, t_target = redshifts[snap - 1], ages[snap - 1]
