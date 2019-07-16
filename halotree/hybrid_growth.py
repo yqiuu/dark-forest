@@ -164,37 +164,20 @@ def NewID(n_halo, snap, offset):
     return -new_id
 
 
-def InitialPrune(m_prog, s_prog, m_root, t_root, t_target, ages, m_cut):
+def InterploateMass(m_prog, s_prog, m_root, t_root, t_target, ages):
     """
-    Inplace change `m_prog` following the steps:
-        1) Interploate the mass of the most massive progenitor with time.
-        2) Sort the progenitor by mass.
+    Interploate the mass of the most massive progenitor with time. (inplace)
     """
     if len(m_prog) > 0:
-        # Interpolate the mass of the most massive progenitor with time
         ind_primary = np.argmax(m_prog)
         m_primary = m_prog[ind_primary]
         t_primary = ages[s_prog[ind_primary]]
         m_intp = m_root + (m_primary - m_root)/(t_primary - t_root)*(t_target - t_root)
         m_prog[ind_primary] = m_intp
-        # Sort progenitors by mass
-        m_prog[::-1].sort()
-
-
-def InterploateMass(prog, mass_key, m_root, t_root, t_target, ages):
-    if len(prog) > 0:
-        # Soort progenitor by mass
-        prog[::-1].sort(order = mass_key)
-        # Interpolate the mass of the most massive progenitor with time
-        m_primary = prog[mass_key][0]
-        t_primary = ages[prog['Snap'][0]]
-        m_intp = m_root + (m_primary - m_root)/(t_primary - t_root)*(t_target - t_root)
-        prog[mass_key][0] = m_intp
 
 
 def Augment(
-    host, prog, mass_key, m_root, z_root, z_target,
-    halo_kit, m_res, params_ag, params_mc, rstate, n_base
+    halo_kit, m_root, z_root, m_prog, z_target, m_res, params_ag, params_mc, rstate, n_base
 ):
     """
     Given a pruned branch, generate Monte Carlo tree to find a match.
@@ -204,14 +187,12 @@ def Augment(
     m_max_cut = params_ag['m_max_cut']
     eps_cut = params_ag['eps_cut']
     n_trail_cut = params_ag['n_trail_cut']
-    
+
     eps_match = eps_match_0 = params_ag['eps_match']
     n_trail_match = params_ag['n_trail_match']
 
     n_max_trail = params_ag['n_max_trail']
     # Initialise loop variables
-    m_prog = prog[mass_key]
-
     m_cut = m_min_cut
     next_level = 1
     initial_fit = -1.
@@ -220,6 +201,8 @@ def Augment(
     n_cut = 0
     n_match = 0
     n_trail = 0
+    # Sort progenitors by mass
+    m_prog[::-1].sort()
     #
     while True:
         # Relax matching condition
@@ -234,9 +217,7 @@ def Augment(
             else:
                 m_cut = m_max_cut
             # Apply mass cut
-            prog = prog[m_prog > m_cut]
-            host['ProgNumber'] = len(prog)
-            m_prog = prog[mass_key]
+            m_prog = m_prog[m_prog > m_cut]
         elif n_match == n_trail_match:
             n_cut = 0
             n_match = 0
@@ -260,7 +241,7 @@ def Augment(
             n_trail += 1
         # Check matching condition
         n_prog = len(m_prog)
-        if n_prog_trail >= n_prog and all(m_prog_trail[n_prog:] < m_cut):
+        if n_prog_trail >= n_prog:
             fit_arr = abs(m_prog_trail[:n_prog]/m_prog - 1.)
             if all(fit_arr < eps_match):
                 m_prog_new = m_prog_trail[n_prog:]
@@ -275,7 +256,8 @@ def Augment(
                 n_match += 1
         else:
             n_cut += 1
-    return prog, m_prog_new, m_cut, eps_match, n_trail
+    m_prog_new = m_prog_new[m_prog_new < m_cut]
+    return m_prog_new, m_cut, eps_match, n_trail
 
 
 def AugmentChunk(
@@ -311,10 +293,10 @@ def AugmentChunk(
             eps_match_fix = params_ag['eps_match']
             n_trail = 0
         else:
-            InterploateMass(prog, mass_key, m_root, t_root, t_target, ages)
-            prog, m_unres, m_cut_fix, eps_match_fix, n_trail = Augment(
-                host, prog, mass_key, m_root, z_root, z_target,
-                halo_kit, m_res, params_ag, params_mc, rstate, n_base
+            InterploateMass(m_prog, prog['Snap'], m_root, t_root, t_target, ages)
+            m_unres, m_cut_fix, eps_match_fix, n_trail = Augment(
+                halo_kit, m_root, z_root, m_prog, z_target,
+                m_res, params_ag, params_mc, rstate, n_base
             )
         stats_chunk[i_chunk] = m_cut_fix, eps_match_fix, n_trail
         # Create new progenitor and next host data
