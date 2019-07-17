@@ -211,34 +211,47 @@ def SaveHaloConnector(handler, snap_min, snap_max, mass_key, path = './', prefix
 
 
 def ReadHaloConnector(
-    path, prefix, indices, snap_min, snap_max, mass_key, redshifts, progress_bar = False
+    path, prefix, snap_min, snap_max, mass_key, redshifts, filters = {}, progress_bar = False
 ):
-    # Read Progenitors
-    logger.info("Select %d halos at snapshot %d"%(len(indices), snap_max))
+    # Select host halos
+    fname = os.path.join(path, '%s_%03d.hdf5'%(prefix, snap_max))
+    host_data = pd.read_hdf(
+        fname, 'Host', mode = "r", columns = ['ProgIndex', 'ProgNumber', mass_key]
+    )
+    cond = np.full(len(host_data), True)
+    for key, item in filters.items():
+        cond &= item(host_data[key])
+    n_host = np.sum(cond)
+    logger.info("Select %d halos at snapshot %d"%(n_host, snap_max))
+    # Create progress bar
     snap_range = range(snap_max, snap_min - 1, -1)
     if progress_bar:
-        snap_range = tqdm(snap_range, desc = "Reading progenitors of %d halos"%len(indices))
+        snap_range = tqdm(snap_range, desc = "Reading progenitors of %d halos"%n_host)
+    #
     for snap in snap_range:
         logger.info("Read snapshot %d"%snap)
         z = redshifts[snap - 1]
+        fname = os.path.join(path, '%s_%03d.hdf5'%(prefix, snap))
         # Read data
         with pd.HDFStore(os.path.join(path, '%s_%03d.hdf5'%(prefix, snap))) as store:
             prog_data = pd.read_hdf(store, 'Prog', columns = ['Snap', mass_key]).to_records()
-            host_data = pd.read_hdf(store, 'Host', columns = ['ProgIndex', 'ProgNumber', mass_key])
-        if snap == snap_max:
-            # Initialise root halos and the pool to read progenitors
-            z_root = redshifts[snap_max]
-            indices = np.ravel(indices)
-            halo_id_arr = host_data.index[indices]
-            m_root_arr = host_data.loc[halo_id_arr, mass_key]
-            tree_arr = np.empty(len(indices), dtype = object)
-            pool = [[] for i_snap in range(snap_max + 1)]
-            for i_tree, (halo_id, m_root) in enumerate(zip(halo_id_arr, m_root_arr)):
-                tree = HaloMergeTree(method = 'empty', n_base = 10**4)
-                tree.SetRedshifts(redshifts)
-                tree.Append(z_root, m_root)
-                tree_arr[i_tree] = tree
-                pool[snap_max].append((i_tree, 0, halo_id))
+            if snap != snap_max:
+                host_data = pd.read_hdf(
+                    store, 'Host', columns = ['ProgIndex', 'ProgNumber', mass_key]
+                )
+            else:
+                # Initialise root halos and the pool to read progenitors
+                z_root = redshifts[snap_max]
+                halo_id_arr = host_data.index[cond]
+                m_root_arr = host_data.loc[halo_id_arr, mass_key]
+                tree_arr = np.empty(n_host, dtype = object)
+                pool = [[] for i_snap in range(snap_max + 1)]
+                for i_tree, (halo_id, m_root) in enumerate(zip(halo_id_arr, m_root_arr)):
+                    tree = HaloMergeTree(method = 'empty', n_base = 10**4)
+                    tree.SetRedshifts(redshifts)
+                    tree.Append(z_root, m_root)
+                    tree_arr[i_tree] = tree
+                    pool[snap_max].append((i_tree, 0, halo_id))
         # Trace progenitors
         current_pool = np.asarray(pool[snap])
         if len(current_pool) == 0:
