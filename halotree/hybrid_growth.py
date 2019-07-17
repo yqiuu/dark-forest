@@ -48,10 +48,14 @@ def ScatterData(
         next_host_data: numpy structured array
             Extra host halo data. These can be from manually added halos or new
             halos generated in a previous snapshot.
+        pool_data: list
+            Indices to select host halos.
         mass_key: string
             The name of the mass key.
         m_cut: float
             The mass cut applied to the host halos.
+        filters: dict
+            Functions to select host halos at the first snapshot.
         comm: MPI.Comm
             An MPI communicator. Use `None` when MPI is not used.
         master_rank: int
