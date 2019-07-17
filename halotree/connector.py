@@ -211,7 +211,8 @@ def SaveHaloConnector(handler, snap_min, snap_max, mass_key, path = './', prefix
 
 
 def ReadHaloConnector(
-    path, prefix, snap_min, snap_max, mass_key, redshifts, filters = {}, progress_bar = False
+    path, prefix, snap_min, snap_max, mass_key, redshifts, filters = {},
+    progress_bar = False, kwargs_tqdm = {}
 ):
     # Select host halos
     fname = os.path.join(path, '%s_%03d.hdf5'%(prefix, snap_max))
@@ -222,17 +223,17 @@ def ReadHaloConnector(
     for key, item in filters.items():
         cond &= item(host_data[key])
     n_host = np.sum(cond)
-    logger.info("Select %d halos at snapshot %d"%(n_host, snap_max))
     # Create progress bar
     snap_range = range(snap_max, snap_min - 1, -1)
     if progress_bar:
-        snap_range = tqdm(snap_range, desc = "Reading progenitors of %d halos"%n_host)
+        snap_range = tqdm(
+            snap_range, desc = "Reading progenitors of %d halos"%n_host, **kwargs_tqdm
+        )
     #
     for snap in snap_range:
-        logger.info("Read snapshot %d"%snap)
         z = redshifts[snap - 1]
         # Read data
-        with pd.HDFStore(os.path.join(path, '%s_%03d.hdf5'%(prefix, snap))) as store:
+        with pd.HDFStore(os.path.join(path, '%s_%03d.hdf5'%(prefix, snap)), "r") as store:
             prog_data = pd.read_hdf(store, 'Prog', columns = ['Snap', mass_key]).to_records()
             if snap != snap_max:
                 host_data = pd.read_hdf(
