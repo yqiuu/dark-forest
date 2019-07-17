@@ -217,7 +217,7 @@ def Augment(
             else:
                 m_cut = m_max_cut
             # Apply mass cut
-            m_prog = m_prog[m_prog > m_cut]
+            m_prog = m_prog[m_prog >= m_cut]
         elif n_match == n_trail_match:
             n_cut = 0
             n_match = 0
