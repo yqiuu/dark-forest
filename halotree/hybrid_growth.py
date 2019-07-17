@@ -335,7 +335,7 @@ def AugmentChunk(
 
 def HybridGrowth(
     hc_path, hc_prefix, out_path, out_prefix, snap_min, snap_max, mass_key,
-    redshifts, ages, halo_kit, m_cut, m_res, params_ag, params_mc, new_halos = None,
+    redshifts, ages, halo_kit, m_res, params_ag, params_mc, new_halos = None,
     filters = {}, seed = 209204, n_base = 5000, comm = None, master_rank = 0
 ):
     rstate = CreateRandomState(seed, comm)
