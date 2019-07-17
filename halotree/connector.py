@@ -231,7 +231,6 @@ def ReadHaloConnector(
     for snap in snap_range:
         logger.info("Read snapshot %d"%snap)
         z = redshifts[snap - 1]
-        fname = os.path.join(path, '%s_%03d.hdf5'%(prefix, snap))
         # Read data
         with pd.HDFStore(os.path.join(path, '%s_%03d.hdf5'%(prefix, snap))) as store:
             prog_data = pd.read_hdf(store, 'Prog', columns = ['Snap', mass_key]).to_records()
