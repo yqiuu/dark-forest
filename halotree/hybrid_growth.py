@@ -287,17 +287,11 @@ def AugmentChunk(
             # Fix host data
             host['ProgNumber'] = len(prog)
         m_prog = np.copy(prog[mass_key])
-        if any(m_prog > m_root):
-            m_unres = np.array([], dtype = 'f8')
-            m_cut_fix = m_cut
-            eps_match_fix = params_ag['eps_match']
-            n_trail = 0
-        else:
-            InterploateMass(m_prog, prog['Snap'], m_root, t_root, t_target, ages)
-            m_unres, m_cut_fix, eps_match_fix, n_trail = Augment(
-                halo_kit, m_root, z_root, m_prog, z_target,
-                m_res, params_ag, params_mc, rstate, n_base
-            )
+        InterploateMass(m_prog, prog['Snap'], m_root, t_root, t_target, ages)
+        m_unres, m_cut_fix, eps_match_fix, n_trail = Augment(
+            halo_kit, m_root, z_root, m_prog, z_target,
+            m_res, params_ag, params_mc, rstate, n_base
+        )
         stats_chunk[i_chunk] = m_cut_fix, eps_match_fix, n_trail
         # Create new progenitor and next host data
         n_unres = len(m_unres)
