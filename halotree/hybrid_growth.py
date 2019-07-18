@@ -194,7 +194,6 @@ def Augment(
     n_trail_cut = params_ag['n_trail_cut']
     eps_match = eps_match_0 = params_ag['eps_match']
     n_trail_match = params_ag['n_trail_match']
-    eps_balance = params_ag['eps_balance']
     n_max_trail = params_ag['n_max_trail']
     # Initialise loop variables
 
@@ -247,13 +246,13 @@ def Augment(
             n_trail += 1
         # Check matching condition
         n_prog = len(m_prog)
+        m_prog_new = m_prog_trail[n_prog:]
         if n_prog == 0:
             break
         if n_prog_trail >= n_prog:
             fit_arr = abs(m_prog_trail[:n_prog]/m_prog - 1.)
             if all(fit_arr < eps_match):
-                fit_balance = abs(np.sum(m_prog_trail[m_prog_trail > m_cut])/np.sum(m_prog) - 1)
-                if fit_balance < eps_balance:
+                if all(m_prog_new < m_cut):
                     break
                 else:
                     n_cut += 1
@@ -267,7 +266,6 @@ def Augment(
                 n_match += 1
         else:
             n_cut += 1
-    m_prog_new = m_prog_trail[n_prog:]
     return prog, m_prog_new, m_cut, eps_match, n_trail
 
 
