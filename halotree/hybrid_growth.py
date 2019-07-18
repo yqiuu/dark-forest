@@ -181,7 +181,8 @@ def InterploateMass(m_prog, s_prog, m_root, t_root, t_target, ages):
 
 
 def Augment(
-    halo_kit, m_root, z_root, m_prog, z_target, m_res, params_ag, params_mc, rstate, n_base
+    host, prog, mass_key, m_root, z_root, z_target,
+    halo_kit, m_res, params_ag, params_mc, rstate, n_base
 ):
     """
     Given a pruned branch, generate Monte Carlo tree to find a match.
@@ -191,12 +192,12 @@ def Augment(
     m_max_cut = params_ag['m_max_cut']
     eps_cut = params_ag['eps_cut']
     n_trail_cut = params_ag['n_trail_cut']
-
     eps_match = eps_match_0 = params_ag['eps_match']
     n_trail_match = params_ag['n_trail_match']
-
+    eps_balance = params_ag['eps_balance']
     n_max_trail = params_ag['n_max_trail']
     # Initialise loop variables
+
     m_cut = m_min_cut
     next_level = 1
     initial_fit = -1.
@@ -206,14 +207,14 @@ def Augment(
     n_match = 0
     n_trail = 0
     # Sort progenitors by mass
-    m_prog[::-1].sort()
+    prog[::-1].sort(order = mass_key)
+    m_prog = prog[mass_key]
     #
     while True:
         # Relax matching condition
         use_best = False
         if n_cut == n_trail_cut:
             n_cut = 0
-            n_match = 0
             best_fit = initial_fit
             if len(m_prog) > 0:
                 m_cut *= (1 + eps_cut)
@@ -221,9 +222,10 @@ def Augment(
             else:
                 m_cut = m_max_cut
             # Apply mass cut
-            m_prog = m_prog[m_prog >= m_cut]
+            prog = prog[prog[mass_key] >= m_cut]
+            host['ProgNumber'] = len(prog)
+            m_prog = prog[mass_key]
         elif n_match == n_trail_match:
-            n_cut = 0
             n_match = 0
             eps_match *= (1 + eps_match_0)
             if best_fit != initial_fit:
@@ -245,11 +247,16 @@ def Augment(
             n_trail += 1
         # Check matching condition
         n_prog = len(m_prog)
+        if n_prog == 0:
+            break
         if n_prog_trail >= n_prog:
             fit_arr = abs(m_prog_trail[:n_prog]/m_prog - 1.)
             if all(fit_arr < eps_match):
-                m_prog_new = m_prog_trail[n_prog:]
-                break
+                fit_balance = abs(np.sum(m_prog_trail[m_prog_trail > m_cut])/np.sum(m_prog) - 1)
+                if fit_balance < eps_balance:
+                    break
+                else:
+                    n_cut += 1
             else:
                 # Save the best fit
                 fit = np.sum(fit_arr);
@@ -260,8 +267,8 @@ def Augment(
                 n_match += 1
         else:
             n_cut += 1
-    m_prog_new = m_prog_new[m_prog_new < m_cut]
-    return m_prog_new, m_cut, eps_match, n_trail
+    m_prog_new = m_prog_trail[n_prog:]
+    return prog, m_prog_new, m_cut, eps_match, n_trail
 
 
 def AugmentChunk(
@@ -292,9 +299,9 @@ def AugmentChunk(
             host['ProgNumber'] = len(prog)
         m_prog = np.copy(prog[mass_key])
         InterploateMass(m_prog, prog['Snap'], m_root, t_root, t_target, ages)
-        m_unres, m_cut_fix, eps_match_fix, n_trail = Augment(
-            halo_kit, m_root, z_root, m_prog, z_target,
-            m_res, params_ag, params_mc, rstate, n_base
+        prog, m_unres, m_cut_fix, eps_match_fix, n_trail = Augment(
+            host, prog, mass_key, m_root, z_root, z_target,
+            halo_kit, m_res, params_ag, params_mc, rstate, n_base
         )
         stats_chunk[i_chunk] = m_cut_fix, eps_match_fix, n_trail
         # Create new progenitor and next host data
