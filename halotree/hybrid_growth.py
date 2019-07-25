@@ -147,7 +147,7 @@ def GatherData(
         return None, None, None, None, None
 
 
-def SaveData(path, prefix, host_data, prog_data, stats_data, snap, comm, master_rank):
+def SaveData(path, prefix, host_data, prog_data, stats_data, snap, snap_min, comm, master_rank):
     if comm is None or comm.Get_rank() == master_rank:
         prog_data = np.concatenate(prog_data)
         df_prog = pd.DataFrame(prog_data)
@@ -161,6 +161,17 @@ def SaveData(path, prefix, host_data, prog_data, stats_data, snap, comm, master_
         with pd.HDFStore(os.path.join(path, '%s_%03d.hdf5'%(prefix, snap)), "w") as store:
             store.append('Prog', df_prog)
             store.append('Host', df_host)
+        # Save host data for the last snapshot
+        if snap - 1 == snap_min:
+            df_last = df_prog.drop(columns = 'Snap')
+            df_last.insert(
+                0, 'ProgIndex', np.full(len(df_last), -1, dtype = df_host.dtypes['ProgIndex'])
+            )
+            df_last.insert(
+                1, 'ProgNumber', np.full(len(df_last), 0, dtype = df_host.dtypes['ProgNumber'])
+            )
+            with pd.HDFStore(os.path.join(path, '%s_%03d.hdf5'%(prefix, snap_min)), "w") as store:
+                store.append('Host', df_last)
 
 
 def NewID(n_halo, snap, offset):
@@ -362,7 +373,7 @@ def HybridGrowth(
     #
     pool_data, pool_list_chunk = None, [[] for i in range(snap_max + 1)]
     #
-    for snap in range(snap_max, snap_min - 1, -1):
+    for snap in range(snap_max, snap_min, -1):
         host_data_raw, prog_data_raw = ReadHaloData(
             hc_path, hc_prefix, snap, mass_key, comm, master_rank
         )
@@ -382,6 +393,7 @@ def HybridGrowth(
             pool_list_chunk[snap - 1], stats_chunk, comm, master_rank
         )
         SaveData(
-            out_path, out_prefix, host_data, prog_data, stats_data, snap, comm, master_rank
+            out_path, out_prefix, host_data, prog_data, stats_data,
+            snap, snap_min, comm, master_rank
         )
 
