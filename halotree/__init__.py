@@ -1,6 +1,7 @@
 from .halotree import *
 from .connector import *
 from .sampler import *
+from .spin import *
 from .plain_growth import *
 from .hybrid_growth import *
 
