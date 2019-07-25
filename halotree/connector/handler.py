@@ -114,6 +114,13 @@ class VELOCIraptorHandler(SimHandler):
         return cosmo.age(self.Redshifts(snap_max)).value*1e3
 
 
+    def HostID(self, n = 1):
+        if n == 1:
+            return -1
+        else:
+            return np.full(n, -1, dtype = self.data_type['hostHaloID'])
+
+
     def MaxForestID(self):
         self.CacheSnapshot(0)
         forest_id_max = max(self['ForestID'])
