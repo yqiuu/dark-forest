@@ -10,7 +10,8 @@ import pandas as pd
 
 __all__ = [
     'SaveHaloConnector',
-    'ReadHaloConnector'
+    'ReadHaloConnector',
+    'KeyLookup'
 ]
 
 
@@ -154,3 +155,24 @@ def ReadHaloConnector(
                 idx_node_prev = idx_node_new
         pool[snap] = None
     return tree_arr
+
+
+def KeyLookup(store, columns):
+    all_columns = []
+    keys = list(store.keys())
+    if '/Prog' in keys:
+        keys.remove('/Prog')
+    lookup = {k:[] for k in keys}
+    for k in keys:
+        for col in pd.read_hdf(store, k, start = 0, stop = 0).columns:
+            all_columns.append(col)
+            if col in columns:
+                lookup[k].append(col)
+    uni_columns, counts = np.unique(all_columns, return_counts = True)
+    dup_columns = uni_columns[counts > 1]
+    if len(dup_columns) > 0:
+        raise ValueError("Duplicated columns: " + ", ".join(["'%s'"%name for name in dup_columns]))
+    missing = [col for col in columns if col not in uni_columns]
+    if len(missing) > 0:
+        raise KeyError("Missing columns: " +  ", ".join(["'%s'"%name for name in missing]))
+    return lookup
