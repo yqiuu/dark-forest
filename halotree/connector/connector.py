@@ -11,7 +11,7 @@ import pandas as pd
 __all__ = [
     'SaveHaloConnector',
     'ReadHaloConnector',
-    'KeyLookup'
+    'ColumnLookup'
 ]
 
 
@@ -157,7 +157,7 @@ def ReadHaloConnector(
     return tree_arr
 
 
-def KeyLookup(store, columns):
+def ColumnLookup(store, columns):
     all_columns = []
     keys = list(store.keys())
     if '/Prog' in keys:
