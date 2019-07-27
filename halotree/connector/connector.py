@@ -175,4 +175,8 @@ def ColumnLookup(store, columns):
     missing = [col for col in columns if col not in uni_columns]
     if len(missing) > 0:
         raise KeyError("Missing columns: " +  ", ".join(["'%s'"%name for name in missing]))
+    keys.remove('/Host')
+    for k in keys:
+        if len(lookup[k]) == 0:
+            del lookup[k]
     return lookup
