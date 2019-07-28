@@ -1,5 +1,6 @@
 from .halotree import *
 from .connector import *
+from .constructor import *
 from .sampler import *
 from .spin import *
 from .plain_growth import *
