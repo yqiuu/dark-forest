@@ -50,6 +50,7 @@ class SpinConstructor(Constructor):
         handler, hc_path, hc_prefix, snap_min, snap_max, hdf_key, spin_key, spin_sampler,
         progress_bar = True, kwargs_tqdm = {}
     ):
+        kwargs_tqdm.update(desc = 'Adding spin parameters')
         super().__init__(
             handler = handler,
             hc_path = hc_path,
