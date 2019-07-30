@@ -1,6 +1,7 @@
 import os
 from abc import ABC, abstractmethod
 
+from ..utils import SnapRange
 from ..logger import CreateLogger
 from ..halotree import *
 
@@ -11,7 +12,8 @@ import pandas as pd
 __all__ = [
     'SaveHaloConnector',
     'ReadHaloConnector',
-    'ColumnLookup'
+    'ColumnLookup',
+    'RemoveKey'
 ]
 
 
@@ -180,3 +182,13 @@ def ColumnLookup(store, columns):
         if len(lookup[k]) == 0:
             del lookup[k]
     return lookup
+
+
+def RemoveKey(hc_path, hc_prefix, snap_min, snap_max, key, progress_bar = True, kwargs_tqdm = {}):
+    if key in ['Host', '/Host', 'Prog', '/Prog']:
+        raise KeyError("'%s' is a protected key"%key)
+    for snap in SnapRange(
+        snap_min, snap_max + 1, progress_bar = True, desc = "Removing '%s'"%key, **kwargs_tqdm
+    ):
+        with pd.HDFStore(os.path.join(hc_path, '%s_%03d.hdf5'%(hc_prefix, snap))) as store:
+            store.remove(key)
