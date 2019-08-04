@@ -20,7 +20,7 @@ def AddSpin(
     handler, hc_path, hc_prefix, snap_min, snap_max, spin_key, spin_sampler,
     progress_bar = True, kwargs_tqdm = {}
 ):
-    redshifts = handler.Redshifts()
+    redshifts = handler.redshifts
     pool = {}
     # Create progress bar
     snap_range = range(snap_min, snap_max + 1)

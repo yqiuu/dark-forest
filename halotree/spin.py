@@ -31,4 +31,4 @@ class KernelSpinSampler(SpinSampler):
 
     def __init__(self, handler):
         self.handler = handler
-        self.redshifs = handler.Redshifts()
+        self.redshifs = handler.redshifts

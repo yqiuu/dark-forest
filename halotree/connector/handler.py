@@ -1,4 +1,5 @@
 import os
+from copy import deepcopy
 from abc import ABC, abstractmethod
 
 from ..halotree import *
@@ -42,32 +43,132 @@ class SimHandler(ABC):
 
 
 class VELOCIraptorHandler(SimHandler):
-    def _GetDataType(self):
-        data_type = {}
-        with h5py.File(self.fname, "r") as fp:
-            dataset = fp.get('Snap_000')
-            for key in list(dataset.keys()):
-                data_type[key] = dataset[key].dtype
-        self.data_type = data_type
+    @property
+    def little_h(self):
+        try:
+            return self._little_h
+        except AttributeError:
+            self._little_h = self.fp.get('Header')['Simulation'].attrs['h_val']
+            return self._little_h
 
 
-    def HubbleConstant(self):
-        return self.fp.get('Header')['Simulation'].attrs['h_val']
+    @property
+    def omega_m(self):
+        try:
+            return self._omega_m
+        except AttributeError:
+            self._omega_m = self.fp.get('Header')['Simulation'].attrs['Omega_m']
+            return self._omega_m
 
 
-    def OmegaM(self):
-        return self.fp.get('Header')['Simulation'].attrs['Omega_m']
+    @property
+    def cosmo_params(self):
+        try:
+            return dict(self._cosmo_params)
+        except AttributeError:
+            self._cosmo_params = {'H0':100*self.little_h, 'Om0':self.omega_m}
+            return dict(self._cosmo_params)
 
 
-    def Volume(self):
-        boxsize = self.fp.get('Header')['Simulation'].attrs['Period']
-        return boxsize*boxsize*boxsize
+    @property
+    def volume(self):
+        try:
+            return self._volume
+        except AttributeError:
+            boxsize = self.fp.get('Header')['Simulation'].attrs['Period']
+            self._volume = boxsize*boxsize*boxsize
+            return self._volume
+
+
+    @property
+    def data_type(self):
+        try:
+            return dict(self._data_type)
+        except AttributeError:
+            data_type = {}
+            with h5py.File(self.fname, "r") as fp:
+                dataset = fp.get('Snap_000')
+                for key in list(dataset.keys()):
+                    data_type[key] = dataset[key].dtype
+            self._data_type = data_type
+            return dict(self._data_type)
+
+
+    @property
+    def mass_conversion(self):
+        """
+        Returns
+        -------
+        float:
+            A mass conversion factor to 10^10 h^-1 M_solar.
+        """
+        try:
+            return self._mass_coversion
+        except AttributeError:
+            return 1e10*self.little_h
+
+
+    @property
+    def n_snap(self):
+        try:
+            return self._n_snap
+        except AttributeError:
+            n_snap = 0
+            keys = list(self.fp.keys())
+            for k in keys:
+                if k.startswith('Snap'):
+                    n_snap += 1
+            self._n_snap = n_snap
+            return n_snap
+
+
+    @property
+    def redshifts(self):
+        try:
+            return np.array(self._redshifts)
+        except AttributeError:
+            n_snap = self.n_snap
+            redshifts = np.zeros(n_snap)
+            for snap in range(n_snap):
+                redshifts[snap] = 1./self.fp.get('Snap_%03d'%snap).attrs['scalefactor'] - 1.
+            self._redshifts = redshifts
+            return np.array(self._redshifts)
+
+
+    @property
+    def ages(self):
+        """
+        Returns
+        -------
+        array [Myr]
+            Age of the universe at each time step
+        """
+        try:
+            return np.array(self._ages)
+        except AttributeError:
+            cosmo = FlatLambdaCDM(**self.cosmo_params)
+            self._ages = cosmo.age(self.redshifts).value*1e3
+            return np.array(self._ages)
+
+
+    @property
+    def forest_id_max(self):
+        try:
+            return self._forest_id_max
+        except AttributeError:
+            self.CacheSnapshot(0) # Assume that the snapshot starts at zero
+            forest_id_max = max(self['ForestID'])
+            for snap in range(1, self.n_snap):
+                self.CacheSnapshot(snap)
+                forest_id_max = max(forest_id_max, *self['ForestID'])
+            self._forest_id_max = forest_id_max
+            return forest_id_max
 
 
     def HaloKit(self, **kwargs):
         params = {'Mmin':5, 'dlog10m':0.05}
         params.update(kwargs)
-        params['cosmo_params'] = {'H0':100*self.HubbleConstant(), 'Om0':self.OmegaM()}
+        params['cosmo_params'] = self.cosmo_params
         # The following two parameters cannot be directly read from the output
         params['sigma_8'] = 0.815
         params['n'] = 0.9653
@@ -75,61 +176,11 @@ class VELOCIraptorHandler(SimHandler):
         return HaloKit(hmf), hmf
 
 
-    def MassConversion(self):
-        """
-        Returns
-        -------
-        float:
-            A mass conversion factor to 10^10 h^-1 M_solar.
-        """
-        return 1e10*self.HubbleConstant()
-
-
-    def NSnap(self):
-        n_snap = 0
-        keys = list(self.fp.keys())
-        for k in keys:
-            if k.startswith('Snap'):
-                n_snap += 1
-        return n_snap
-
-
-    def Redshifts(self, snap_max = -1):
-        if snap_max == -1:
-            n_snap = self.NSnap()
-        else:
-            n_snap = snap_max + 1
-        redshifts = np.zeros(n_snap)
-        for snap in range(n_snap):
-            redshifts[snap] = 1./self.fp.get('Snap_%03d'%snap).attrs['scalefactor'] - 1.
-        return redshifts
-
-
-    def Ages(self, snap_max = -1):
-        """
-        Returns
-        -------
-        array [Myr]
-            Age of the universe at each time step
-        """
-        cosmo = FlatLambdaCDM(H0 = 100*self.HubbleConstant(), Om0 = self.OmegaM())
-        return cosmo.age(self.Redshifts(snap_max)).value*1e3
-
-
     def HostID(self, n = 1):
         if n == 1:
             return -1
         else:
             return np.full(n, -1, dtype = self.data_type['hostHaloID'])
-
-
-    def MaxForestID(self):
-        self.CacheSnapshot(0)
-        forest_id_max = max(self['ForestID'])
-        for snap in range(1, self.NSnap()):
-            self.CacheSnapshot(snap)
-            forest_id_max = max(forest_id_max, *self['ForestID'])
-        return forest_id_max
 
 
     def CacheSnapshot(self, snap):
@@ -156,4 +207,3 @@ class VELOCIraptorHandler(SimHandler):
 
     def __init__(self, fname):
         self.fname = fname
-        self._GetDataType()

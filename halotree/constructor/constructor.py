@@ -64,7 +64,7 @@ class Constructor(ABC):
         inherit = self.inherit
         read_prog = self.read_prog
         #
-        redshifts = handler.Redshifts()
+        redshifts = handler.redshifts
         for snap in _snap_range:
             z = redshifts[snap]
             handler.CacheSnapshot(snap)
