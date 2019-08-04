@@ -43,6 +43,33 @@ class Constructor(ABC):
 
     @abstractmethod
     def AddProperty(self, df_inh, df_req, list_prog, snap, z):
+        """
+        Parameters
+        ----------
+            df_inh: pandas.DataFrame:
+                Requested data read from the handler.
+
+                column:
+                    If `inherit` = True, columns are specified by `col_new`.
+                    If 'inherit` = False, there will be no column.
+                index:
+                    Halo ID of all simulation host halos stored in the halo
+                    connector and all sub halos read from the handler.
+            df_req: pandas.DataFrame
+                Requested data read from the halo connector.
+
+                column:
+                    Specified by `col_req`.
+                index:
+                    The same with those stored in the halo connector.
+            list_prog: list
+                Progenitor data read from the halo connector.
+            snap: int
+                Snapshot number that the data should be read at.
+            z: float
+                Redshift of the given snapshot.
+        """
+
         # Load local variables
         col_new = self.col_new
         #
