@@ -7,6 +7,7 @@ from ..halotree import *
 import numpy as np
 import pandas as pd
 import h5py
+from astropy import units as u
 from astropy.cosmology import FlatLambdaCDM
 from hmf.hmf import MassFunction
 
@@ -106,6 +107,16 @@ class VELOCIraptorHandler(SimHandler):
             return self._mass_coversion
         except AttributeError:
             return 1e10*self.little_h
+
+
+    @property
+    def mass_unit(self):
+        return 1e10*u.solMass
+
+
+    @property
+    def radius_unit(self):
+        return u.megaparsec
 
 
     @property
