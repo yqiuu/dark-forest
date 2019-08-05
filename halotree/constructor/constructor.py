@@ -121,7 +121,11 @@ class Constructor(ABC):
         with pd.HDFStore(os.path.join(hc_path, '%s_%03d.hdf5'%(hc_prefix, snap_min))) as store:
             self.column_lookup = ColumnLookup(store, col_req)
         if forward:
-            snap_range = SnapRange(snap_min, snap_max + 1, progress_bar = True, **kwargs_tqdm)
+            snap_range = SnapRange(
+                snap_min, snap_max + 1, progress_bar = progress_bar, **kwargs_tqdm
+            )
         else:
-            snap_range = SnapRange(snap_max, snap_min - 1, -1, progress_bar = True, **kwargs_tqdm)
+            snap_range = SnapRange(
+                snap_max, snap_min - 1, -1, progress_bar = progress_bar, **kwargs_tqdm
+            )
         self._snap_range = snap_range
