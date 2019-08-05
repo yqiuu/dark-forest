@@ -45,7 +45,7 @@ class Constructor(ABC):
 
 
     @abstractmethod
-    def AddProperty(self, df_inh, df_req, list_prog, snap, z):
+    def _AddProperty(self, df_inh, df_req, list_prog, snap, z):
         """
         Parameters
         ----------
@@ -105,7 +105,7 @@ class Constructor(ABC):
                     list_prog = None
                 df_req = self._PrepareReqData(store)
                 df_inh = self._PrepareInhData(df_req.index[df_req.index >= 0])
-                df_new = self.AddProperty(df_inh, df_req, list_prog, snap, z)
+                df_new = self._AddProperty(df_inh, df_req, list_prog, snap, z)
                 df_new.to_hdf(store, key_new) 
 
 

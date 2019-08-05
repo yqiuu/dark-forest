@@ -13,7 +13,7 @@ class VirialConstructor(Constructor):
         return 18.*np.pi*np.pi + 82.*x - 39.*x*x
 
     
-    def AddProperty(self, df_inh, df_req, list_prog, snap, z):
+    def _AddProperty(self, df_inh, df_req, list_prog, snap, z):
         # Load local variables
         col_m_vir = self.col_m_vir
         col_r_vir = self.col_r_vir

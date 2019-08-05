@@ -18,7 +18,7 @@ class SpinConstructor(Constructor):
         return spin
 
 
-    def AddProperty(self, df_inh, df_req, list_prog, snap, z):
+    def _AddProperty(self, df_inh, df_req, list_prog, snap, z):
         # Load local variables
         pool = self.pool
         snap_min = self.snap_min
