@@ -56,7 +56,7 @@ class VirialConstructor(Constructor):
         handler, hc_path, hc_prefix, snap_min, snap_max, hdf_key, cols,
         delta_collapse = 200., mode = 'crit', progress_bar = True, kwargs_tqdm = {}
     ):
-        kwargs_tqdm.update(desc = 'Adding virial radii')
+        kwargs_tqdm.update(desc = 'Adding virial properties')
         super().__init__(
             handler = handler,
             hc_path = hc_path,
