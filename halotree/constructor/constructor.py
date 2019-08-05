@@ -32,7 +32,10 @@ class Constructor(ABC):
         df_sim = pd.DataFrame(index = halo_id_sim)
         if inherit:
             for col in col_new:
-                df_sim[col] = handler[col]
+                try:
+                    df_sim[col] = handler[col]
+                except KeyError:
+                    pass
         index_drop = np.setdiff1d(
             halo_id_sim[handler['HostHaloID'] == handler.HostID()],
             host_id_hc, assume_unique = True
