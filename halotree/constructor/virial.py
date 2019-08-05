@@ -3,6 +3,7 @@ from .constructor import Constructor
 import numpy as np
 import pandas as pd
 from astropy import units as u
+from astropy import constants as const
 from astropy.cosmology import FlatLambdaCDM
 
 
@@ -14,11 +15,15 @@ class VirialConstructor(Constructor):
     
     def AddProperty(self, df_inh, df_req, list_prog, snap, z):
         # Load local variables
+        col_m_vir = self.col_m_vir
+        col_r_vir = self.col_r_vir
+        col_v_vir = self.col_v_vir
         delta_collapse = self.delta_collapse
         mode = self.mode
         cosmo = self.cosmo
         mass_conversion = self.mass_conversion
         density_unit = self.density_unit
+        grav_const = self.grav_const
         # Choose halo density
         rho_crit = cosmo.critical_density(z).to(density_unit).value
         if mode == 'vir':
@@ -29,18 +34,26 @@ class VirialConstructor(Constructor):
             rho_halo = delta_collapse*cosmo.Om(z)*rho_crit
         else:
             raise ValueError("Choose mode from `vir`, `crit` and `mean`")
-        #
+        # Compute virial radius
         func_radius = np.vectorize(
-            lambda m_vir:(0.75/np.pi*mass_conversion*m_vir/rho_halo)**(1./3.), df_inh.dtypes
+            lambda m_vir:(0.75/np.pi*m_vir/rho_halo)**(1./3.), 'd'
         )
-        df_req = df_req[df_req.index < 0]
-        df_vir = pd.DataFrame(func_radius(df_req), index = df_req.index, columns = df_inh.columns)
+        func_velocity = np.vectorize(
+            lambda m_vir, r_vir:np.sqrt(grav_const*m_vir/r_vir), 'd'
+        )
+        df_req = df_req[df_req.index < 0]/mass_conversion
+        df_vir = pd.DataFrame(index = df_req.index)
+        if len(df_req) > 0:
+            df_vir[col_r_vir] = func_radius(df_req)
+            df_vir[col_v_vir] = func_velocity(df_req, df_vir)
+        df_inh[col_v_vir] = func_velocity(*df_inh.values.T)
+        df_inh.drop(columns = self.col_m_vir, inplace = True)
         df_vir = df_inh.append(df_vir)
         return df_vir
 
 
     def __init__(self,
-        handler, hc_path, hc_prefix, snap_min, snap_max, hdf_key, mass_key, radius_key,
+        handler, hc_path, hc_prefix, snap_min, snap_max, hdf_key, cols,
         delta_collapse = 200., mode = 'crit', progress_bar = True, kwargs_tqdm = {}
     ):
         kwargs_tqdm.update(desc = 'Adding virial radii')
@@ -51,16 +64,22 @@ class VirialConstructor(Constructor):
             snap_min = snap_min,
             snap_max = snap_max,
             key_new = hdf_key,
-            col_new = [radius_key],
-            col_req = [mass_key],
+            col_new = [cols['m_vir'], cols['r_vir']],
+            col_req = [cols['m_hc']],
             inherit = True,
             read_prog = False,
             forward = True,
             progress_bar = progress_bar,
             kwargs_tqdm = kwargs_tqdm
         )
+        self.col_m_vir = cols['m_vir']
+        self.col_r_vir = cols['r_vir']
+        self.col_v_vir = cols['v_vir']
         self.delta_collapse = delta_collapse
         self.mode = mode
         self.cosmo = FlatLambdaCDM(**handler.cosmo_params)
         self.mass_conversion = handler.mass_conversion
         self.density_unit = handler.mass_unit/handler.radius_unit**3
+        self.grav_const = const.G.to(
+            handler.radius_unit/handler.mass_unit*handler.velocity_unit**2
+        ).value

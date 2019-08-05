@@ -120,6 +120,11 @@ class VELOCIraptorHandler(SimHandler):
 
 
     @property
+    def velocity_unit(self):
+        return u.km/u.second
+
+
+    @property
     def n_snap(self):
         try:
             return self._n_snap
