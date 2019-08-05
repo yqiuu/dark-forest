@@ -25,13 +25,13 @@ class Constructor(ABC):
     def _PrepareInhData(self, host_id_hc):
         # Load local variables
         handler = self.handler
-        col_new = self.col_new
+        col_inh = self.col_inh
         inherit = self.inherit
         # 
         halo_id_sim = handler['ID'].astype(host_id_hc.dtype)
         df_sim = pd.DataFrame(index = halo_id_sim)
         if inherit:
-            for col in col_new:
+            for col in col_inh:
                 try:
                     df_sim[col] = handler[col]
                 except KeyError:
@@ -53,7 +53,7 @@ class Constructor(ABC):
                 Requested data read from the handler.
 
                 column:
-                    If `inherit` = True, columns are specified by `col_new`.
+                    If `inherit` = True, columns are specified by `col_inh`.
                     If 'inherit` = False, there will be no column.
                 index:
                     Halo ID of all simulation host halos stored in the halo
@@ -74,11 +74,11 @@ class Constructor(ABC):
         """
 
         # Load local variables
-        col_new = self.col_new
+        col_inh = self.col_inh
         #
         halo_id_mc = df_req.index[df_req.index < 0]
         df_new = pd.DataFrame(
-            np.zeros([len(halo_id_mc), len(col_new)]), index = halo_id_mc, columns = col_new
+            np.zeros([len(halo_id_mc), len(col_inh)]), index = halo_id_mc, columns = col_inh
         )
         df_new = df_inh.append(df_new)
         return df_new
@@ -110,14 +110,14 @@ class Constructor(ABC):
 
 
     def __init__(self,
-        handler, hc_path, hc_prefix, snap_min, snap_max, key_new, col_new, col_req,
+        handler, hc_path, hc_prefix, snap_min, snap_max, key_new, col_inh, col_req,
         inherit = True, read_prog = False, forward = True, progress_bar = True, kwargs_tqdm = {}
     ):  
         self.handler = handler
         self.hc_path = hc_path
         self.hc_prefix = hc_prefix
         self.key_new = key_new
-        self.col_new = list(col_new)
+        self.col_inh = list(col_inh)
         self.col_req = list(col_req)
         self.inherit = inherit
         self.read_prog = read_prog

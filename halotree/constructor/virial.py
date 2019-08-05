@@ -64,7 +64,7 @@ class VirialConstructor(Constructor):
             snap_min = snap_min,
             snap_max = snap_max,
             key_new = hdf_key,
-            col_new = [cols['m_vir'], cols['r_vir']],
+            col_inh = [cols['m_vir'], cols['r_vir']],
             col_req = [cols['m_hc']],
             inherit = True,
             read_prog = False,

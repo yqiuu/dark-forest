@@ -58,7 +58,7 @@ class SpinConstructor(Constructor):
             snap_min = snap_min,
             snap_max = snap_max,
             key_new = hdf_key,
-            col_new = [spin_key],
+            col_inh = [spin_key],
             col_req = ['ProgIndex', 'ProgNumber'],
             inherit = True,
             read_prog = True,
