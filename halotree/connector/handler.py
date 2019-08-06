@@ -139,6 +139,11 @@ class VELOCIraptorHandler(SimHandler):
 
 
     @property
+    def snap_jump(self):
+        return 6
+
+
+    @property
     def redshifts(self):
         try:
             return np.array(self._redshifts)
@@ -167,20 +172,6 @@ class VELOCIraptorHandler(SimHandler):
             return np.array(self._ages)
 
 
-    @property
-    def forest_id_max(self):
-        try:
-            return self._forest_id_max
-        except AttributeError:
-            self.CacheSnapshot(0) # Assume that the snapshot starts at zero
-            forest_id_max = max(self['ForestID'])
-            for snap in range(1, self.n_snap):
-                self.CacheSnapshot(snap)
-                forest_id_max = max(forest_id_max, *self['ForestID'])
-            self._forest_id_max = forest_id_max
-            return forest_id_max
-
-
     def HaloKit(self, **kwargs):
         params = {'Mmin':5, 'dlog10m':0.05}
         params.update(kwargs)
@@ -197,6 +188,19 @@ class VELOCIraptorHandler(SimHandler):
             return -1
         else:
             return np.full(n, -1, dtype = self.data_type['hostHaloID'])
+
+
+    def MaxForestID(self, snap_max):
+        self.CacheSnapshot(0) # Assume that the snapshot starts at zero
+        forest_id_max = max(self['ForestID'])
+        for snap in range(1, snap_max + 1):
+            self.CacheSnapshot(snap)
+            forest_id_max = max(forest_id_max, *self['ForestID'])
+        return forest_id_max
+
+
+    def NewID(self, snap, inds):
+        return snap*10**12 + inds
 
 
     def CacheSnapshot(self, snap):
