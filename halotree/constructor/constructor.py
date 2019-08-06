@@ -17,7 +17,7 @@ class Constructor(ABC):
         df_req = pd.read_hdf(store, 'Host', columns = column_lookup['/Host'])
         del column_lookup['/Host']
         for key in column_lookup:
-            df_tmp = pd.read_hdf(store, key, columns = col_req_lookup[key])
+            df_tmp = pd.read_hdf(store, key, columns = column_lookup[key])
             df_req = pd.concat([df_req, df_tmp], axis =  1, join = 'inner')
         return df_req
 
@@ -106,7 +106,7 @@ class Constructor(ABC):
                 df_req = self._PrepareReqData(store)
                 df_inh = self._PrepareInhData(df_req.index[df_req.index >= 0])
                 df_new = self._AddProperty(df_inh, df_req, list_prog, snap, z)
-                df_new.to_hdf(store, key_new) 
+                store.append(key_new, df_new)
 
 
     def __init__(self,
