@@ -106,7 +106,7 @@ class Constructor(ABC):
                 df_req = self._PrepareReqData(store)
                 df_inh = self._PrepareInhData(df_req.index[df_req.index >= 0])
                 df_new = self._AddProperty(df_inh, df_req, list_prog, snap, z)
-                store.append(key_new, df_new)
+                df_new.to_hdf(store, key_new, format = 'table')
 
 
     def __init__(self,
