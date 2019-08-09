@@ -191,4 +191,7 @@ def RemoveKey(hc_path, hc_prefix, snap_min, snap_max, key, progress_bar = True, 
         snap_min, snap_max + 1, progress_bar = True, desc = "Removing '%s'"%key, **kwargs_tqdm
     ):
         with pd.HDFStore(os.path.join(hc_path, '%s_%03d.hdf5'%(hc_prefix, snap))) as store:
-            store.remove(key)
+            try:
+                store.remove(key)
+            except KeyError:
+                pass
