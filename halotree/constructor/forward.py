@@ -153,6 +153,7 @@ class ForwardRebuilder(Constructor):
             select_sub_halo = df_inh['HostHaloID'] != handler.HostID()
             halo_id_sub = df_inh.loc[df_inh.loc[select_sub_halo, 'HostHaloID'], 'ID'].values
             df_inh.loc[select_sub_halo, 'HostHaloID'] = halo_id_sub
+            df_inh['Descendant'] = df_inh.loc[df_inh['Descendant'], 'ID']
         else:
             # Generate new Descendant for simulations halos
             df_inh['Descendant'] = list(map(
