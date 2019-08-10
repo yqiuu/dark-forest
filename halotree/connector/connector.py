@@ -187,9 +187,8 @@ def ColumnLookup(store, columns):
 def RemoveKey(hc_path, hc_prefix, snap_min, snap_max, key, progress_bar = True, kwargs_tqdm = {}):
     if key in ['Host', '/Host', 'Prog', '/Prog']:
         raise KeyError("'%s' is a protected key"%key)
-    for snap in SnapRange(
-        snap_min, snap_max + 1, progress_bar = True, desc = "Removing '%s'"%key, **kwargs_tqdm
-    ):
+    kwargs_tqdm.update(desc = "Removing '%s'"%key)
+    for snap in SnapRange(snap_min, snap_max + 1, progress_bar = True, **kwargs_tqdm):
         with pd.HDFStore(os.path.join(hc_path, '%s_%03d.hdf5'%(hc_prefix, snap))) as store:
             try:
                 store.remove(key)
