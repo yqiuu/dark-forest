@@ -221,3 +221,27 @@ class ForwardRebuilder(Constructor):
         )
         #
         self.test_mode = False
+
+
+def WalkForward(hc_path, hc_prefix, snap_min, snap_max, progress_bar = True, kwargs_tqdm = {}):
+    #
+    pool = [{} for snap in range(snap_max + 1)]
+    #
+    kwargs_tqdm.update(desc = 'Walking forward')
+    for snap in SnapRange(snap_min, snap_max + 1, progress_bar = progress_bar, **kwargs_tqdm):
+        df_forward = pd.read_hdf(
+            os.path.join(hc_path, '%s_%03d.hdf5'%(hc_prefix, snap)), 'Forward'
+        )
+        for desc_snap, desc_id in df_forward[['DescendantSnap', 'Descendant']].values:
+            pool[desc_snap][desc_id] = 0
+        if snap > snap_min:
+            pool_curr = pool[snap]
+            for halo_id in df_forward['ID']:
+                if halo_id in pool_curr:
+                    del pool_curr[halo_id]
+    for snap, p in zip(range(snap_min, snap_max + 1), pool):
+        if len(p) > 0:
+            raise ValueError(
+                'Find unwalkable halos at snapshot %d ('%snap + \
+                    ', '.join(str(k) for k in p.keys()) + ')'
+            )
