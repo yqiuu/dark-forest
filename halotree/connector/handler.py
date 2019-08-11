@@ -139,11 +139,6 @@ class VELOCIraptorHandler(SimHandler):
 
 
     @property
-    def snap_jump(self):
-        return 6
-
-
-    @property
     def redshifts(self):
         try:
             return np.array(self._redshifts)
