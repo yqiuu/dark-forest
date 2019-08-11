@@ -47,13 +47,13 @@ class ForwardRebuilder(Constructor):
         hc_prefix = self.hc_prefix
         snap_min = self.snap_min
         snap_max = self.snap_max
-        _snap_range_0 = self._snap_range_0
+        _snap_range = self._snap_range
         #
         n_snap = snap_max + 1
         list_df_surv = [None]*n_snap
         pool_surv = [None]*n_snap
         snap_target = [None]*n_snap
-        for snap in _snap_range_0:
+        for snap in _snap_range:
             handler.CacheSnapshot(snap)
             halo_id = pd.read_hdf(
                 os.path.join(hc_path, '%s_%03d.hdf5'%(hc_prefix, snap)), 'Host', columns = []
@@ -183,13 +183,26 @@ class ForwardRebuilder(Constructor):
         
     def Run(self):
         try:
+            # Load local variables
+            snap_min = self.snap_min
+            snap_max = self.snap_max
+            progress_bar = self.progress_bar
+            kwargs_tqdm = self.kwargs_tqdm
             #
             self.col_inh = ['HostHaloID', 'DescendantSnap', 'Descendant', 'ForestID']
             self.inherit = True
+            kwargs_tqdm.update(desc = 'Rebuilding subhalo trees')
+            self._snap_range = SnapRange(
+                snap_min, snap_max + 1, progress_bar = progress_bar, **kwargs_tqdm
+            )
             self._RebuildSubhaloTree()
             #
             self.col_inh = []
             self.inherit = False
+            kwargs_tqdm.update(desc = 'Adding forward pointers')
+            self._snap_range = SnapRange(
+                snap_max, snap_min - 1, -1, progress_bar = progress_bar, **kwargs_tqdm
+            )
             super().Run()
         finally:
             self._Clean()
@@ -211,15 +224,6 @@ class ForwardRebuilder(Constructor):
         self.pool_sim = [{} for snap in range(snap_max + 1)]
         self.df_forward_next = None
         self.forest_id_max = handler.MaxForestID(snap_max)
-        #
-        kwargs_tqdm.update(desc = 'Rebuilding subhalo trees')
-        self._snap_range_0 = SnapRange(
-            snap_min, snap_max + 1, progress_bar = progress_bar, **kwargs_tqdm
-        )
-        kwargs_tqdm.update(desc = 'Adding forward pointers')
-        self._snap_range = SnapRange(
-            snap_max, snap_min - 1, -1, progress_bar = progress_bar, **kwargs_tqdm
-        )
         #
         self.test_mode = False
 
