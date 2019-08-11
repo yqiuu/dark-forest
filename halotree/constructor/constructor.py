@@ -22,7 +22,7 @@ class Constructor(ABC):
         return df_req
 
     
-    def _PrepareInhData(self, host_id_hc):
+    def _PrepareInhData(self, host_id_hc, halo_id_fix = None):
         # Load local variables
         handler = self.handler
         col_inh = self.col_inh
@@ -36,11 +36,14 @@ class Constructor(ABC):
                     df_sim[col] = handler[col]
                 except KeyError:
                     pass
-        index_drop = np.setdiff1d(
-            halo_id_sim[handler['HostHaloID'] == handler.HostID()],
-            host_id_hc, assume_unique = True
-        )
-        df_sim.drop(index = index_drop, inplace = True)
+        if halo_id_fix is None:
+            index_drop = np.setdiff1d(
+                halo_id_sim[handler['HostHaloID'] == handler.HostID()],
+                host_id_hc, assume_unique = True
+            )
+            df_sim.drop(index = index_drop, inplace = True)
+        else:
+            df_sim = df_sim.loc[halo_id_fix]
         return df_sim
 
 
@@ -104,7 +107,12 @@ class Constructor(ABC):
                 else:
                     list_prog = None
                 df_req = self._PrepareReqData(store)
-                df_inh = self._PrepareInhData(df_req.index[df_req.index >= 0])
+                try:
+                    halo_id_fix = pd.read_hdf(store, 'Forward', columns = []).index
+                    halo_id_fix = halo_id_fix[halo_id_fix >= 0]
+                except KeyError:
+                    halo_id_fix = None
+                df_inh = self._PrepareInhData(df_req.index[df_req.index >= 0], halo_id_fix)
                 df_new = self._AddProperty(df_inh, df_req, list_prog, snap, z)
                 df_new.to_hdf(store, key_new, format = 'table')
 
