@@ -160,8 +160,10 @@ class ForwardRebuilder(Constructor):
                 lambda desc_snap, desc_id:pool_sim[desc_snap][desc_id],
                 *df_inh[['DescendantSnap', 'Descendant']].values.T
             ))
-        # Clear memory
-        pool_sim[min(snap_jump, snap_max)] = None
+        # Clean memory
+        snap_clean = snap + snap_jump
+        if snap_clean <= snap_max:
+            pool_sim[snap_clean] = None
 
 
     def _Clean(self):
