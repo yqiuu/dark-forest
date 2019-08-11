@@ -69,7 +69,7 @@ class SpinConstructor(Constructor):
 
 
     def __init__(self,
-        handler, hc_path, hc_prefix, snap_min, snap_max, hdf_key, cols, spin_sampler,
+        handler, hc_path, hc_prefix, snap_min, snap_max, cols, spin_sampler,
         rstate = None, progress_bar = True, kwargs_tqdm = {}
     ):
         kwargs_tqdm.update(desc = 'Adding spin parameters')
@@ -79,7 +79,7 @@ class SpinConstructor(Constructor):
             hc_prefix = hc_prefix,
             snap_min = snap_min,
             snap_max = snap_max,
-            key_new = hdf_key,
+            key_new = 'Spin',
             col_inh = [cols['spin'], cols['L_x'], cols['L_y'], cols['L_z']],
             col_req = ['ProgIndex', 'ProgNumber', cols['m_vir'], cols['r_vir'], cols['v_vir']],
             inherit = True,

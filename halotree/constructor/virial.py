@@ -53,7 +53,7 @@ class VirialConstructor(Constructor):
 
 
     def __init__(self,
-        handler, hc_path, hc_prefix, snap_min, snap_max, hdf_key, cols,
+        handler, hc_path, hc_prefix, snap_min, snap_max, cols,
         delta_collapse = 200., mode = 'crit', progress_bar = True, kwargs_tqdm = {}
     ):
         kwargs_tqdm.update(desc = 'Adding virial properties')
@@ -63,7 +63,7 @@ class VirialConstructor(Constructor):
             hc_prefix = hc_prefix,
             snap_min = snap_min,
             snap_max = snap_max,
-            key_new = hdf_key,
+            key_new = 'Virial',
             col_inh = [cols['m_vir'], cols['r_vir']],
             col_req = [cols['m_hc']],
             inherit = True,
