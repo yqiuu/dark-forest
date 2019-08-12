@@ -102,8 +102,13 @@ class Constructor(ABC):
             z = redshifts[snap]
             handler.CacheSnapshot(snap)
             with pd.HDFStore(os.path.join(hc_path, '%s_%03d.hdf5'%(hc_prefix, snap))) as store:
-                if read_prog and '/Prog' in store.keys():
-                    list_prog = list(pd.read_hdf(store, 'Prog').to_records())
+                if len(read_prog) > 0 and '/Prog' in store.keys():
+                    df_prog = pd.read_hdf(store, 'Prog')
+                    df_prog.reset_index(inplace = True)
+                    if len(read_prog) == 1:
+                        list_prog = list(df_prog[read_prog[0]])
+                    else:
+                        list_prog = list(df_prog[read_prog].to_records(index = False))
                 else:
                     list_prog = None
                 df_req = self._PrepareReqData(store)
@@ -119,7 +124,7 @@ class Constructor(ABC):
 
     def __init__(self,
         handler, hc_path, hc_prefix, snap_min, snap_max, key_new, col_inh, col_req,
-        inherit = True, read_prog = False, forward = True, progress_bar = True, kwargs_tqdm = {}
+        read_prog = [], inherit = True, forward = True, progress_bar = True, kwargs_tqdm = {}
     ):  
         self.handler = handler
         self.hc_path = hc_path

@@ -66,8 +66,8 @@ class VirialConstructor(Constructor):
             key_new = 'Virial',
             col_inh = [cols['m_vir'], cols['r_vir']],
             col_req = [cols['m_hc']],
+            read_prog = [],
             inherit = True,
-            read_prog = False,
             forward = True,
             progress_bar = progress_bar,
             kwargs_tqdm = kwargs_tqdm

@@ -9,7 +9,7 @@ class SpinConstructor(Constructor):
         pool = self.pool
         m_max = -1.
         spin = np.nan
-        for p_id, _, m in prog:
+        for p_id, m in prog:
             if m > m_max:
                 m_max = m
                 spin = pool[p_id]
@@ -82,8 +82,8 @@ class SpinConstructor(Constructor):
             key_new = 'Spin',
             col_inh = [cols['spin'], cols['L_x'], cols['L_y'], cols['L_z']],
             col_req = ['ProgIndex', 'ProgNumber', cols['m_vir'], cols['r_vir'], cols['v_vir']],
+            read_prog = ['ID', cols['m_vir']],
             inherit = True,
-            read_prog = True,
             forward = True,
             progress_bar = progress_bar,
             kwargs_tqdm = kwargs_tqdm

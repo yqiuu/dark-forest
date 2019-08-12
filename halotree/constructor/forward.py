@@ -125,7 +125,7 @@ class ForwardRebuilder(Constructor):
             df_req.loc[cond, ['ProgIndex', 'ProgNumber']].values,
             df_forward.loc[cond, ['ID', 'ForestID']].values
         ):
-            for p_id, *_ in list_prog[idx:idx + num]:
+            for p_id in list_prog[idx:idx + num]:
                 if p_id < 0:
                     progenitors[p_id] = (snap, h_id, f_id)
         self.df_forward_next = pd.DataFrame.from_dict(
@@ -222,7 +222,7 @@ class ForwardRebuilder(Constructor):
         self.kwargs_tqdm = kwargs_tqdm
         #
         self.key_new = 'Forward'
-        self.read_prog = True
+        self.read_prog = ['ID']
         self.pool_sim = [{} for snap in range(snap_max + 1)]
         self.df_forward_next = None
         self.forest_id_max = handler.MaxForestID(snap_max)
