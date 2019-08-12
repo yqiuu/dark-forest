@@ -55,10 +55,9 @@ class ForwardRebuilder(Constructor):
         snap_target = [None]*n_snap
         for snap in _snap_range:
             handler.CacheSnapshot(snap)
-            halo_id = pd.read_hdf(
-                os.path.join(hc_path, '%s_%03d.hdf5'%(hc_prefix, snap)), 'Host', columns = []
-            ).index.values
-            df_sim = self._PrepareInhData(halo_id[halo_id >= 0])
+            with pd.HDFStore(os.path.join(hc_path, '%s_%03d.hdf5'%(hc_prefix, snap))) as store:
+                halo_id = pd.read_hdf(store, 'Host', columns = []).index
+                df_sim = self._PrepareInhData(store, halo_id[halo_id >= 0])
             self._RemoveLostSubhalo(df_sim)
             if len(df_sim) > 0:
                 self._CutDescendant(df_sim, snap)
