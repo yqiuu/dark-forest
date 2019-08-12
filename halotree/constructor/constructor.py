@@ -145,3 +145,47 @@ class Constructor(ABC):
                 snap_max, snap_min - 1, -1, progress_bar = progress_bar, **kwargs_tqdm
             )
         self._snap_range = snap_range
+
+
+class QuickConstructor(Constructor):
+    def _AddProperty(self, df_inh, df_req):
+        df_req = df_req[df_req.index < 0]
+        df_quick = pd.DataFrame(
+            self.transform(df_req.values), index = df_req.index, columns = df_inh.columns
+        )
+        df_quick = df_inh.append(df_quick)
+        return df_quick
+
+
+    def Run(self, snap):
+        # Load local variables
+        handler = self.handler
+        hc_path = self.hc_path
+        hc_prefix = self.hc_prefix
+        col_req = self.col_req
+        #
+        handler.CacheSnapshot(snap)
+        with pd.HDFStore(os.path.join(hc_path, '%s_%03d.hdf5'%(hc_prefix, snap))) as store:
+            try:
+                self.column_lookup
+            except AttributeError:
+                 self.column_lookup = ColumnLookup(store, col_req)
+            df_req = self._PrepareReqData(store)
+            try:
+                halo_id_fix = pd.read_hdf(store, 'Forward', columns = []).index
+                halo_id_fix = halo_id_fix[halo_id_fix >= 0]
+            except KeyError:
+                halo_id_fix = None
+            df_inh = self._PrepareInhData(df_req.index[df_req.index >= 0], halo_id_fix)
+            df_new = self._AddProperty(df_inh, df_req)
+        return df_new
+
+
+    def __init__(self, handler, hc_path, hc_prefix, col_inh, col_req, transform):
+        self.handler = handler
+        self.hc_path = hc_path
+        self.hc_prefix = hc_prefix
+        self.col_inh = [col_inh]
+        self.col_req = [col_req]
+        self.transform = transform
+        self.inherit = True
