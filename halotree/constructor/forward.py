@@ -40,7 +40,7 @@ class ForwardRebuilder(Constructor):
         df_sim.loc[select_cut, 'Descendant'] = df_sim.index[select_cut] # [1]
 
 
-    def _RebuildSubhaloTree(self):
+    def _ReubildOriginalTree(self):
         # Load local variables
         handler = self.handler
         hc_path = self.hc_path
@@ -189,11 +189,11 @@ class ForwardRebuilder(Constructor):
             #
             self.col_inh = ['HostHaloID', 'DescendantSnap', 'Descendant', 'ForestID']
             self.inherit = True
-            kwargs_tqdm.update(desc = 'Rebuilding subhalo trees')
+            kwargs_tqdm.update(desc = 'Rebuilding original trees')
             self._snap_range = SnapRange(
                 snap_min, snap_max + 1, progress_bar = progress_bar, **kwargs_tqdm
             )
-            self._RebuildSubhaloTree()
+            self._ReubildOriginalTree()
             #
             self.col_inh = []
             self.inherit = False
