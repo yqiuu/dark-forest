@@ -147,18 +147,15 @@ class ForwardRebuilder(Constructor):
         df_inh.insert(0, 'ID', handler.NewID(snap, np.arange(len(df_inh))))
         #
         pool_sim[snap] = {old_id:new_id for old_id, new_id in zip(df_inh.index, df_inh['ID'])}
-        #
-        if snap == snap_max:
-            select_sub_halo = df_inh['HostHaloID'] != handler.HostID()
-            halo_id_sub = df_inh.loc[df_inh.loc[select_sub_halo, 'HostHaloID'], 'ID'].values
-            df_inh.loc[select_sub_halo, 'HostHaloID'] = halo_id_sub
-            df_inh['Descendant'] = df_inh.loc[df_inh['Descendant'], 'ID']
-        else:
-            # Generate new Descendant for simulations halos
-            df_inh['Descendant'] = list(map(
-                lambda desc_snap, desc_id:pool_sim[desc_snap][desc_id],
-                *df_inh[['DescendantSnap', 'Descendant']].values.T
-            ))
+        # Fix host halo IDs
+        select_sub_halo = df_inh['HostHaloID'] != handler.HostID()
+        halo_id_sub = df_inh.loc[df_inh.loc[select_sub_halo, 'HostHaloID'], 'ID'].values
+        df_inh.loc[select_sub_halo, 'HostHaloID'] = halo_id_sub
+        # Generate new Descendant for simulations halos
+        df_inh['Descendant'] = list(map(
+            lambda desc_snap, desc_id:pool_sim[desc_snap][desc_id],
+            *df_inh[['DescendantSnap', 'Descendant']].values.T
+        ))
         # Clean memory
         snap_clean = snap + snap_jump
         if snap_clean <= snap_max:
