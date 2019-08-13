@@ -125,6 +125,16 @@ class VELOCIraptorHandler(SimHandler):
 
 
     @property
+    def m_particle(self):
+        try:
+            return self._m_particle
+        except AttributeError:
+            self.CacheSnapshot(0)
+            self._m_particle = self['Mass_tot'][0]/self['npart'][0]*self.mass_conversion
+            return self._m_particle
+
+
+    @property
     def n_snap(self):
         try:
             return self._n_snap
