@@ -9,9 +9,17 @@ import numpy as np
 import pandas as pd
 
 
-def SaveHeader(fp, n_snap):
+def SaveHeader(fp, handler, n_snap):
     grp = fp.create_group('Header')
     grp.attrs['NSnaps'] = n_snap
+    #
+    subgrp = grp.create_group('Simulation')
+    subgrp.attrs['h_val'] = handler.little_h
+    subgrp.attrs['Omega_m'] = handler.omega_m
+    subgrp.attrs['Period'] = handler.volume**(1./3.)
+    #
+    subgrp = grp.create_group('Units')
+    subgrp.attrs['Mass_unit_to_solarmass'] = handler.mass_conversion/handler.little_h
 
 
 def SaveGroupData(
@@ -73,7 +81,7 @@ def VELOCIraptorConverter(
     #
     redshifts = handler.redshifts
     with h5py.File(out_name, "w") as fp:
-        SaveHeader(fp, snap_max - snap_min + 1)
+        SaveHeader(fp, handler, snap_max - snap_min + 1)
         for snap in SnapRange(
             snap_min, snap_max + 1, progress_bar = progress_bar, **kwargs_tqdm
         ):
