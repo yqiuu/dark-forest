@@ -1,8 +1,8 @@
 import os
 
 from ..utils import SnapRange
-from ..connector import RemoveKey
-from .constructor import Constructor, ColumnLookup
+from ..connector import RemoveKey, ColumnLookup
+from .constructor import Constructor
 
 import numpy as np
 import pandas as pd
