@@ -205,7 +205,7 @@ class VELOCIraptorHandler(SimHandler):
 
 
     def NewID(self, snap, inds):
-        return snap*10**12 + inds
+        return snap*10**12 + inds + 1
 
 
     def CacheSnapshot(self, snap):
