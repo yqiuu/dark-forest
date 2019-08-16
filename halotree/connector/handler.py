@@ -49,7 +49,7 @@ class VELOCIraptorHandler(SimHandler):
         try:
             return self._little_h
         except AttributeError:
-            self._little_h = self.fp.get('Header')['Simulation'].attrs['h_val']
+            self._little_h = self.fp['Header/Simulation'].attrs['h_val']
             return self._little_h
 
 
@@ -58,7 +58,7 @@ class VELOCIraptorHandler(SimHandler):
         try:
             return self._omega_m
         except AttributeError:
-            self._omega_m = self.fp.get('Header')['Simulation'].attrs['Omega_m']
+            self._omega_m = self.fp['Header/Simulation'].attrs['Omega_m']
             return self._omega_m
 
 
@@ -72,13 +72,74 @@ class VELOCIraptorHandler(SimHandler):
 
 
     @property
+    def box_size(self):
+        """Box size. [Mpc]"""
+        try:
+            return self._box_size
+        except AttributeError:
+            box_size = self.fp['Header/Simulation'].attrs['Period']
+            box_size = (box_size*self.radius_unit).to(u.megaparsec).value
+            self._box_size = box_size
+            return box_size
+
+
+    @property
     def volume(self):
+        """Box volume. [Mpc^3]"""
         try:
             return self._volume
         except AttributeError:
-            boxsize = self.fp.get('Header')['Simulation'].attrs['Period']
-            self._volume = boxsize*boxsize*boxsize
+            self._volume = self.box_size**3
             return self._volume
+
+
+    @property
+    def mass_conversion(self):
+        """A multiplier to convert input mass unit to 10^10 h^-1 M_solar."""
+        try:
+            return self._mass_coversion
+        except AttributeError:
+            self._mass_coversion = (self.mass_unit*self.little_h).value
+            return self._mass_coversion
+
+
+    @property
+    def mass_unit(self):
+        try:
+            return self._mass_unit
+        except AttributeError:
+            self._mass_unit = self.fp['Header/Units'].attrs['Mass_unit_to_solarmass']*u.solMass
+            return self._mass_unit
+
+
+    @property
+    def radius_unit(self):
+        try:
+            return self._radius_unit
+        except AttributeError:
+            self._radius_unit = self.fp['Header/Units'].attrs['Length_unit_to_kpc']*u.kiloparsec
+            return self._radius_unit
+
+
+    @property
+    def velocity_unit(self):
+        try:
+            return self._velocity_unit
+        except AttributeError:
+            self._velocity_unit = \
+                self.fp['Header/Units'].attrs['Velocity_unit_to_kms']*u.km/u.second
+            return self._velocity_unit
+
+
+    @property
+    def m_particle(self):
+        """Particle mass. [h^-1 M_solar]"""
+        try:
+            return self._m_particle
+        except AttributeError:
+            self.CacheSnapshot(0)
+            self._m_particle = self['Mass_tot'][0]/self['npart'][0]*self.mass_conversion
+            return self._m_particle
 
 
     @property
@@ -93,45 +154,6 @@ class VELOCIraptorHandler(SimHandler):
                     data_type[key] = dataset[key].dtype
             self._data_type = data_type
             return dict(self._data_type)
-
-
-    @property
-    def mass_conversion(self):
-        """
-        Returns
-        -------
-        float:
-            A mass conversion factor to 10^10 h^-1 M_solar.
-        """
-        try:
-            return self._mass_coversion
-        except AttributeError:
-            return 1e10*self.little_h
-
-
-    @property
-    def mass_unit(self):
-        return 1e10*u.solMass
-
-
-    @property
-    def radius_unit(self):
-        return u.megaparsec
-
-
-    @property
-    def velocity_unit(self):
-        return u.km/u.second
-
-
-    @property
-    def m_particle(self):
-        try:
-            return self._m_particle
-        except AttributeError:
-            self.CacheSnapshot(0)
-            self._m_particle = self['Mass_tot'][0]/self['npart'][0]*self.mass_conversion
-            return self._m_particle
 
 
     @property
