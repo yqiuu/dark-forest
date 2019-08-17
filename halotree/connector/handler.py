@@ -63,6 +63,16 @@ class VELOCIraptorHandler(SimHandler):
 
 
     @property
+    def sigma_8(self):
+        return 0.815
+
+
+    @property
+    def n_spectral(self):
+        return 0.9653
+
+
+    @property
     def cosmo_params(self):
         try:
             return dict(self._cosmo_params)
@@ -203,9 +213,8 @@ class VELOCIraptorHandler(SimHandler):
         params = {'Mmin':5, 'dlog10m':0.05}
         params.update(kwargs)
         params['cosmo_params'] = self.cosmo_params
-        # The following two parameters cannot be directly read from the output
-        params['sigma_8'] = 0.815
-        params['n'] = 0.9653
+        params['sigma_8'] = self.sigma_8
+        params['n'] = self.n_spectral
         hmf = MassFunction(**params)
         return HaloKit(hmf), hmf
 
