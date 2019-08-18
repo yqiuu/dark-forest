@@ -100,7 +100,7 @@ class Constructor(ABC):
         redshifts = handler.redshifts
         for snap in _snap_range:
             z = redshifts[snap]
-            handler.CacheSnapshot(snap)
+            handler.SwitchSnapshot(snap)
             with pd.HDFStore(os.path.join(hc_path, '%s_%03d.hdf5'%(hc_prefix, snap))) as store:
                 if len(read_prog) > 0 and '/Prog' in store.keys():
                     df_prog = pd.read_hdf(store, 'Prog')
@@ -159,7 +159,7 @@ class QuickConstructor(Constructor):
         hc_prefix = self.hc_prefix
         col_req = self.col_req
         #
-        handler.CacheSnapshot(snap)
+        handler.SwitchSnapshot(snap)
         with pd.HDFStore(os.path.join(hc_path, '%s_%03d.hdf5'%(hc_prefix, snap))) as store:
             try:
                 self.column_lookup

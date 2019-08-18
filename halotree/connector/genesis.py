@@ -117,7 +117,7 @@ class GenesisConnector(Connector):
         try:
             return self._m_particle
         except AttributeError:
-            self.CacheSnapshot(0)
+            self.SwitchSnapshot(0)
             self._m_particle = self['Mass_tot'][0]/self['npart'][0]*self.mass_conversion
             return self._m_particle
 
@@ -197,10 +197,10 @@ class GenesisConnector(Connector):
 
 
     def MaxForestID(self, snap_max):
-        self.CacheSnapshot(0) # Assume that the snapshot starts at zero
+        self.SwitchSnapshot(0) # Assume that the snapshot starts at zero
         forest_id_max = max(self['ForestID'])
         for snap in range(1, snap_max + 1):
-            self.CacheSnapshot(snap)
+            self.SwitchSnapshot(snap)
             forest_id_max = max(forest_id_max, *self['ForestID'])
         return forest_id_max
 
@@ -209,7 +209,7 @@ class GenesisConnector(Connector):
         return snap*10**12 + inds + 1
 
 
-    def CacheSnapshot(self, snap):
+    def SwitchSnapshot(self, snap):
         self.dataset = self.fp.get('Snap_%03d'%snap)
 
 

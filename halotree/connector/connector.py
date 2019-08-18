@@ -23,7 +23,7 @@ logger = CreateLogger(__name__)
 
 class Connector(ABC):
     @abstractmethod
-    def CacheSnapshot(self, snap):
+    def SwitchSnapshot(self, snap):
         pass
 
 
@@ -84,7 +84,7 @@ def SaveHaloConnector(handler, snap_min, snap_max, mass_key, path = './', prefix
     desc_pool_arr = np.asarray([{} for snap in range(n_snap)])
     for snap in range(snap_min, n_snap):
         logger.info("Processing snaphost %d"%snap)
-        handler.CacheSnapshot(snap)
+        handler.SwitchSnapshot(snap)
         # Merge subhalos to their host halo
         desc_pool = desc_pool_arr[snap]
         halo_id_arr = handler['ID']

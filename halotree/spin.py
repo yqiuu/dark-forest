@@ -32,7 +32,7 @@ class KernelSpinSampler(SpinSampler):
         #
         snap_target = max(snap_fit, np.argmin(abs(self.redshifs - z)))
         while True:
-            handler.CacheSnapshot(snap_target)
+            handler.SwitchSnapshot(snap_target)
             spin_sample = handler['lambda_B'][
                 (handler['HostHaloID'] == handler.HostID()) & (handler[mass_key] > m_cut)
             ]

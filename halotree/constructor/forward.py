@@ -54,7 +54,7 @@ class ForwardRebuilder(Constructor):
         pool_surv = [None]*n_snap
         snap_target = [None]*n_snap
         for snap in _snap_range:
-            handler.CacheSnapshot(snap)
+            handler.SwitchSnapshot(snap)
             with pd.HDFStore(os.path.join(hc_path, '%s_%03d.hdf5'%(hc_prefix, snap))) as store:
                 halo_id = pd.read_hdf(store, 'Host', columns = []).index
                 df_sim = self._PrepareInhData(store, halo_id[halo_id >= 0])

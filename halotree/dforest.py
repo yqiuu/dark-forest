@@ -70,7 +70,7 @@ def SaveDarkForest(
         n_snap = snap_max + 1
         desc_pool_arr = np.asarray([{} for snap in range(n_snap)])
         for snap in SnapRange(snap_min, n_snap, **kwargs_tqdm):
-            cntr.CacheSnapshot(snap)
+            cntr.SwitchSnapshot(snap)
             # Merge subhalos to their host halo
             desc_pool = desc_pool_arr[snap]
             halo_id_arr = cntr['ID']
