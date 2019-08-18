@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 
 __all__ = [
+    'Connector',
     'SaveHaloConnector',
     'ReadHaloConnector',
     'ColumnLookup',
@@ -18,6 +19,32 @@ __all__ = [
 
 
 logger = CreateLogger(__name__)
+
+
+class Connector(ABC):
+    @abstractmethod
+    def CacheSnapshot(self, snap):
+        pass
+
+
+    @abstractmethod
+    def __getitem__(self, key):
+        pass
+
+
+    @abstractmethod
+    def __enter__(self):
+        pass
+
+
+    @abstractmethod
+    def __exit__(self, *args):
+        pass
+
+
+    @abstractmethod
+    def __init__(self, fp):
+        pass
 
 
 def SaveOutput(handler, prog_data, mass_key, snap, path, prefix):

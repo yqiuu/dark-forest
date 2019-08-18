@@ -1,9 +1,6 @@
-import os
-from copy import deepcopy
-from abc import ABC, abstractmethod
-
 from ..core import EnhancedMassFunction
 from ..halotree import *
+from .connector import Connector
 
 import numpy as np
 import pandas as pd
@@ -12,39 +9,11 @@ from astropy import units as u
 from astropy.cosmology import FlatLambdaCDM
 
 
-__all__ = [
-    'SimHandler',
-    'VELOCIraptorHandler',
-]
+
+__all__ = ['GenesisConnector']
 
 
-class SimHandler(ABC):
-    @abstractmethod
-    def CacheSnapshot(self, snap):
-        pass
-
-
-    @abstractmethod
-    def __getitem__(self, key):
-        pass
-
-
-    @abstractmethod
-    def __enter__(self):
-        pass
-
-
-    @abstractmethod
-    def __exit__(self, *args):
-        pass
-
-
-    @abstractmethod
-    def __init__(self, fp):
-        pass
-
-
-class VELOCIraptorHandler(SimHandler):
+class GenesisConnector(Connector):
     @property
     def little_h(self):
         try:
