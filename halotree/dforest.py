@@ -52,6 +52,7 @@ def SaveHeader(hf, cntr):
     # Save attributes
     hf.set_node_attr(header, 'little_h', cntr.little_h)
     hf.set_node_attr(header, 'omega_m', cntr.omega_m)
+    hf.set_node_attr(header, 'sigma_8', cntr.sigma_8)
     hf.set_node_attr(header, 'n_spectral', cntr.n_spectral)
     hf.set_node_attr(header, 'box_size', cntr.box_size)
     hf.set_node_attr(header, 'mass_unit_to_solarmass', cntr.mass_unit.value)
