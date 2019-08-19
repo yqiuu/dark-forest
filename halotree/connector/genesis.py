@@ -43,15 +43,6 @@ class GenesisConnector(Connector):
 
 
     @property
-    def cosmo_params(self):
-        try:
-            return dict(self._cosmo_params)
-        except AttributeError:
-            self._cosmo_params = {'H0':100*self.little_h, 'Om0':self.omega_m}
-            return dict(self._cosmo_params)
-
-
-    @property
     def box_size(self):
         """Box size. [Mpc]"""
         try:
@@ -61,26 +52,6 @@ class GenesisConnector(Connector):
             box_size = (box_size*self.radius_unit).to(u.megaparsec).value
             self._box_size = box_size
             return box_size
-
-
-    @property
-    def volume(self):
-        """Box volume. [Mpc^3]"""
-        try:
-            return self._volume
-        except AttributeError:
-            self._volume = self.box_size**3
-            return self._volume
-
-
-    @property
-    def mass_conversion(self):
-        """A multiplier to convert input mass unit to 10^10 h^-1 M_solar."""
-        try:
-            return self._mass_coversion
-        except AttributeError:
-            self._mass_coversion = (self.mass_unit*self.little_h).value
-            return self._mass_coversion
 
 
     @property

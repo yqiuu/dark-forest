@@ -8,6 +8,8 @@ from ..halotree import *
 from tqdm import tqdm
 import numpy as np
 import pandas as pd
+from astropy import units as u
+
 
 __all__ = [
     'Connector',
@@ -22,6 +24,87 @@ logger = CreateLogger(__name__)
 
 
 class Connector(ABC):
+    @property
+    @abstractmethod
+    def little_h(self):
+        return 0.
+
+
+    @property
+    @abstractmethod
+    def omega_m(self):
+        return 0.
+
+
+    @property
+    @abstractmethod
+    def sigma_8(self):
+        return 0.
+
+
+    @property
+    @abstractmethod
+    def n_spectral(self):
+        return 0.
+
+
+    @property
+    def cosmo_params(self):
+        try:
+            return dict(self._cosmo_params)
+        except AttributeError:
+            self._cosmo_params = {'H0': 100*self.little_h, 'Om0': self.omega_m}
+            return dict(self._cosmo_params)
+
+
+    @property
+    @abstractmethod
+    def box_size(self):
+        """Box size. [Mpc]"""
+        return 0.
+
+
+    @property
+    def volume(self):
+        """Box volume. [Mpc^3]"""
+        try:
+            return self._volume
+        except AttributeError:
+            self._volume = self.box_size**3
+            return self._volume
+
+
+    @property
+    def mass_conversion(self):
+        """A multiplier to convert input mass unit to 10^10 h^-1 M_solar."""
+        try:
+            return self._mass_coversion
+        except AttributeError:
+            self._mass_coversion = (self.mass_unit*self.little_h).value
+            return self._mass_coversion
+
+
+    @property
+    @abstractmethod
+    def mass_unit(self):
+        """An astropy unit (quantity) instance specifying the mass unit."""
+        return 1e10*u.solMass
+
+
+    @property
+    @abstractmethod
+    def radius_unit(self):
+        """An astropy unit (quantity) instance specifying the length unit."""
+        return u.megaparsec
+
+
+    @property
+    @abstractmethod
+    def velocity_unit(self):
+        """An astropy unit (quantity) instance specifying the velocity unit."""
+        return u.km/u.second
+
+
     @abstractmethod
     def SwitchSnapshot(self, snap):
         pass
