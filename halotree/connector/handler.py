@@ -87,7 +87,7 @@ class VELOCIraptorHandler(SimHandler):
         try:
             return self._box_size
         except AttributeError:
-            box_size = self.fp['Header/Simulation'].attrs['Period']
+            box_size = self.fp['Header/Simulation'].attrs['Period']/self.little_h
             box_size = (box_size*self.radius_unit).to(u.megaparsec).value
             self._box_size = box_size
             return box_size
