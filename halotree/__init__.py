@@ -1,3 +1,4 @@
+from .core import *
 from .halotree import *
 from .connector import *
 from .constructor import *

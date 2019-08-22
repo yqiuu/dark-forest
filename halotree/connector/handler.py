@@ -2,6 +2,7 @@ import os
 from copy import deepcopy
 from abc import ABC, abstractmethod
 
+from ..core import EnhancedMassFunction
 from ..halotree import *
 
 import numpy as np
@@ -9,7 +10,7 @@ import pandas as pd
 import h5py
 from astropy import units as u
 from astropy.cosmology import FlatLambdaCDM
-from hmf.hmf import MassFunction
+
 
 __all__ = [
     'SimHandler',
@@ -215,7 +216,7 @@ class VELOCIraptorHandler(SimHandler):
         params['cosmo_params'] = self.cosmo_params
         params['sigma_8'] = self.sigma_8
         params['n'] = self.n_spectral
-        hmf = MassFunction(**params)
+        hmf = EnhancedMassFunction(**params)
         return HaloKit(hmf), hmf
 
 
