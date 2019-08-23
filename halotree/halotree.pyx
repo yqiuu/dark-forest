@@ -121,7 +121,7 @@ cdef class HaloKit:
             m_arr = np.copy(hmf.m)
             sigma_arr = np.copy(hmf.sigma)
             # Compute alpha_m
-            alpha_arr = np.copy(hmf.alpha)
+            alpha_arr = np.copy(-hmf._dlnsdlnm)
             # Compute delta_z
             if z_grid is None:
                 z_arr = np.linspace(0, 200, 1000)

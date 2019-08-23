@@ -12,19 +12,12 @@ __all__ = ['EnhancedMassFunction']
 
 
 class EnhancedMassFunction(MassFunction):
-    @cached_quantity
-    def alpha(self):
-        lnm = np.log(self.m)
-        lnsigma = spl(lnm, self.lnsigma)
-        return lnsigma.derivative(n=1)(lnm)
-
-
     def ConditionalMassFunction(self, m_prog, z_prog, m_root, z_root):
         #
         delta_c = self.delta_c
         m = self.m
         sigma = self.sigma
-        alpha = -self.alpha
+        alpha = -self._dlnsdlnm
         #
         spl_sigmasq = spl(m, sigma*sigma)
         sigmasq_m = spl_sigmasq(m_prog)
