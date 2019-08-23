@@ -1,6 +1,7 @@
 from math import exp, log10
 
 from scipy import interpolate as intp
+from scipy.interpolate import InterpolatedUnivariateSpline as spl
 from hmf.hmf import MassFunction
 
 
@@ -26,4 +27,4 @@ class EnhancedMassFunction(MassFunction):
         if m is None:
             return bias
         else:
-            return intp.splev(m, intp.splrep(self.m, bias, s=0))
+            return spl(self.m, bias)(m)
