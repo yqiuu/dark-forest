@@ -5,10 +5,10 @@ import struct as binary
 
 from .logger import CreateLogger
 
-import numpy as np, h5py
+import numpy as np
+import h5py
 from scipy.interpolate import InterpolatedUnivariateSpline as spl
 from hmf.growth_factor import GrowthFactor
-from hmf.hmf import MassFunction
 
 
 logger = CreateLogger(__name__)
@@ -104,34 +104,15 @@ cdef class HaloKit:
         HaloRelation hr
         tuple rebuild_args
 
-        public object sigma
-        public object sigmasq
-        public object alpha
-        public object Z2D
-        public object D2Z
-
         public double m_min
         public double m_max
-
-
-    def ConditionalMassFunction(self, m, z, m_root, z_root):
-        sigmasq_m = self.sigmasq(m)
-        sigmasq_root = self.sigmasq(m_root)
-        diff_delta = self.Z2D(z) - self.Z2D(z_root)
-        diff_sigmasq = sigmasq_m - sigmasq_root
-        factor_exp = np.exp(-.5*diff_delta*diff_delta/diff_sigmasq)
-        return sqrt(2./np.pi)*diff_delta*sigmasq_m*diff_sigmasq**-1.5*factor_exp*self.alpha(m)
-
-
-    def ProgenitorMassFunction(self, m, z, m_root, z_root):
-        return m_root/m*self.ConditionalMassFunction(m, z, m_root, z_root)
 
 
     def __reduce__(self):
         return (RebuildHaloKit, self.rebuild_args)
 
 
-    def __cinit__(self, hmf, z_grid = None, save = None, rebuild_args = None):
+    def __cinit__(self, hmf, z_grid=None, save=None, rebuild_args=None):
         if rebuild_args is None:
             hmf.update(z = 0)
             self.m_min = 10**hmf.Mmin
@@ -140,9 +121,7 @@ cdef class HaloKit:
             m_arr = np.copy(hmf.m)
             sigma_arr = np.copy(hmf.sigma)
             # Compute alpha_m
-            logm = np.log(hmf.m)
-            lnsigma = spl(logm, hmf.lnsigma)
-            alpha_arr = lnsigma.derivative(n = 1)(logm)
+            alpha_arr = np.copy(hmf.alpha)
             # Compute delta_z
             if z_grid is None:
                 z_arr = np.linspace(0, 200, 1000)
@@ -154,12 +133,6 @@ cdef class HaloKit:
             self.m_min, self.m_max, m_arr, sigma_arr, alpha_arr, z_arr, delta_arr = rebuild_args
         # Set rebuild args
         self.rebuild_args = (self.m_min, self.m_max, m_arr, sigma_arr, alpha_arr, z_arr, delta_arr)
-        # Set splines
-        self.sigma = spl(m_arr, sigma_arr)
-        self.sigmasq = spl(m_arr, sigma_arr*sigma_arr)
-        self.alpha = spl(m_arr, alpha_arr)
-        self.Z2D = spl(z_arr, delta_arr)
-        self.D2Z = spl(delta_arr, z_arr)
         # Save a binary file of necessary arrays for external uses
         if save is not None:
             with open(save, "wb") as fp:

@@ -2,13 +2,12 @@ import os
 
 import numpy as np
 from numpy.testing import assert_allclose, assert_array_equal
-from hmf.hmf import MassFunction
-from halotree import RandomStateGSL, Tree_Parkinson08, HaloKit
+from halotree import RandomStateGSL, Tree_Parkinson08, HaloKit, EnhancedMassFunction
 
 
 def test_binary_spkit():
     # Create test tree
-    hmf = MassFunction(Mmin=6)
+    hmf = EnhancedMassFunction(Mmin=6)
     halo_kit = HaloKit(hmf)
     rstate = RandomStateGSL(831)
     tree_test = Tree_Parkinson08(
