@@ -1,14 +1,23 @@
 from math import exp, log10
 
+import numpy as np
 from scipy import interpolate as intp
 from scipy.interpolate import InterpolatedUnivariateSpline as spl
 from hmf.hmf import MassFunction
+from hmf._cache import cached_quantity
 
 
 __all__ = ['EnhancedMassFunction']
 
 
 class EnhancedMassFunction(MassFunction):
+    @cached_quantity
+    def alpha(self):
+        lnm = np.log(self.m)
+        lnsigma = spl(lnm, self.lnsigma)
+        return lnsigma.derivative(n=1)(lnm)
+
+
     def Bias(self, m=None):
         """
         Compute the halo bias using the fitting formula of Tinker et al. 2010.
