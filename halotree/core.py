@@ -12,7 +12,7 @@ __all__ = ['EnhancedMassFunction']
 
 
 class EnhancedMassFunction(MassFunction):
-    def ConditionalMassFunction(self, m_prog, z_prog, m_root, z_root):
+    def ProgenitorMassFunction(self, m_prog, z_prog, m_root, z_root, frac=True):
         #
         delta_c = self.delta_c
         m = self.m
@@ -28,12 +28,12 @@ class EnhancedMassFunction(MassFunction):
         gf = GrowthFactor(self.cosmo)
         diff_delta = delta_c/gf.growth_factor(z_prog) - delta_c/gf.growth_factor(z_root)
         #
-        factor_exp = np.exp(-.5*diff_delta*diff_delta/diff_sigmasq)
-        return sqrt(2./np.pi)*diff_delta*sigmasq_m*diff_sigmasq**-1.5*factor_exp*alpha_m
-
-
-    def ProgenitorMassFunction(self, m_prog, z_prog, m_root, z_root):
-        return m_root/m_prog*self.ConditionalMassFunction(m_prog, z_prog, m_root, z_root)
+        f_exp = np.exp(-.5*diff_delta*diff_delta/diff_sigmasq)
+        pmf = sqrt(2./np.pi)*diff_delta*sigmasq_m*diff_sigmasq**-1.5*f_exp*alpha_m
+        if frac:
+            return pmf
+        else:
+            return m_root/m_prog*pmf
 
 
     def Bias(self, m=None):
