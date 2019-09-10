@@ -36,7 +36,7 @@ class DensityGrid(ABC):
 
 
     @abstractmethod
-    def Load(self, snap):
+    def HaloDensityGrid(self, m_halo, snap):
         return np.array([0.])
 
 
@@ -55,12 +55,9 @@ class DensityGrid(ABC):
         return x, y, z
 
 
-    def SamplePosition(self, bias, snap, n_sample, rstate):
-        den = self.Load(snap)
-        delta_dm = den/np.mean(den) - 1.
-        den_halo = (1 + bias*delta_dm)
-        den_halo[delta_dm < 0.] = 0.
-        index = rstate.choice(len(den), n_sample, p=den_halo/np.sum(den_halo))
+    def SamplePosition(self, m_halo, snap, n_sample, rstate):
+        den_halo = self.HaloDensityGrid(m_halo, snap)
+        index = rstate.choice(len(den_halo), n_sample, p=den_halo)
         x, y, z = self.SampleFromIndex(index, rstate)
         return x, y, z, index
 
@@ -76,21 +73,18 @@ class PositionConstructor(Constructor):
         n_bin = self.n_bin
         density_grid = self.density_grid
         rstate = self.rstate
-        e_mf = self.e_mf
         #
-        logmass_bin = np.linspace(np.log10(min(mass)), np.log10(max(mass)), n_bin)
-        mass_bin = 10**logmass_bin
-        bias = e_mf.Bias(10**(logmass_bin[:-1] + np.diff(logmass_bin)/2.))
-        #
+        bin_edge = 10**np.linspace(np.log10(min(mass)), np.log10(max(mass)), n_bin)
+        bin_centre = np.sqrt(bin_edge[:-1]*bin_edge[1:])
         n_sample = len(mass)
         pos_x = np.zeros(n_sample)
         pos_y = np.zeros(n_sample)
         pos_z = np.zeros(n_sample)
         grid_index = np.zeros(n_sample, dtype='i4')
-        for b, m_l, m_u in zip(bias, mass_bin[:-1], mass_bin[1:]):
+        for m_c, m_l, m_u in zip(bin_centre, bin_edge[:-1], bin_edge[1:]):
             cond = (mass >= m_l) & (mass < m_u)
             pos_x[cond], pos_y[cond], pos_z[cond], grid_index[cond] = \
-                density_grid.SamplePosition(b, snap, np.sum(cond), rstate)
+                density_grid.SamplePosition(m_c, snap, np.sum(cond), rstate)
         return pos_x, pos_y, pos_z, grid_index
 
 
@@ -105,9 +99,8 @@ class PositionConstructor(Constructor):
         density_grid = self.density_grid
         comoving = self.comoving
         rstate = self.rstate
-        #
+        # Sample positions for MC halos
         select_mc = df_req.index < 0
-        select_sim = ~select_mc
         grid_index = np.zeros(len(df_req), dtype='i4')
         if snap == snap_max:
             pos_x, pos_y, pos_z, grid_index[select_mc] = \
@@ -125,11 +118,16 @@ class PositionConstructor(Constructor):
         if not comoving:
             df_pos[[col_x, col_y, col_z]] /= (1. + z)
         df_pos = df_inh.append(df_pos)
+        #
         if snap > snap_min:
             # Compute grid indices for simulation halos
             box_size = density_grid.box_size
             n_grid = density_grid.n_grid
-            bins = np.linspace(0., box_size/(1. + z), n_grid)
+            if comoving:
+                bins = np.linspace(0, box_size, n_grid)
+            else:
+                bins = np.linspace(0., box_size/(1. + z), n_grid)
+            select_sim = ~select_mc
             df_inh = df_inh.loc[df_req.index[select_sim]]
             grid_index[select_sim] = Grid2Index(
                 np.digitize(df_inh[col_x], bins=bins),
@@ -183,4 +181,3 @@ class PositionConstructor(Constructor):
             self.rstate = np.random.RandomState()
         else:
             self.rstate = rstate
-        self.e_mf = handler.HaloKit()[1]
