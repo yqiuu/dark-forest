@@ -39,33 +39,38 @@ class EnhancedMassFunction(MassFunction):
 
     def ConditionalMassFunction(self, delta_lin, m_cell, m_halo, z):
         z0 = self.z
-        self.update(z=0.)
+        cosmo = self.cosmo
+        n_eff = self.n_eff
         mass = self.m
-        sigma = self.sigma
-        alpha = -self._dlnsdlnm
         mean_density0 = self.mean_density0
         delta_c = self.delta_c
+        delta_halo = self.delta_halo
+        hmf_model = self.hmf_model
+        hmf_params = self.hmf_params
+        self.update(z=0.)
+        sigma = self.sigma
+        alpha = -self._dlnsdlnm
         self.update(z=z0)
         #
         spl_sigma = spl(mass, sigma, ext=1)
         sigma_halo = spl_sigma(m_halo)
         sigma_cell = spl_sigma(m_cell)
-        gf = GrowthFactor(self.cosmo).growth_factor(z)
+        gf = GrowthFactor(cosmo).growth_factor(z)
         spl_alpha = spl(mass, alpha, ext=1)
         alpha_halo = spl_alpha(m_halo)
         #
-        delta_lin = np.ravel(delta_lin)
-        f_sigma = np.ravel(sigma_halo*sigma_halo - sigma_cell*sigma_cell)
-        f1 = np.zeros(len(f_sigma), dtype=f_sigma.dtype)
-        cond = f_sigma > 0.
-        if len(delta_lin) == 1:
-            f_delta = (delta_c - delta_lin)/gf
-        else:
-            f_delta = (delta_c - delta_lin[cond])/gf
-        f_sigma = f_sigma[cond]
-        f1[cond] = f_delta*f_sigma**-1.5*np.exp(-.5*f_delta*f_delta/f_sigma)
-        f2 = sqrt(2/np.pi)*sigma_halo*sigma_halo*alpha_halo*mean_density0/(m_halo*m_halo)
-        return f1*f2
+        diff_delta = (delta_c - delta_lin)/gf
+        diff_sigma2 = np.ravel(sigma_halo*sigma_halo - sigma_cell*sigma_cell)
+        cond = diff_sigma2 > 0
+        diff_sigma2[~cond] = 1.
+        nu2 = diff_delta*diff_delta/diff_sigma2
+        nu2 = nu2[cond]
+        fsigma = np.zeros(len(diff_sigma2))
+        fsigma[cond] = hmf_model(
+            nu2=nu2, z=z, delta_halo=delta_halo, omegam_z=cosmo.Om(z),
+            delta_c=delta_c, n_eff=n_eff, **hmf_params
+        ).fsigma
+        return fsigma*mean_density0*alpha_halo/(m_halo*m_halo)*sigma_halo*sigma_halo/diff_sigma2
 
 
     def HaloDensity(self, delta, v_cell, m_halo, z):
