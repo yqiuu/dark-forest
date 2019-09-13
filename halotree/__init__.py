@@ -5,6 +5,7 @@ from .constructor import *
 from .converter import *
 from .sampler import *
 from .spin import *
+from .halo_map import *
 from .plain_growth import *
 from .hybrid_growth import *
 
