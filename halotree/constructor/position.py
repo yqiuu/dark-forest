@@ -1,70 +1,10 @@
 import os
-from abc import ABC, abstractmethod
 
+from ..dfield import Index2Grid, Grid2Index, SampleFromIndex
 from .constructor import Constructor
 
 import numpy as np
 import pandas as pd
-from numpy import vectorize
-
-
-def Index2Grid(index, n_grid):
-    z = index%n_grid
-    index //= n_grid
-    y = index%n_grid
-    index //= n_grid
-    x = index%n_grid
-    return x, y, z
-Index2Grid = np.frompyfunc(Index2Grid, 2, 3)
-
-
-def Grid2Index(x, y, z, n_grid):
-    return (x*n_grid + y)*n_grid + z
-
-
-class DensityGrid(ABC):
-    @property
-    @abstractmethod
-    def n_grid(self):
-        return 1
-
-
-    @property
-    @abstractmethod
-    def box_size(self):
-        return 0.
-
-
-    @abstractmethod
-    def HaloDensityGrid(self, m_halo, snap):
-        return np.array([0.])
-
-
-    def SampleFromIndex(self, index, rstate):
-        #
-        n_dim = 3
-        n_grid = self.n_grid
-        box_size = self.box_size
-        #
-        n_sample = len(index)
-        grid_size = box_size/n_grid
-        grid_x, grid_y, grid_z = Index2Grid(index, n_grid)
-        x = (rstate.rand(n_sample) + grid_x.astype('i4'))*grid_size
-        y = (rstate.rand(n_sample) + grid_y.astype('i4'))*grid_size
-        z = (rstate.rand(n_sample) + grid_z.astype('i4'))*grid_size
-        return x, y, z
-
-
-    def SamplePosition(self, m_halo, snap, n_sample, rstate):
-        den_halo = self.HaloDensityGrid(m_halo, snap)
-        index = rstate.choice(len(den_halo), n_sample, p=den_halo)
-        x, y, z = self.SampleFromIndex(index, rstate)
-        return x, y, z, index
-
-
-    @abstractmethod
-    def __init__(self, *args, **kwargs):
-        pass
 
 
 class PositionConstructor(Constructor):
@@ -97,8 +37,11 @@ class PositionConstructor(Constructor):
         col_y = self.col_y
         col_z = self.col_z
         density_grid = self.density_grid
+        n_grid = density_grid.n_grid
+        box_size = density_grid.box_size
         comoving = self.comoving
         rstate = self.rstate
+        #
         # Sample positions for MC halos
         select_mc = df_req.index < 0
         grid_index = np.zeros(len(df_req), dtype='i4')
@@ -108,7 +51,7 @@ class PositionConstructor(Constructor):
         else:
             df_pool = pd.DataFrame.from_dict(self.pool, orient='index', columns=['GridIndex'])
             grid_index_mc = df_pool.loc[df_req.index[select_mc], 'GridIndex'].values
-            pos_x, pos_y, pos_z = density_grid.SampleFromIndex(grid_index_mc, rstate)
+            pos_x, pos_y, pos_z = SampleFromIndex(grid_index_mc, n_grid, box_size, rstate)
             grid_index[select_mc] = grid_index_mc
         #
         df_pos = pd.DataFrame(index=df_req.index[select_mc])
@@ -121,19 +64,12 @@ class PositionConstructor(Constructor):
         #
         if snap > snap_min:
             # Compute grid indices for simulation halos
-            box_size = density_grid.box_size
-            n_grid = density_grid.n_grid
-            if comoving:
-                bins = np.linspace(0, box_size, n_grid)
-            else:
-                bins = np.linspace(0., box_size/(1. + z), n_grid)
+            if not comoving:
+                box_size /= (1. + z)
             select_sim = ~select_mc
             df_inh = df_inh.loc[df_req.index[select_sim]]
             grid_index[select_sim] = Grid2Index(
-                np.digitize(df_inh[col_x], bins=bins),
-                np.digitize(df_inh[col_y], bins=bins),
-                np.digitize(df_inh[col_z], bins=bins),
-                n_grid
+                df_inh[col_x], df_inh[col_y], df_inh[col_z], n_grid, box_size
             )
             # Put grid indices into the pool
             pool = {}
