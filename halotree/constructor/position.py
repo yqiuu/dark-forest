@@ -139,7 +139,7 @@ class PositionConstructor(Constructor):
             pool = {}
             cond = df_req['ProgNumber'] > 0
             for (idx, num), g_idx in zip(
-                df_req.loc[cond, ['ProgIndex', 'ProgNumber']].values, grid_index
+                df_req.loc[cond, ['ProgIndex', 'ProgNumber']].values, grid_index[cond]
             ):
                 for p_id in list_prog[idx:idx + num]:
                     if p_id < 0:
