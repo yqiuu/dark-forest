@@ -21,7 +21,7 @@ logger = CreateLogger(__name__)
 
 
 def SaveOutput(handler, prog_data, mass_key, snap, path, prefix):
-    mass_unit = handler.MassConversion()
+    mass_unit = handler.mass_conversion
     # Select all host halos at the current snapshot
     cond = handler['HostHaloID'] == -1
     halo_id = handler['ID'][cond]
