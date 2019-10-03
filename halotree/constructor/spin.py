@@ -36,25 +36,33 @@ class SpinConstructor(Constructor):
         col_r_vir = self.col_r_vir
         col_v_vir = self.col_v_vir
         spin_sampler = self.spin_sampler
+        primary_spin = self.primary_spin
         rstate = self.rstate
         mass_conversion = self.mass_conversion
         #
         df_req_mc = df_req[df_req.index < 0]
         spin = np.zeros(len(df_req_mc))
         if snap > snap_min:
+            # Inherit spin parameters
             prog_pointer = df_req_mc[['ProgIndex', 'ProgNumber']].values
-            cond = prog_pointer[:, -1] > 0
+            if primary_spin:
+                cond = prog_pointer[:, -1] > 0
+            else:
+                cond = prog_pointer[:, -1] == 1
             spin[cond] = [
                 self._InheritSpin(list_prog[idx:idx + num]) for idx, num in prog_pointer[cond]
             ]
             cond = ~cond
         else:
             cond = np.full(len(spin), True)
+        # Draw random spin parameters
         spin[cond] = spin_sampler.Draw(sum(cond), z)
+        # Compute angular momenta
         L = np.sqrt(2.)/mass_conversion*np.asarray(
             df_req_mc[col_m_vir]*df_req_mc[col_r_vir]*df_req_mc[col_v_vir]*spin
         )
         L = RandomUnitSphere(len(df_req_mc), rstate)*L
+        #
         df_spin = pd.DataFrame(
             np.vstack([spin, L]).T, index = df_req_mc.index, columns = df_inh.columns
         )
@@ -68,7 +76,7 @@ class SpinConstructor(Constructor):
 
     def __init__(self,
         handler, hc_path, hc_prefix, snap_min, snap_max, cols, spin_sampler,
-        rstate = None, progress_bar = True, kwargs_tqdm = {}
+        primary_spin=False, rstate=None, progress_bar=True, kwargs_tqdm = {}
     ):
         kwargs_tqdm.update(desc = 'Adding spin parameters')
         super().__init__(
@@ -93,6 +101,7 @@ class SpinConstructor(Constructor):
         self.col_r_vir = cols['r_vir']
         self.col_v_vir = cols['v_vir']
         self.spin_sampler = spin_sampler
+        self.primary_spin = primary_spin
         if rstate is None:
             self.rstate = np.random.RandomState()
         else:
