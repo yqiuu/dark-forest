@@ -1,6 +1,7 @@
 from .connector import Connector
 
 import tables
+import pandas as pd
 from astropy import units as u
 
 
@@ -85,7 +86,7 @@ class DarkForestConnector(Connector):
         self.group = self.hf.get_node('/Snapshot_%03d'%snap)
 
 
-    def Load(self, target, cols=None):
+    def Load(self, target, cols=None, rtype='dict'):
         hf = self.hf
         group = hf.get_node(self.group, target)
         if cols is None:
@@ -93,7 +94,17 @@ class DarkForestConnector(Connector):
         data = {}
         for c in cols:
             data[c] = hf.get_node(group, c).read()
-        return data
+        if rtype == 'dict':
+            return data
+        data = pd.DataFrame.from_dict(data)
+        if rtype == 'pandas':
+            if 'Index' in data.columns:
+                data.set_index('Index', inplace=True)
+            return data
+        elif rtype == 'records':
+            return data.to_records(index=False)
+        else:
+            raise ValueError(f"Unkown rtype: '{rtype}'")
 
 
     def __getitem__(self, key):
