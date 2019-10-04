@@ -1,6 +1,7 @@
 from .connector import Connector
 
 import tables
+import numpy as np
 import pandas as pd
 from astropy import units as u
 
@@ -80,6 +81,15 @@ class DarkForestConnector(Connector):
             self._velocity_unit = \
                 self.hf.get_node_attr('/Header', 'velocity_unit_to_kms')*u.km/u.second
             return self._velocity_unit
+
+
+    @property
+    def redshifts(self):
+        try:
+            return np.array(self._redshifts)
+        except AttributeError:
+            self._redshifts = self.hf.get_node('/Header', 'Redshift').read()
+            return np.array(self._redshifts)
 
 
     def SwitchSnapshot(self, snap):
