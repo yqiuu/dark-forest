@@ -42,13 +42,10 @@ class SpinConstructor(Constructor):
         #
         df_req_mc = df_req[df_req.index < 0]
         spin = np.zeros(len(df_req_mc))
-        if snap > snap_min:
+        if snap > snap_min and primary_spin:
             # Inherit spin parameters
             prog_pointer = df_req_mc[['ProgIndex', 'ProgNumber']].values
-            if primary_spin:
-                cond = prog_pointer[:, -1] > 0
-            else:
-                cond = prog_pointer[:, -1] == 1
+            cond = prog_pointer[:, -1] > 0
             spin[cond] = [
                 self._InheritSpin(list_prog[idx:idx + num]) for idx, num in prog_pointer[cond]
             ]
@@ -68,9 +65,10 @@ class SpinConstructor(Constructor):
         )
         df_spin = df_inh.append(df_spin)
         # Walk forwad
-        pool.update(
-            {h_id:s for h_id, s in zip(df_req.index, df_spin.loc[df_req.index, col_spin])}
-        )
+        if primary_spin:
+            pool.update(
+                {h_id:s for h_id, s in zip(df_req.index, df_spin.loc[df_req.index, col_spin])}
+            )
         return df_spin
 
 
