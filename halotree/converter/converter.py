@@ -1,6 +1,6 @@
 import os
 
-from ..utils import SnapRange
+from ..utils import Range
 from ..connector import ColumnLookup
 from ..constructor import QuickConstructor
 
@@ -42,7 +42,7 @@ def SaveGroupData(
 
 def VELOCIraptorConverter(
     handler, hc_path, hc_prefix, snap_min, snap_max, out_name,
-    mass_key, other_key = [], progress_bar = True, kwargs_tqdm = {}
+    mass_key, other_key = [], kwargs_tqdm = {}
 ):
     data_type = handler.data_type
     mass_conversion = handler.mass_conversion
@@ -82,9 +82,7 @@ def VELOCIraptorConverter(
     redshifts = handler.redshifts
     with h5py.File(out_name, "w") as fp:
         SaveHeader(fp, handler, snap_max - snap_min + 1)
-        for snap in SnapRange(
-            snap_min, snap_max + 1, progress_bar = progress_bar, **kwargs_tqdm
-        ):
+        for snap in Range(snap_min, snap_max + 1, **kwargs_tqdm):
             z = redshifts[snap]
             SaveGroupData(
                 fp, hc_path, hc_prefix, column_lookup, name_lookup, quick_cstr, data_type, snap, z

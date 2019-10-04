@@ -85,8 +85,8 @@ class PositionConstructor(Constructor):
 
 
     def __init__(self,
-        handler, hc_path, hc_prefix, snap_min, snap_max, cols, density_field,
-        n_min=10**5, d_min=0.2, comoving=True, rstate=None, progress_bar=True, kwargs_tqdm={}
+        handler, hc_path, hc_prefix, snap_min, snap_max, cols, density_grid, n_bin,
+        comoving=True, rstate=None, kwargs_tqdm={}
     ):
         kwargs_tqdm.update(desc='Constructing coordinates')
         super().__init__(
@@ -101,7 +101,6 @@ class PositionConstructor(Constructor):
             read_prog=['ID'],
             inherit=True,
             forward=False,
-            progress_bar=progress_bar,
             kwargs_tqdm=kwargs_tqdm
         )
         self.snap_max = snap_max

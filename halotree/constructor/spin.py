@@ -74,7 +74,7 @@ class SpinConstructor(Constructor):
 
     def __init__(self,
         handler, hc_path, hc_prefix, snap_min, snap_max, cols, spin_sampler,
-        primary_spin=False, rstate=None, progress_bar=True, kwargs_tqdm = {}
+        primary_spin=False, rstate=None, kwargs_tqdm = {}
     ):
         kwargs_tqdm.update(desc = 'Adding spin parameters')
         super().__init__(
@@ -89,7 +89,6 @@ class SpinConstructor(Constructor):
             read_prog = ['ID', cols['m_vir']],
             inherit = True,
             forward = True,
-            progress_bar = progress_bar,
             kwargs_tqdm = kwargs_tqdm
         )
         self.pool = {}

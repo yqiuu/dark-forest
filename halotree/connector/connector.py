@@ -1,7 +1,7 @@
 import os
 from abc import ABC, abstractmethod
 
-from ..utils import SnapRange
+from ..utils import Range
 from ..logger import CreateLogger
 from ..halotree import *
 
@@ -313,11 +313,11 @@ def ColumnLookup(store, columns):
     return lookup
 
 
-def RemoveKey(hc_path, hc_prefix, snap_min, snap_max, key, progress_bar = True, kwargs_tqdm = {}):
+def RemoveKey(hc_path, hc_prefix, snap_min, snap_max, key, kwargs_tqdm = {}):
     if key in ['Host', '/Host', 'Prog', '/Prog']:
         raise KeyError("'%s' is a protected key"%key)
     kwargs_tqdm.update(desc = "Removing '%s'"%key)
-    for snap in SnapRange(snap_min, snap_max + 1, progress_bar = progress_bar, **kwargs_tqdm):
+    for snap in Range(snap_min, snap_max + 1, **kwargs_tqdm):
         with pd.HDFStore(os.path.join(hc_path, '%s_%03d.hdf5'%(hc_prefix, snap))) as store:
             try:
                 store.remove(key)

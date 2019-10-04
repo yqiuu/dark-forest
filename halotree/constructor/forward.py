@@ -1,6 +1,6 @@
 import os
 
-from ..utils import SnapRange
+from ..utils import Range
 from ..connector import RemoveKey, ColumnLookup
 from .constructor import Constructor
 
@@ -166,7 +166,7 @@ class ForwardRebuilder(Constructor):
         if not self.test_mode:
             RemoveKey(
                 self.hc_path, self.hc_prefix, self.snap_min, self.snap_max,
-                '_ForwardFix', self.progress_bar, self.kwargs_tqdm
+                '_ForwardFix', self.kwargs_tqdm
             )
 
 
@@ -184,37 +184,31 @@ class ForwardRebuilder(Constructor):
             # Load local variables
             snap_min = self.snap_min
             snap_max = self.snap_max
-            progress_bar = self.progress_bar
             kwargs_tqdm = self.kwargs_tqdm
             #
             self.col_inh = ['HostHaloID', 'DescendantSnap', 'Descendant', 'ForestID']
             self.inherit = True
             kwargs_tqdm.update(desc = 'Rebuilding original trees')
-            self._snap_range = SnapRange(
-                snap_min, snap_max + 1, progress_bar = progress_bar, **kwargs_tqdm
-            )
+            self._snap_range = Range(snap_min, snap_max + 1, **kwargs_tqdm)
             self._ReubildOriginalTree()
             #
             self.col_inh = []
             self.inherit = False
             kwargs_tqdm.update(desc = 'Adding forward pointers')
-            self._snap_range = SnapRange(
-                snap_max, snap_min - 1, -1, progress_bar = progress_bar, **kwargs_tqdm
-            )
+            self._snap_range = Range(snap_max, snap_min - 1, -1, **kwargs_tqdm)
             super().Run()
         finally:
             self._Clean()
 
 
     def __init__(self,
-        handler, hc_path, hc_prefix, snap_min, snap_max, progress_bar = True, kwargs_tqdm = {}
+        handler, hc_path, hc_prefix, snap_min, snap_max, kwargs_tqdm = {}
     ):  
         self.handler = handler
         self.hc_path = hc_path
         self.hc_prefix = hc_prefix
         self.snap_min = snap_min
         self.snap_max = snap_max
-        self.progress_bar = progress_bar
         self.kwargs_tqdm = kwargs_tqdm
         #
         self.key_new = 'Forward'
@@ -226,12 +220,12 @@ class ForwardRebuilder(Constructor):
         self.test_mode = False
 
 
-def WalkForward(hc_path, hc_prefix, snap_min, snap_max, progress_bar = True, kwargs_tqdm = {}):
+def WalkForward(hc_path, hc_prefix, snap_min, snap_max, kwargs_tqdm = {}):
     #
     pool = [{} for snap in range(snap_max + 1)]
     #
     kwargs_tqdm.update(desc = 'Walking forward')
-    for snap in SnapRange(snap_min, snap_max + 1, progress_bar = progress_bar, **kwargs_tqdm):
+    for snap in Range(snap_min, snap_max + 1, **kwargs_tqdm):
         df_forward = pd.read_hdf(
             os.path.join(hc_path, '%s_%03d.hdf5'%(hc_prefix, snap)), 'Forward'
         )

@@ -1,7 +1,7 @@
 import os
 from abc import ABC, abstractmethod 
 
-from ..utils import SnapRange
+from ..utils import Range
 from ..connector import ColumnLookup
 
 import numpy as np
@@ -119,7 +119,7 @@ class Constructor(ABC):
 
     def __init__(self,
         handler, hc_path, hc_prefix, snap_min, snap_max, key_new, col_inh, col_req,
-        read_prog = [], inherit = True, forward = True, progress_bar = True, kwargs_tqdm = {}
+        read_prog = [], inherit = True, forward = True, kwargs_tqdm = {}
     ):  
         self.handler = handler
         self.hc_path = hc_path
@@ -132,13 +132,9 @@ class Constructor(ABC):
         with pd.HDFStore(os.path.join(hc_path, '%s_%03d.hdf5'%(hc_prefix, snap_min))) as store:
             self.column_lookup = ColumnLookup(store, col_req)
         if forward:
-            snap_range = SnapRange(
-                snap_min, snap_max + 1, progress_bar = progress_bar, **kwargs_tqdm
-            )
+            snap_range = Range(snap_min, snap_max + 1, **kwargs_tqdm)
         else:
-            snap_range = SnapRange(
-                snap_max, snap_min - 1, -1, progress_bar = progress_bar, **kwargs_tqdm
-            )
+            snap_range = Range(snap_max, snap_min - 1, -1, **kwargs_tqdm)
         self._snap_range = snap_range
 
 

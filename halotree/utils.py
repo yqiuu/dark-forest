@@ -1,13 +1,13 @@
-from tqdm import tqdm
+from tqdm import trange, tnrange
 
 
 __all__ = [
-    'SnapRange'
+    'Range'
 ]
 
 
-def SnapRange(*args, progress_bar = True, **kwargs):
-    if progress_bar:
-        return tqdm(range(*args), **kwargs)
+def Range(*args, notebook=False, **kwargs):
+    if notebook:
+        return tnrange(*args, **kwargs)
     else:
-        return range(*args)
+        return trange(*args, **kwargs)

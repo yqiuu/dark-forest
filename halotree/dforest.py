@@ -1,5 +1,5 @@
 import os
-from .utils import SnapRange
+from .utils import Range
 from .halotree import *
 
 import tables
@@ -72,7 +72,7 @@ def SaveDarkForest(
         cols = np.ravel(cols)
         n_snap = snap_max + 1
         desc_pool_arr = np.asarray([{} for snap in range(n_snap)])
-        for snap in SnapRange(snap_min, n_snap, **kwargs_tqdm):
+        for snap in Range(snap_min, n_snap, **kwargs_tqdm):
             cntr.SwitchSnapshot(snap)
             # Merge subhalos to their host halo
             desc_pool = desc_pool_arr[snap]
@@ -123,7 +123,7 @@ def ReadDarkForest(
         cond = np.full(len(host_data), True)
     n_host = np.count_nonzero(cond)
     #
-    for snap in SnapRange(snap_max, snap_min, -1, **kwargs_tqdm):
+    for snap in Range(snap_max, snap_min, -1, **kwargs_tqdm):
         z = redshifts[snap - 1]
         # Read data
         if snap != snap_max:
