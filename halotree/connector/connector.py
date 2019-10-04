@@ -9,6 +9,7 @@ from tqdm import tqdm
 import numpy as np
 import pandas as pd
 from astropy import units as u
+from astropy.cosmology import FlatLambdaCDM
 
 
 __all__ = [
@@ -103,6 +104,24 @@ class Connector(ABC):
     def velocity_unit(self):
         """An astropy unit (quantity) instance specifying the velocity unit."""
         return u.km/u.second
+
+
+    @property
+    @abstractmethod
+    def redshifts(self):
+        """Redshift of the universe at each snapshot."""
+        return np.array([0.])
+
+
+    @property
+    def ages(self):
+        """Age of the universe at each snapshot. [Myr]"""
+        try:
+            return np.array(self._ages)
+        except AttributeError:
+            cosmo = FlatLambdaCDM(**self.cosmo_params)
+            self._ages = cosmo.age(self.redshifts).value*1e3
+            return np.array(self._ages)
 
 
     @abstractmethod

@@ -6,8 +6,6 @@ import numpy as np
 import pandas as pd
 import h5py
 from astropy import units as u
-from astropy.cosmology import FlatLambdaCDM
-
 
 
 __all__ = ['GenesisConnector']
@@ -132,22 +130,6 @@ class GenesisConnector(Connector):
                 redshifts[snap] = 1./self.fp.get('Snap_%03d'%snap).attrs['scalefactor'] - 1.
             self._redshifts = redshifts
             return np.array(self._redshifts)
-
-
-    @property
-    def ages(self):
-        """
-        Returns
-        -------
-        array [Myr]
-            Age of the universe at each time step
-        """
-        try:
-            return np.array(self._ages)
-        except AttributeError:
-            cosmo = FlatLambdaCDM(**self.cosmo_params)
-            self._ages = cosmo.age(self.redshifts).value*1e3
-            return np.array(self._ages)
 
 
     def HaloKit(self, **kwargs):
