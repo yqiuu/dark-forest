@@ -21,7 +21,7 @@ def SaveSnapshot(hf, cntr, prog_data, mass_key, cols, snap):
         for i_prog, prog in enumerate(prog_data.values()):
             number[i_prog] = len(prog)
             plain_data.extend(prog)
-        df_prog = pd.DataFrame(plain_data, columns=['ID', 'Snap'] + [k for k in mass_key])
+        df_prog = pd.DataFrame(plain_data, columns=['Index', 'Snap'] + [k for k in mass_key])
         df_prog['Snap'] = df_prog['Snap'].astype('i4')
         df_prog[mass_key] *= mass_conversion
         if len(df_prog) > 0:
@@ -42,7 +42,7 @@ def SaveSnapshot(hf, cntr, prog_data, mass_key, cols, snap):
         for k in mass_key:
             hf.create_carray(group_host, k, obj=cntr[k][select_host]*mass_conversion)
         for c in cols:
-            hf.create_carray(group_host, c, obj=cntr[c])
+            hf.create_carray(group_host, c, obj=cntr[c][select_host])
 
 
 def SaveHeader(hf, cntr):
@@ -63,6 +63,7 @@ def SaveHeader(hf, cntr):
 def SaveDarkForest(
     cntr, fname, mass_key, cols, snap_max, snap_min=0, filters=None, kwargs_tqdm={}
 ):
+    kwargs_tqdm.update(desc="Saving dark forest")
     with tables.File('%s.hdf5'%fname, 'w', filters=filters) as hf:
         SaveHeader(hf, cntr)
         #
