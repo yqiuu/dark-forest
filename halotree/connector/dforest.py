@@ -84,6 +84,15 @@ class DarkForestConnector(Connector):
 
 
     @property
+    def m_particle(self):
+        try:
+            return self._m_particle
+        except AttributeError:
+            self._m_particle = self.hf.get_node_attr('/Header', 'm_particle')
+            return self._m_particle
+
+
+    @property
     def redshifts(self):
         try:
             return np.array(self._redshifts)

@@ -59,6 +59,7 @@ def SaveHeader(hf, cntr):
     hf.set_node_attr(header, 'mass_unit_to_solarmass', cntr.mass_unit.value)
     hf.set_node_attr(header, 'length_unit_to_kpc', cntr.radius_unit.value)
     hf.set_node_attr(header, 'velocity_unit_to_kms', cntr.velocity_unit.value)
+    hf.set_node_attr(header, 'm_particle', cntr.m_particle)
 
 
 def SaveDarkForest(

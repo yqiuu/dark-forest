@@ -108,6 +108,13 @@ class Connector(ABC):
 
     @property
     @abstractmethod
+    def m_particle(self):
+        """Particle mass. [h^-1 M_solar]"""
+        return 0.
+
+
+    @property
+    @abstractmethod
     def redshifts(self):
         """Redshift of the universe at each snapshot."""
         return np.array([0.])

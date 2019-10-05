@@ -82,7 +82,6 @@ class GenesisConnector(Connector):
 
     @property
     def m_particle(self):
-        """Particle mass. [h^-1 M_solar]"""
         try:
             return self._m_particle
         except AttributeError:
