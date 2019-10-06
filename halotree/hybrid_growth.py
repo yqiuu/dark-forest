@@ -1,8 +1,10 @@
 from .halotree import *
+from .dforest import SaveHeader
 from .logger import CreateLogger
 
 import os
 
+import tables
 import numpy as np
 import pandas as pd
 
@@ -16,12 +18,19 @@ def CreateRandomState(seed, comm):
         return RandomStateGSL(seed + comm.Get_rank())
 
 
-def ReadHaloData(path, prefix, snap, mass_key, comm, master_rank):
+def CreateOutput(cntr, fname, filters, comm, master_rank):
+    if comm is None or comm.Get_rank() == master_rank:
+        if cntr is not None:
+            with tables.File('%s.hdf5'%fname, 'w', filters=filters) as hf:
+                SaveHeader(hf, cntr)
+
+
+def ReadHaloData(cntr, snap, mass_key, comm, master_rank):
     if comm is None or comm.Get_rank() == master_rank:
         logger.info("Read snapshot %d"%snap)
-        with pd.HDFStore(os.path.join(path, '%s_%03d.hdf5'%(prefix, snap))) as store:
-            prog_data = pd.read_hdf(store, 'Prog', columns = ['Snap', mass_key])
-            host_data = pd.read_hdf(store, 'Host', columns = ['ProgIndex', 'ProgNumber', mass_key])
+        cntr.SwitchSnapshot(snap)
+        prog_data = cntr.Load('Prog', ['Index', 'Snap', mass_key], 'pandas')
+        host_data = cntr.Load('Host', ['Index', 'ProgIndex', 'ProgNumber', mass_key], 'pandas')
         return host_data, prog_data
     else:
         return None, None
@@ -147,31 +156,31 @@ def GatherData(
         return None, None, None, None, None
 
 
-def SaveData(path, prefix, host_data, prog_data, stats_data, snap, snap_min, comm, master_rank):
+def SaveData(fname, host_data, prog_data, stats_data, snap, snap_min, filters, comm, master_rank):
     if comm is None or comm.Get_rank() == master_rank:
-        prog_data = np.concatenate(prog_data)
-        df_prog = pd.DataFrame(prog_data)
-        df_prog.set_index('ID', inplace = True)
-        df_host = pd.DataFrame(host_data)
-        df_host.set_index('ID', inplace = True)
-        insert_column = 0
-        for key in stats_data.dtype.names:
-            df_host.insert(insert_column, key, stats_data[key])
-            insert_column += 1
-        with pd.HDFStore(os.path.join(path, '%s_%03d.hdf5'%(prefix, snap)), "w") as store:
-            store.append('Prog', df_prog)
-            store.append('Host', df_host)
-        # Save host data for the last snapshot
-        if snap - 1 == snap_min:
-            df_last = df_prog.drop(columns = 'Snap')
-            df_last.insert(
-                0, 'ProgIndex', np.full(len(df_last), -1, dtype = df_host.dtypes['ProgIndex'])
-            )
-            df_last.insert(
-                1, 'ProgNumber', np.full(len(df_last), 0, dtype = df_host.dtypes['ProgNumber'])
-            )
-            with pd.HDFStore(os.path.join(path, '%s_%03d.hdf5'%(prefix, snap_min)), "w") as store:
-                store.append('Host', df_last)
+        with tables.File('%s.hdf5'%fname, 'a', filters=filters) as hf:
+            # Save progenitor data
+            group_prog = hf.create_group('/Snapshot_%03d'%snap, 'Prog', createparents=True)
+            prog_data = np.concatenate(prog_data)
+            if len(prog_data) > 0:
+                for c in prog_data.dtype.names:
+                    hf.create_carray(group_prog, c, obj=prog_data[c])
+            # Save host data
+            group_host = hf.create_group('/Snapshot_%03d'%snap, 'Host', createparents=True)
+            for c in host_data.dtype.names:
+                hf.create_carray(group_host, c, obj=host_data[c])
+            for c in stats_data.dtype.names:
+                hf.create_carray(group_host, c, obj=stats_data[c])
+            # Save host data for the last snapshot
+            if snap - 1 == snap_min:
+                group_last = hf.create_group('/Snapshot_%03d'%snap_min, 'Host', createparents=True)
+                prog_index = np.full(len(prog_data), -1, dtype=host_data.dtype['ProgIndex'])
+                hf.create_carray(group_last, 'ProgIndex', obj=prog_index)
+                prog_number = np.full(len(prog_data), 0, dtype=host_data.dtype['ProgNumber'])
+                hf.create_carray(group_last, 'ProgNumber', obj=prog_number)
+                for c in prog_data.dtype.names:
+                    if c != 'Snap':
+                        hf.create_carray(group_last, c, obj=prog_data[c])
 
 
 def NewID(n_halo, snap, offset):
@@ -286,7 +295,7 @@ def AugmentChunk(
     halo_kit, m_cut, m_res, params_ag, params_mc, rstate, n_base, comm,
 ):
     dtype_host = host_chunk.dtype
-    dtype_prog = np.dtype([('ID', 'i8'), ('Snap', 'i4'), (mass_key, 'f8')])
+    dtype_prog = np.dtype([('Index', 'i8'), ('Snap', 'i4'), (mass_key, 'f8')])
     dtype_stats = np.dtype([('MassCutFix', 'f4'), ('EpsMatchFix', 'f4'), ('Trail', 'i4')])
     # Make empty arrays for outputs
     n_host_chunk = len(host_chunk)
@@ -323,14 +332,14 @@ def AugmentChunk(
             # Process new progenitor data
             prog = np.array(prog[list(dtype_prog.names)], dtype = dtype_prog)
             prog_unres = np.full(n_unres, -1, dtype = dtype_prog)
-            prog_unres['ID'] = new_id
+            prog_unres['Index'] = new_id
             prog_unres['Snap'] = np.full(n_unres, snap - 1, dtype = 'i4')
             prog_unres[mass_key] = m_unres
             prog = np.append(prog, prog_unres)
             new_prog_chunk[i_chunk] = prog
             # Process next host data
             next_host = np.full(n_unres, -1, dtype = dtype_host)
-            next_host['ID'] = new_id
+            next_host['Index'] = new_id
             next_host['ProgNumber'] = 0
             next_host[mass_key] = m_unres
             next_host_chunk[i_chunk] = next_host
@@ -348,38 +357,41 @@ def AugmentChunk(
         offset = comm.allgather(n_new_halo)
         offset = np.append(0, np.cumsum(offset))[i_rank]
         for new_prog in new_prog_chunk:
-            new_prog['ID'][new_prog['ID'] < 0] -= offset
-        next_host_chunk['ID'] -= offset
+            new_prog['Index'][new_prog['Index'] < 0] -= offset
+        next_host_chunk['Index'] -= offset
     return new_prog_chunk, next_host_chunk, stats_chunk
 
 
-def HybridGrowth(
-    hc_path, hc_prefix, out_path, out_prefix, snap_min, snap_max, mass_key,
-    redshifts, ages, halo_kit, m_res, params_ag, params_mc, new_halos = None,
-    filters = {}, seed = 209204, n_base = 5000, comm = None, master_rank = 0
+def GrowMass(
+    cntr, fname, mass_key, halo_kit, m_res, params_ag, params_mc,
+    snap_max, snap_min=0, root_halos=None, redshifts=None, ages=None,
+    seed=20070831, n_base=5000, filters=None, comm=None, master_rank=0
 ):
+    if cntr is not None:
+        redshifts = cntr.redshifts
+        ages = cntr.ages
     rstate = CreateRandomState(seed, comm)
     m_cut = params_ag['m_min_cut']
+    #
+    CreateOutput(cntr, fname, filters, comm, master_rank)
     # Initialise new halos
-    dtype_host = [('ID', 'i8'), ('ProgIndex', 'i4'), ('ProgNumber', 'i4'), (mass_key, 'f8')]
-    if new_halos is None:
-        next_host_data = np.array([], dtype = dtype_host)
+    dtype_host = [('Index', 'i8'), ('ProgIndex', 'i4'), ('ProgNumber', 'i4'), (mass_key, 'f8')]
+    if root_halos is None:
+        next_host_data = np.array([], dtype=dtype_host)
     else:
-        n_new = len(new_halos)
-        next_host_data = np.zeros(n_new, dtype = dtype_host)
-        next_host_data['ID'] = NewID(n_new, snap_max, 0)
-        next_host_data['ProgIndex'] = np.full(n_new, -1, dtype = 'i4')
-        next_host_data[mass_key] = new_halos
+        n_new = len(root_halos)
+        next_host_data = np.zeros(n_new, dtype=dtype_host)
+        next_host_data['Index'] = NewID(n_new, snap_max, 0)
+        next_host_data['ProgIndex'] = np.full(n_new, -1, dtype='i4')
+        next_host_data[mass_key] = root_halos
     #
     pool_data, pool_list_chunk = None, [[] for i in range(snap_max + 1)]
     #
     for snap in range(snap_max, snap_min, -1):
-        host_data_raw, prog_data_raw = ReadHaloData(
-            hc_path, hc_prefix, snap, mass_key, comm, master_rank
-        )
+        host_data_raw, prog_data_raw = ReadHaloData(cntr, snap, mass_key, comm, master_rank)
         host_chunk, prog_chunk = ScatterData(
             host_data_raw, prog_data_raw, next_host_data, pool_data,
-            mass_key, m_cut, filters, comm, master_rank
+            mass_key, m_cut, {}, comm, master_rank
         )
         z_root, t_root = redshifts[snap], ages[snap]
         z_target, t_target = redshifts[snap - 1], ages[snap - 1]
@@ -393,7 +405,6 @@ def HybridGrowth(
             pool_list_chunk[snap - 1], stats_chunk, comm, master_rank
         )
         SaveData(
-            out_path, out_prefix, host_data, prog_data, stats_data,
-            snap, snap_min, comm, master_rank
+            fname, host_data, prog_data, stats_data, snap, snap_min, filters, comm, master_rank
         )
 
