@@ -105,11 +105,16 @@ class DarkForestConnector(Connector):
         self.group = self.hf.get_node('/Snapshot_%03d'%snap)
 
 
-    def Load(self, target, cols=None, rtype='dict'):
+    def Load(self, target, cols=None, rtype='dict', index=None):
         hf = self.hf
         group = hf.get_node(self.group, target)
         if cols is None:
             cols = [node.name for node in hf.iter_nodes(group)]
+        else:
+            cols = list(cols)
+        if index is not None:
+            if index not in cols:
+                cols.append(index)
         data = {}
         for c in cols:
             data[c] = hf.get_node(group, c).read()
@@ -117,8 +122,8 @@ class DarkForestConnector(Connector):
             return data
         data = pd.DataFrame.from_dict(data)
         if rtype == 'pandas':
-            if 'Index' in data.columns:
-                data.set_index('Index', inplace=True)
+            if index is not None:
+                data.set_index(index, inplace=True)
             return data
         elif rtype == 'records':
             return data.to_records(index=False)

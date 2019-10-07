@@ -115,7 +115,7 @@ def ReadDarkForest(
     redshifts = cntr.redshifts
     # Select host halos
     cntr.SwitchSnapshot(snap_max)
-    host_data = cntr.Load('Host', ['Index', 'ProgIndex', 'ProgNumber', mass_key], 'pandas')
+    host_data = cntr.Load('Host', ['ProgIndex', 'ProgNumber', mass_key], 'pandas', 'Index')
     if m_range is not None:
         m_min, m_max = m_range
         m_host = host_data[mass_key].values
@@ -129,7 +129,7 @@ def ReadDarkForest(
         # Read data
         if snap != snap_max:
             cntr.SwitchSnapshot(snap)
-            host_data = cntr.Load('Host', ['Index', 'ProgIndex', 'ProgNumber', mass_key], 'pandas')
+            host_data = cntr.Load('Host', ['ProgIndex', 'ProgNumber', mass_key], 'pandas', 'Index')
         else:
             # Initialise root halos and the pool to read progenitors
             z_root = redshifts[snap_max]
