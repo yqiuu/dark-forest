@@ -115,7 +115,7 @@ def ReadDarkForest(
     redshifts = cntr.redshifts
     # Select host halos
     cntr.SwitchSnapshot(snap_max)
-    host_data = cntr.Load('Host', ['ProgIndex', 'ProgNumber', mass_key], 'pandas', 'Index')
+    host_data = cntr.Read('Host', ['ProgIndex', 'ProgNumber', mass_key], 'pandas', 'Index')
     if m_range is not None:
         m_min, m_max = m_range
         m_host = host_data[mass_key].values
@@ -129,7 +129,7 @@ def ReadDarkForest(
         # Read data
         if snap != snap_max:
             cntr.SwitchSnapshot(snap)
-            host_data = cntr.Load('Host', ['ProgIndex', 'ProgNumber', mass_key], 'pandas', 'Index')
+            host_data = cntr.Read('Host', ['ProgIndex', 'ProgNumber', mass_key], 'pandas', 'Index')
         else:
             # Initialise root halos and the pool to read progenitors
             z_root = redshifts[snap_max]
@@ -143,7 +143,7 @@ def ReadDarkForest(
                 tree.Append(z_root, m_root)
                 tree_arr[i_tree] = tree
                 pool[snap_max].append((i_tree, 0, halo_id))
-        prog_data = cntr.Load('Prog', ['Index', 'Snap', mass_key], 'records')
+        prog_data = cntr.Read('Prog', ['Index', 'Snap', mass_key], 'records')
         # Trace progenitors
         current_pool = np.asarray(pool[snap])
         if len(current_pool) == 0:

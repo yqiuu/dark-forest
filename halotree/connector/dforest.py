@@ -105,7 +105,28 @@ class DarkForestConnector(Connector):
         self.group = self.hf.get_node('/Snapshot_%03d'%snap)
 
 
-    def Load(self, target, cols=None, rtype='dict', index=None):
+    def Read(self, target, cols=None, rtype='dict', index=None):
+        """
+        Read data.
+
+        Parameters
+        ----------
+            target: {'Host', 'Prog', 'Main'}
+                Name of the group.
+            cols: list
+                List of string specifying column names.
+            rtype: {'dict', 'pandas', 'records'}
+                Type of the return data.
+                    dict: python dictionary
+                    pandas: pandas data frame
+                    records: numpy records
+            index: str
+                If rtype is 'pandas', specify the index of the data frame.
+
+        Returns
+        -------
+            Required data.
+        """
         hf = self.hf
         group = hf.get_node(self.group, target)
         if cols is None:

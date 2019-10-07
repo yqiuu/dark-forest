@@ -29,8 +29,8 @@ def ReadHaloData(cntr, snap, mass_key, comm, master_rank):
     if comm is None or comm.Get_rank() == master_rank:
         logger.info("Read snapshot %d"%snap)
         cntr.SwitchSnapshot(snap)
-        prog_data = cntr.Load('Prog', ['Snap', mass_key], 'pandas', 'Index')
-        host_data = cntr.Load('Host', ['ProgIndex', 'ProgNumber', mass_key], 'pandas', 'Index')
+        prog_data = cntr.Read('Prog', ['Snap', mass_key], 'pandas', 'Index')
+        host_data = cntr.Read('Host', ['ProgIndex', 'ProgNumber', mass_key], 'pandas', 'Index')
         return host_data, prog_data
     else:
         return None, None
