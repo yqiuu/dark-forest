@@ -170,7 +170,7 @@ class DarkForestConnector(Connector):
 
 
     def __enter__(self):
-        self.hf = tables.File(self.fname, 'r')
+        self.hf = tables.File(self.fname, 'r+')
         return self
 
 
