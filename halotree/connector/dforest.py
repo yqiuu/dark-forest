@@ -3,6 +3,8 @@ from .connector import Connector
 import tables
 import numpy as np
 import pandas as pd
+from tables.exceptions import NoSuchNodeError
+from tqdm import trange
 from astropy import units as u
 
 
@@ -150,6 +152,17 @@ class DarkForestConnector(Connector):
             return data.to_records(index=False)
         else:
             raise ValueError(f"Unkown rtype: '{rtype}'")
+
+
+    def Remove(self, name, kwargs_tqdm={}):
+        kwargs_tqdm.update(desc="Removing '%s'"%name)
+        hf = self.hf
+        n_snap = len(hf.list_nodes('/')) - 1
+        for i_snap in trange(n_snap, **kwargs_tqdm):
+            try:
+                hf.remove_node('/Snapshot_%03d'%i_snap, name, recursive=True)
+            except NoSuchNodeError:
+                pass
 
 
     def __getitem__(self, key):
