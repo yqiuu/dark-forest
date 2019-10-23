@@ -53,32 +53,30 @@ class VirialConstructor(Constructor):
 
 
     def __init__(self,
-        handler, hc_path, hc_prefix, snap_min, snap_max, cols,
-        delta_collapse = 200., mode = 'crit', kwargs_tqdm = {}
+        cntr_target, cntr_source, cols, snap_max, snap_min=0,
+        delta_collapse=200., mode='crit', kwargs_tqdm={}
     ):
         kwargs_tqdm.update(desc = 'Adding virial properties')
         super().__init__(
-            handler = handler,
-            hc_path = hc_path,
-            hc_prefix = hc_prefix,
-            snap_min = snap_min,
-            snap_max = snap_max,
-            key_new = 'Virial',
-            col_inh = [cols['m_vir'], cols['r_vir']],
-            col_req = [cols['m_hc']],
-            read_prog = [],
-            inherit = True,
-            forward = True,
-            kwargs_tqdm = kwargs_tqdm
+            cntr_target=cntr_target,
+            cntr_source=cntr_source,
+            col_inh=[cols['m_vir'], cols['r_vir']],
+            col_req=[cols['m_hc']],
+            snap_max=snap_max,
+            snap_min=snap_min,
+            read_prog=[],
+            inherit=True,
+            forward=True,
+            kwargs_tqdm=kwargs_tqdm
         )
         self.col_m_vir = cols['m_vir']
         self.col_r_vir = cols['r_vir']
         self.col_v_vir = cols['v_vir']
         self.delta_collapse = delta_collapse
         self.mode = mode
-        self.cosmo = FlatLambdaCDM(**handler.cosmo_params)
-        self.mass_conversion = handler.mass_conversion
-        self.density_unit = handler.mass_unit/handler.radius_unit**3
+        self.cosmo = FlatLambdaCDM(**cntr_source.cosmo_params)
+        self.mass_conversion = cntr_source.mass_conversion
+        self.density_unit = cntr_source.mass_unit/cntr_source.radius_unit**3
         self.grav_const = const.G.to(
-            handler.radius_unit/handler.mass_unit*handler.velocity_unit**2
+            cntr_source.radius_unit/cntr_source.mass_unit*cntr_source.velocity_unit**2
         ).value

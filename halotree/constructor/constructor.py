@@ -6,44 +6,75 @@ from ..connector import ColumnLookup
 
 import numpy as np
 import pandas as pd
+from tables import NoSuchNodeError
 
 
 class Constructor(ABC):
-    def _PrepareReqData(self, store):
+    def _CreateColumnName(self, col_req, snap_min):
+        node_host = [
+            node.name for node in self.cntr_target.hf.iter_nodes('/Snapshot_%03d/Host'%snap_min)
+        ]
+        col_host = []
+        col_main = []
+        for c in col_req:
+            if c in node_host:
+                col_host.append(c)
+            else:
+                col_main.append(c)
+        self.col_host = col_host
+        self.col_main = col_main
+
+
+    def _PrepareProgData(self):
+        cntr_target = self.cntr_target
+        read_prog = self.read_prog
+        if len(read_prog) > 0:
+            try:
+                rec_prog = cntr_target.Read('Prog', read_prog, 'records')
+            except NoSuchNodeError:
+                return None
+            if len(read_prog) == 1:
+                list_prog = list(rec_prog[read_prog[0]])
+            return list_prog
+        else:
+            return None
+
+
+    def _PrepareReqData(self):
         # Load local variables
-        column_lookup = dict(self.column_lookup)
+        cntr_target = self.cntr_target
+        col_host = self.col_host
+        col_main = self.col_main
         #
-        df_req = pd.read_hdf(store, 'Host', columns = column_lookup['/Host'])
-        del column_lookup['/Host']
-        for key in column_lookup:
-            df_tmp = pd.read_hdf(store, key, columns = column_lookup[key])
-            df_req = pd.concat([df_req, df_tmp], axis =  1, join = 'inner')
+        df_host = cntr_target.Read('Host', col_host, 'pandas', 'Index')
+        if len(col_main) > 0:
+            df_main = cntr_target.Read('Main', col_main, 'pandas', 'Index')
+            df_req = pd.concat([df_host, df_main], axis=1, join='inner')
+        else:
+            df_req = df_host
         return df_req
 
     
-    def _PrepareInhData(self, store, host_id_hc):
+    def _PrepareInhData(self, host_id_hc):
         # Load local variables
-        handler = self.handler
+        cntr_target = self.cntr_target
+        cntr_source = self.cntr_source
         col_inh = self.col_inh
         inherit = self.inherit
         # 
-        halo_id_sim = handler['ID'].astype(host_id_hc.dtype)
-        df_sim = pd.DataFrame(index = halo_id_sim)
+        halo_id_sim = cntr_source['ID'].astype(host_id_hc.dtype)
+        df_sim = pd.DataFrame(index=halo_id_sim)
         if inherit:
             for col in col_inh:
                 try:
-                    df_sim[col] = handler[col]
+                    df_sim[col] = cntr_source[col]
                 except KeyError:
                     pass
-            try:
-                halo_id_fix = pd.read_hdf(store, 'Forward', columns = []).index
-                df_sim = df_sim.loc[halo_id_fix[halo_id_fix >= 0]]
-            except KeyError:
-                index_drop = np.setdiff1d(
-                    halo_id_sim[handler['HostHaloID'] == handler.HostID()],
-                    host_id_hc, assume_unique = True
-                )
-                df_sim.drop(index = index_drop, inplace = True)
+            index_drop = np.setdiff1d(
+                halo_id_sim[cntr_source['HostHaloID'] == cntr_source.HostID()],
+                host_id_hc, assume_unique=True
+            )
+            df_sim.drop(index=index_drop, inplace=True)
         return df_sim
 
 
@@ -81,61 +112,57 @@ class Constructor(ABC):
         #
         halo_id_mc = df_req.index[df_req.index < 0]
         df_new = pd.DataFrame(
-            np.zeros([len(halo_id_mc), len(col_inh)]), index = halo_id_mc, columns = col_inh
+            np.zeros([len(halo_id_mc), len(col_inh)]), index=halo_id_mc, columns=col_inh
         )
         df_new = df_inh.append(df_new)
         return df_new
 
 
+    def _SaveOutput(self, df_new, snap):
+        hf = self.cntr_target.hf
+        try:
+            group = hf.get_node('/Snapshot_%03d/Main'%snap)
+        except NoSuchNodeError:
+            group = hf.create_group('/Snapshot_%03d'%snap, 'Main')
+        for col in df_new.columns:
+            hf.create_carray(group, col, obj=df_new[col].values)
+
+
     def Run(self):
         # Load local variables
         _snap_range = self._snap_range
-        handler = self.handler
-        hc_path = self.hc_path
-        hc_prefix = self.hc_prefix
-        key_new = self.key_new
+        cntr_target = self.cntr_target
+        cntr_source = self.cntr_source
         inherit = self.inherit
         read_prog = self.read_prog
         #
-        redshifts = handler.redshifts
+        redshifts = cntr_source.redshifts
         for snap in _snap_range:
             z = redshifts[snap]
-            handler.SwitchSnapshot(snap)
-            with pd.HDFStore(os.path.join(hc_path, '%s_%03d.hdf5'%(hc_prefix, snap))) as store:
-                if len(read_prog) > 0 and '/Prog' in store.keys():
-                    df_prog = pd.read_hdf(store, 'Prog')
-                    df_prog.reset_index(inplace = True)
-                    if len(read_prog) == 1:
-                        list_prog = list(df_prog[read_prog[0]])
-                    else:
-                        list_prog = list(df_prog[read_prog].to_records(index = False))
-                else:
-                    list_prog = None
-                df_req = self._PrepareReqData(store)
-                df_inh = self._PrepareInhData(store, df_req.index[df_req.index >= 0])
-                df_new = self._AddProperty(df_inh, df_req, list_prog, snap, z)
-                df_new.to_hdf(store, key_new, format = 'table')
+            cntr_target.SwitchSnapshot(snap)
+            cntr_source.SwitchSnapshot(snap)
+            df_req = self._PrepareReqData()
+            df_inh = self._PrepareInhData(df_req.index[df_req.index >= 0])
+            list_prog = self._PrepareProgData()
+            df_new = self._AddProperty(df_inh, df_req, list_prog, snap, z)
+            self._SaveOutput(df_new, snap)
 
 
     def __init__(self,
-        handler, hc_path, hc_prefix, snap_min, snap_max, key_new, col_inh, col_req,
-        read_prog = [], inherit = True, forward = True, kwargs_tqdm = {}
+        cntr_target, cntr_source, col_inh, col_req,
+        snap_max, snap_min, read_prog, inherit, forward, kwargs_tqdm
     ):  
-        self.handler = handler
-        self.hc_path = hc_path
-        self.hc_prefix = hc_prefix
-        self.key_new = key_new
+        self.cntr_target = cntr_target
+        self.cntr_source = cntr_source
         self.col_inh = list(col_inh)
         self.col_req = list(col_req)
         self.inherit = inherit
         self.read_prog = read_prog
-        with pd.HDFStore(os.path.join(hc_path, '%s_%03d.hdf5'%(hc_prefix, snap_min))) as store:
-            self.column_lookup = ColumnLookup(store, col_req)
+        self._CreateColumnName(col_req, snap_min)
         if forward:
-            snap_range = Range(snap_min, snap_max + 1, **kwargs_tqdm)
+            self._snap_range = Range(snap_min, snap_max + 1, **kwargs_tqdm)
         else:
-            snap_range = Range(snap_max, snap_min - 1, -1, **kwargs_tqdm)
-        self._snap_range = snap_range
+            self._snap_range = Range(snap_max, snap_min - 1, -1, **kwargs_tqdm)
 
 
 class QuickConstructor(Constructor):
