@@ -1,109 +1,146 @@
-import os
-
-from ..utils import Range
-from ..connector import RemoveKey, ColumnLookup
 from .constructor import Constructor
 
 import numpy as np
 import pandas as pd
+from tqdm import trange
+from tables import NoSuchNodeError
+
+
+def PrepareSourceData(cntr_source):
+    df_source = pd.DataFrame(index=cntr_source['ID'])
+    df_source['HostHaloID'] = cntr_source['HostHaloID']
+    df_source['DescendantSnap'] = cntr_source['DescendantSnap']
+    df_source['Descendant'] = cntr_source['Descendant']
+    df_source['ForestID'] = cntr_source['ForestID']
+    return df_source
+
+
+def PutTopHalo(cntr_target, cntr_source, pool_sub, df_source):
+    halo_id_surv = cntr_target.Read('Host', ['Index'])['Index']
+    halo_id_surv = halo_id_surv[halo_id_surv > 0]
+
+    halo_id = df_source.index.values
+    host_id = df_source['HostHaloID'].values
+    select_host = host_id == cntr_source.HostID()
+    host_id[select_host] = halo_id[select_host]
+    select_top = np.in1d(halo_id, pool_sub.keys(), invert=True)
+    for h_id, surv in zip(halo_id[select_top], np.in1d(host_id[select_top], halo_id_surv)):
+        pool_sub[h_id] = surv
+
+
+def SetSurviveIndex(pool_sub, df_source):
+    df_source['Survive'] = 0
+    df_source.loc[list(pool_sub.keys()), 'Survive'] = list(pool_sub.values())
+
+
+def CutDescendant(df_source, snap, snap_max):
+    # [1] Assuem that it points to itself when there is no descendant halo
+    select_cut = df_source['DescendantSnap'] > snap_max
+    df_source.loc[select_cut, 'DescendantSnap'] = snap
+    df_source.loc[select_cut, 'Descendant'] = df_source.index[select_cut] # [1]
+
+
+def WalkForward(pool, df_source):
+    for desc_snap, desc_id, surv in df_source[['DescendantSnap', 'Descendant', 'Survive']].values:
+        pool[desc_snap][desc_id] = surv
+
+
+def FixSubhaloDescendant(cntr_source, df_source, pool):
+    df_sub = df_source[df_source['HostHaloID'] != cntr_source.HostID()]
+    if len(df_sub > 0):
+        halo_id = df_sub.index.values
+        desc_snap = df_sub['DescendantSnap'].values
+        desc_id = df_sub['Descendant'].values
+        halo_id_sub = [
+            s_id for s_id, desc_snap, desc_id in zip(halo_id, desc_snap, desc_id) \
+                if not pool[desc_snap][desc_id]
+        ]
+        host_id = df_source.loc[halo_id_sub, 'HostHaloID'].values
+        if len(host_id) > 0:
+            df_source.loc[halo_id_sub, 'DescendantSnap'] \
+                = df_source.loc[host_id, 'DescendantSnap'].values
+            df_source.loc[halo_id_sub, 'Descendant'] \
+                = df_source.loc[host_id, 'Descendant'].values
+
+
+def SaveOutput(cntr_target, df_source, snap):
+    df_save = df_source[df_source['Survive']]
+    if len(df_save):
+        hf = cntr_target.hf
+        group = hf.create_group('/Snapshot_%03d'%snap, '_ForwardFix')
+        hf.create_carray(group, 'Index', obj=df_save.index.values.astype('i8'))
+        hf.create_carray(group, 'HostHaloID', obj=df_save['HostHaloID'].values.astype('i8'))
+        hf.create_carray(group, 'DescendantSnap', obj=df_save['DescendantSnap'].values.astype('i4'))
+        hf.create_carray(group, 'Descendant', obj=df_save['Descendant'].values.astype('i8'))
+        hf.create_carray(group, 'ForestID', obj=df_save['ForestID'].values.astype('i8'))
+
+
+def RebuildForwardConnection(cntr_target, cntr_source, snap_max, snap_min=0, kwargs_tqdm={}):
+    kwargs_tqdm.update(desc="Rebuilding forward pointers")
+    n_snap = snap_max + 1
+    df_source_all = [None]*n_snap
+    pool = [{} for i_snap in range(n_snap)]
+    snap_target = [None]*n_snap
+    for snap in trange(snap_min, n_snap, **kwargs_tqdm):
+        cntr_target.SwitchSnapshot(snap)
+        cntr_source.SwitchSnapshot(snap)
+
+        pool_sub = pool[snap]
+        df_source = PrepareSourceData(cntr_source)
+        PutTopHalo(cntr_target, cntr_source, pool_sub, df_source)
+        SetSurviveIndex(pool_sub, df_source)
+        CutDescendant(df_source, snap, snap_max)
+        WalkForward(pool, df_source)
+        if len(df_source) > 0:
+            snap_target[snap] = max(df_source['DescendantSnap'])
+        else:
+            snap_target[snap] = snap_min - 1
+        df_source_all[snap] = df_source
+        for snap_t in range(snap_min, snap):
+            snap_target_it = snap_target[snap_t]
+            if snap == snap_target_it:
+                df_fix = df_source_all[snap_t]
+                FixSubhaloDescendant(cntr_source, df_fix, pool)
+                SaveOutput(cntr_target, df_fix, snap_t)
+                # Clear memory
+                if snap_t == snap_min or snap_target_it > max(snap_target[snap_min:snap_t]):
+                    for snap_c in range(snap_min, snap_t + 1):
+                        df_source_all[snap_c] = None
+                        pool[snap_c] = None
+        if snap == snap_max:
+            SaveOutput(cntr_target, df_source, snap)
+    snap_jump = max(snap_t - snap for snap_t, snap in zip(snap_target, range(n_snap)))
+    return snap_jump
 
 
 class ForwardRebuilder(Constructor):
-    # [1] Assume that it points to itself when there is no descendant halo
-    def _RemoveLostSubhalo(self, df_sim):
-        halo_id_sim = df_sim.index.values
-        host_id_all = df_sim['HostHaloID'].values
-        select_sub_halo = host_id_all != self.handler.HostID()
-        halo_id_sub = halo_id_sim[select_sub_halo]
-        host_id_sub = host_id_all[select_sub_halo]
-        halo_id_host = halo_id_sim[~select_sub_halo]
-        df_sim.drop(
-            index = halo_id_sub[np.in1d(host_id_sub, halo_id_host, invert = True)], inplace = True
-        )
+    def _PrepareReqData(self):
+        return self.cntr_target.Read('Host', ['ProgIndex', 'ProgNumber'], 'pandas', 'Index')
 
 
-    def _FixSubhaloDescendant(self, df_target, pool_surv):
-        df_sub = df_target[df_target['HostHaloID'] != self.handler.HostID()]
-        if len(df_sub > 0):
-            halo_id_sub = [
-                s_id for s_id, _, desc_snap, desc_id, _ in df_sub.itertuples() \
-                    if desc_id not in pool_surv[desc_snap]
-            ]
-            df_target.loc[halo_id_sub, ['DescendantSnap', 'Descendant']] = df_target.loc[
-                df_target.loc[halo_id_sub, 'HostHaloID'], ['DescendantSnap', 'Descendant']
-            ].values
-
-    
-    def _CutDescendant(self, df_sim, snap):
-        select_cut = df_sim['DescendantSnap'] > self.snap_max
-        df_sim.loc[select_cut, 'DescendantSnap'] = snap
-        df_sim.loc[select_cut, 'Descendant'] = df_sim.index[select_cut] # [1]
-
-
-    def _ReubildOriginalTree(self):
-        # Load local variables
-        handler = self.handler
-        hc_path = self.hc_path
-        hc_prefix = self.hc_prefix
-        snap_min = self.snap_min
-        snap_max = self.snap_max
-        _snap_range = self._snap_range
-        #
-        n_snap = snap_max + 1
-        list_df_surv = [None]*n_snap
-        pool_surv = [None]*n_snap
-        snap_target = [None]*n_snap
-        for snap in _snap_range:
-            handler.SwitchSnapshot(snap)
-            with pd.HDFStore(os.path.join(hc_path, '%s_%03d.hdf5'%(hc_prefix, snap))) as store:
-                halo_id = pd.read_hdf(store, 'Host', columns = []).index
-                df_sim = self._PrepareInhData(store, halo_id[halo_id >= 0])
-            self._RemoveLostSubhalo(df_sim)
-            if len(df_sim) > 0:
-                self._CutDescendant(df_sim, snap)
-                snap_target[snap] = max(df_sim['DescendantSnap'])
-            else:
-                snap_target[snap] = snap_min - 1
-            list_df_surv[snap] = df_sim
-            pool_surv[snap] = {h_id:0 for h_id in df_sim.index.values}
-            for snap_t in range(snap_min, snap):
-                if snap == snap_target[snap_t]:
-                    df_target = list_df_surv[snap_t]
-                    self._FixSubhaloDescendant(df_target, pool_surv)
-                    df_target.to_hdf(
-                        os.path.join(hc_path, '%s_%03d.hdf5'%(hc_prefix, snap_t)), '_ForwardFix'
-                    )
-                    # Release memory
-                    list_df_surv[snap_t] = None
-                    pool_surv[snap_t] = None
-            if snap == snap_max:
-                df_sim.to_hdf(
-                    os.path.join(hc_path, '%s_%03d.hdf5'%(hc_prefix, snap)), '_ForwardFix'
-                )
-        self.snap_jump = max(snap_t - snap for snap_t, snap in zip(snap_target, range(n_snap)))
-
-
-    def _PrepareReqData(self, store):
-        if '/_ForwardFix' in store.keys():
-            self.df_forward_fix = pd.read_hdf(store, '_ForwardFix')
-        else:
-            self.df_forward_fix = pd.DataFrame()
-        return pd.read_hdf(store, 'Host', columns = ['ProgIndex', 'ProgNumber'])
+    def _PrepareInhData(self, host_id_hc):
+        try:
+            # [1] Specifiy columns to obtain correct order
+            cols = ['HostHaloID', 'DescendantSnap', 'Descendant', 'ForestID'] # [1]
+            df_inh = self.cntr_target.Read('_ForwardFix', cols, 'pandas', 'Index')
+        except NoSuchNodeError:
+            df_inh = pd.DataFrame()
+        return df_inh
 
 
     def _GeneratePointerMC(self, df_inh, df_req, list_prog, snap):
         # Load local variables
-        handler = self.handler
+        cntr_source = self.cntr_source
         snap_max = self.snap_max
         forest_id_max = self.forest_id_max
         df_forward_next = self.df_forward_next
         #
         select_mc_halo = df_req.index < 0
-        df_forward_mc = pd.DataFrame(index = df_req.index[select_mc_halo])
+        df_forward_mc = pd.DataFrame(index=df_req.index[select_mc_halo])
         n_halo_mc = len(df_forward_mc)
         n_halo_sim = len(df_inh)
-        df_forward_mc['ID'] = handler.NewID(snap, np.arange(n_halo_sim, n_halo_sim + n_halo_mc))
-        df_forward_mc['HostHaloID'] = handler.HostID(n_halo_mc)
+        df_forward_mc['ID'] = cntr_source.NewID(snap, np.arange(n_halo_sim, n_halo_sim + n_halo_mc))
+        df_forward_mc['HostHaloID'] = cntr_source.HostID(n_halo_mc)
         if snap == snap_max:
             df_forward_mc['DescendantSnap'] = snap
             df_forward_mc['Descendant'] = df_forward_mc['ID'] # [1]
@@ -128,7 +165,7 @@ class ForwardRebuilder(Constructor):
                 if p_id < 0:
                     progenitors[p_id] = (snap, h_id, f_id)
         self.df_forward_next = pd.DataFrame.from_dict(
-            progenitors, orient = 'index', columns = ['DescendantSnap', 'Descendant', 'ForestID']
+            progenitors, orient='index', columns=['DescendantSnap', 'Descendant', 'ForestID']
         )
         return df_forward_mc
 
@@ -139,22 +176,23 @@ class ForwardRebuilder(Constructor):
         accordingly.
         """
         # Load local variables
-        handler = self.handler
+        cntr_source = self.cntr_source
         pool_sim = self.pool_sim
         snap_max = self.snap_max
         snap_jump = self.snap_jump
         #
-        df_inh.insert(0, 'ID', handler.NewID(snap, np.arange(len(df_inh))))
+        df_inh.insert(0, 'ID', cntr_source.NewID(snap, np.arange(len(df_inh))))
         #
-        pool_sim[snap] = {old_id:new_id for old_id, new_id in zip(df_inh.index, df_inh['ID'])}
+        pool_sim[snap] = {old_id: new_id for old_id, new_id in zip(df_inh.index, df_inh['ID'])}
         # Fix host halo IDs
-        select_sub_halo = df_inh['HostHaloID'] != handler.HostID()
+        select_sub_halo = df_inh['HostHaloID'] != cntr_source.HostID()
         halo_id_sub = df_inh.loc[df_inh.loc[select_sub_halo, 'HostHaloID'], 'ID'].values
         df_inh.loc[select_sub_halo, 'HostHaloID'] = halo_id_sub
         # Generate new Descendant for simulations halos
+        desc_snap = df_inh['DescendantSnap'].values
+        desc_id = df_inh['Descendant'].values
         df_inh['Descendant'] = list(map(
-            lambda desc_snap, desc_id:pool_sim[desc_snap][desc_id],
-            *df_inh[['DescendantSnap', 'Descendant']].values.T
+            lambda d_snap, d_id: pool_sim[d_snap][d_id], desc_snap, desc_id
         ))
         # Clean memory
         snap_clean = snap + snap_jump
@@ -164,81 +202,51 @@ class ForwardRebuilder(Constructor):
 
     def _Clean(self):
         if not self.test_mode:
-            RemoveKey(
-                self.hc_path, self.hc_prefix, self.snap_min, self.snap_max,
-                '_ForwardFix', self.kwargs_tqdm
-            )
+            self.cntr_target.Remove('_ForwardFix')
 
 
     def _AddProperty(self, df_inh, df_req, list_prog, snap, z):
-        df_inh = self.df_forward_fix
         if len(df_inh) > 0:
             self._GeneratePointerSim(df_inh, snap)
         df_forward = self._GeneratePointerMC(df_inh, df_req, list_prog, snap)
         df_forward = df_inh.append(df_forward)
         return df_forward
 
-        
+
+    def _SaveOutput(self, df_new, snap):
+        hf = self.cntr_target.hf
+        group = hf.create_group('/Snapshot_%03d'%snap, 'Main')
+        for col in df_new.columns:
+            hf.create_carray(group, col, obj=df_new[col].values)
+        hf.create_carray(group, 'Index', obj=df_new.index.values)
+
+
     def Run(self):
-        try:
-            # Load local variables
-            snap_min = self.snap_min
-            snap_max = self.snap_max
-            kwargs_tqdm = self.kwargs_tqdm
-            #
-            self.col_inh = ['HostHaloID', 'DescendantSnap', 'Descendant', 'ForestID']
-            self.inherit = True
-            kwargs_tqdm.update(desc = 'Rebuilding original trees')
-            self._snap_range = Range(snap_min, snap_max + 1, **kwargs_tqdm)
-            self._ReubildOriginalTree()
-            #
-            self.col_inh = []
-            self.inherit = False
-            kwargs_tqdm.update(desc = 'Adding forward pointers')
-            self._snap_range = Range(snap_max, snap_min - 1, -1, **kwargs_tqdm)
-            super().Run()
-        finally:
-            self._Clean()
+        self.snap_jump = RebuildForwardConnection(
+            self.cntr_target, self.cntr_source, self.snap_max, self.snap_min, self.kwargs_tqdm
+        )
+        super().Run()
 
 
-    def __init__(self,
-        handler, hc_path, hc_prefix, snap_min, snap_max, kwargs_tqdm = {}
-    ):  
-        self.handler = handler
-        self.hc_path = hc_path
-        self.hc_prefix = hc_prefix
-        self.snap_min = snap_min
+    def __init__(self, cntr_target, cntr_source, snap_max, snap_min=0, kwargs_tqdm={}):
+        kwargs_tqdm.update(desc='Adding forward pointers')
+        super().__init__(
+            cntr_target=cntr_target,
+            cntr_source=cntr_source,
+            col_inh=[],
+            col_req=[],
+            snap_max=snap_max,
+            snap_min=snap_min,
+            read_prog=['Index'],
+            inherit=False,
+            forward=False,
+            kwargs_tqdm=kwargs_tqdm
+        )
         self.snap_max = snap_max
+        self.snap_min = snap_min
         self.kwargs_tqdm = kwargs_tqdm
-        #
-        self.key_new = 'Forward'
-        self.read_prog = ['ID']
         self.pool_sim = [{} for snap in range(snap_max + 1)]
         self.df_forward_next = None
-        self.forest_id_max = handler.MaxForestID(snap_max)
+        self.forest_id_max = cntr_source.MaxForestID(snap_max)
         #
         self.test_mode = False
-
-
-def WalkForward(hc_path, hc_prefix, snap_min, snap_max, kwargs_tqdm = {}):
-    #
-    pool = [{} for snap in range(snap_max + 1)]
-    #
-    kwargs_tqdm.update(desc = 'Walking forward')
-    for snap in Range(snap_min, snap_max + 1, **kwargs_tqdm):
-        df_forward = pd.read_hdf(
-            os.path.join(hc_path, '%s_%03d.hdf5'%(hc_prefix, snap)), 'Forward'
-        )
-        for desc_snap, desc_id in df_forward[['DescendantSnap', 'Descendant']].values:
-            pool[desc_snap][desc_id] = 0
-        if snap > snap_min:
-            pool_curr = pool[snap]
-            for halo_id in df_forward['ID']:
-                if halo_id in pool_curr:
-                    del pool_curr[halo_id]
-    for snap, p in zip(range(snap_min, snap_max + 1), pool):
-        if len(p) > 0:
-            raise ValueError(
-                'Find unwalkable halos at snapshot %d ('%snap + \
-                    ', '.join(str(k) for k in p.keys()) + ')'
-            )
