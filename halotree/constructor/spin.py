@@ -73,23 +73,21 @@ class SpinConstructor(Constructor):
 
 
     def __init__(self,
-        handler, hc_path, hc_prefix, snap_min, snap_max, cols, spin_sampler,
-        primary_spin=False, rstate=None, kwargs_tqdm = {}
+        cntr_target, cntr_source, cols, spin_sampler, snap_max, snap_min=0,
+        primary_spin=False, rstate=None, kwargs_tqdm={}
     ):
-        kwargs_tqdm.update(desc = 'Adding spin parameters')
         super().__init__(
-            handler = handler,
-            hc_path = hc_path,
-            hc_prefix = hc_prefix,
-            snap_min = snap_min,
-            snap_max = snap_max,
-            key_new = 'Spin',
-            col_inh = [cols['spin'], cols['L_x'], cols['L_y'], cols['L_z']],
-            col_req = ['ProgIndex', 'ProgNumber', cols['m_vir'], cols['r_vir'], cols['v_vir']],
-            read_prog = ['ID', cols['m_vir']],
-            inherit = True,
-            forward = True,
-            kwargs_tqdm = kwargs_tqdm
+            cntr_target=cntr_target,
+            cntr_source=cntr_source,
+            col_inh=[cols['spin'], cols['L_x'], cols['L_y'], cols['L_z']],
+            col_req=['ProgIndex', 'ProgNumber', cols['m_vir'], cols['r_vir'], cols['v_vir']],
+            snap_min=snap_min,
+            snap_max=snap_max,
+            read_prog=['ID', cols['m_vir']],
+            inherit=True,
+            forward=True,
+            desc_tqdm='Adding spin parameters',
+            kwargs_tqdm=kwargs_tqdm
         )
         self.pool = {}
         self.snap_min = snap_min
@@ -103,4 +101,4 @@ class SpinConstructor(Constructor):
             self.rstate = np.random.RandomState()
         else:
             self.rstate = rstate
-        self.mass_conversion = handler.mass_conversion
+        self.mass_conversion = cntr_source.mass_conversion
