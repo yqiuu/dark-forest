@@ -239,7 +239,7 @@ class ForwardRebuilder(Constructor):
             read_prog=['Index'],
             inherit=False,
             forward=False,
-            desc_tqdm='Add forward pointers',
+            desc_tqdm='Adding forward pointers',
             kwargs_tqdm=kwargs_tqdm
         )
         self.kwargs_tqdm = kwargs_tqdm
