@@ -118,7 +118,7 @@ class ForwardRebuilder(Constructor):
         return self.cntr_target.Read('Host', ['ProgIndex', 'ProgNumber'], 'pandas', 'Index')
 
 
-    def _PrepareInhData(self, host_id_hc):
+    def _PrepareInhData(self):
         try:
             # [1] Specifiy columns to obtain correct order
             cols = ['HostHaloID', 'DescendantSnap', 'Descendant', 'ForestID'] # [1]

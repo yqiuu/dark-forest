@@ -70,14 +70,14 @@ class Constructor(ABC):
         return df_req
 
 
-    def _PrepareInhData(self, host_id_hc):
+    def _PrepareInhData(self):
         # Load local variables
         cntr_target = self.cntr_target
         cntr_source = self.cntr_source
         col_inh = self.col_inh
         inherit = self.inherit
         # 
-        halo_id_sim = cntr_source['ID'].astype(host_id_hc.dtype)
+        halo_id_sim = cntr_source['ID']
         df_sim = pd.DataFrame(index=halo_id_sim)
         if inherit:
             for col in col_inh:
@@ -153,7 +153,7 @@ class Constructor(ABC):
             cntr_target.SwitchSnapshot(snap)
             cntr_source.SwitchSnapshot(snap)
             df_req = self._PrepareReqData()
-            df_inh = self._PrepareInhData(df_req.index[df_req.index >= 0])
+            df_inh = self._PrepareInhData()
             list_prog = self._PrepareProgData()
             df_new = self._AddProperty(df_inh, df_req, list_prog, snap, z)
             self._SaveOutput(df_new, snap)
