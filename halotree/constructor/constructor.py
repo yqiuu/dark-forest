@@ -1,12 +1,12 @@
 import os
 from abc import ABC, abstractmethod 
 
-from ..utils import Range
 from ..connector import ColumnLookup
 
 import numpy as np
 import pandas as pd
 from tables import NoSuchNodeError
+from tqdm import trange
 
 
 class Constructor(ABC):
@@ -23,6 +23,21 @@ class Constructor(ABC):
                 col_main.append(c)
         self.col_host = col_host
         self.col_main = col_main
+
+
+    def _SnapRange(self):
+        # Load local variables
+        snap_max = self.snap_max
+        snap_min = self.snap_min
+        forward = self.forward
+        desc_tqdm = self.desc_tqdm
+        kwargs_tqdm = self.kwargs_tqdm
+        #
+        kwargs_tqdm.update(desc=desc_tqdm)
+        if self.forward:
+            return trange(snap_min, snap_max + 1, **kwargs_tqdm)
+        else:
+            return trange(snap_max, snap_min - 1, -1, **kwargs_tqdm)
 
 
     def _PrepareProgData(self):
@@ -130,14 +145,13 @@ class Constructor(ABC):
 
     def Run(self):
         # Load local variables
-        _snap_range = self._snap_range
         cntr_target = self.cntr_target
         cntr_source = self.cntr_source
         inherit = self.inherit
         read_prog = self.read_prog
         #
         redshifts = cntr_source.redshifts
-        for snap in _snap_range:
+        for snap in self._SnapRange():
             z = redshifts[snap]
             cntr_target.SwitchSnapshot(snap)
             cntr_source.SwitchSnapshot(snap)
@@ -149,20 +163,21 @@ class Constructor(ABC):
 
 
     def __init__(self,
-        cntr_target, cntr_source, col_inh, col_req,
-        snap_max, snap_min, read_prog, inherit, forward, kwargs_tqdm
+        cntr_target, cntr_source, col_inh, col_req, snap_max, snap_min,
+        read_prog, inherit, forward, desc_tqdm, kwargs_tqdm
     ):  
         self.cntr_target = cntr_target
         self.cntr_source = cntr_source
         self.col_inh = list(col_inh)
         self.col_req = list(col_req)
-        self.inherit = inherit
+        self.snap_max = snap_max
+        self.snap_min = snap_min
         self.read_prog = read_prog
+        self.inherit = inherit
+        self.forward = forward
+        self.desc_tqdm = desc_tqdm
+        self.kwargs_tqdm = kwargs_tqdm
         self._CreateColumnName(col_req, snap_min)
-        if forward:
-            self._snap_range = Range(snap_min, snap_max + 1, **kwargs_tqdm)
-        else:
-            self._snap_range = Range(snap_max, snap_min - 1, -1, **kwargs_tqdm)
 
 
 class QuickConstructor(Constructor):
