@@ -69,7 +69,7 @@ class Constructor(ABC):
             df_req = df_host
         return df_req
 
-    
+
     def _PrepareInhData(self, host_id_hc):
         # Load local variables
         cntr_target = self.cntr_target
@@ -85,11 +85,8 @@ class Constructor(ABC):
                     df_sim[col] = cntr_source[col]
                 except KeyError:
                     pass
-            index_drop = np.setdiff1d(
-                halo_id_sim[cntr_source['HostHaloID'] == cntr_source.HostID()],
-                host_id_hc, assume_unique=True
-            )
-            df_sim.drop(index=index_drop, inplace=True)
+            halo_id_fix = cntr_target.Read('Main', ['Index'])['Index']
+            df_sim = df_sim.loc[halo_id_fix[halo_id_fix > 0]]
         return df_sim
 
 
