@@ -242,8 +242,6 @@ class ForwardRebuilder(Constructor):
             desc_tqdm='Add forward pointers',
             kwargs_tqdm=kwargs_tqdm
         )
-        self.snap_max = snap_max
-        self.snap_min = snap_min
         self.kwargs_tqdm = kwargs_tqdm
         self.pool_sim = [{} for snap in range(snap_max + 1)]
         self.df_forward_next = None
