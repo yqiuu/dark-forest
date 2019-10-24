@@ -85,7 +85,10 @@ class Constructor(ABC):
                     df_sim[col] = cntr_source[col]
                 except KeyError:
                     pass
-            halo_id_fix = cntr_target.Read('Main', ['Index'])['Index']
+            try:
+                halo_id_fix = cntr_target.Read('Main', ['Index'])['Index']
+            except NoSuchNodeError:
+                raise Exception("Run FowardRebuilder before adding any other properties") from None
             df_sim = df_sim.loc[halo_id_fix[halo_id_fix > 0]]
         return df_sim
 
