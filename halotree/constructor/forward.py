@@ -76,11 +76,11 @@ def SaveOutput(cntr_target, df_source, snap):
 
 
 def RebuildForwardConnection(cntr_target, cntr_source, snap_max, snap_min=0, kwargs_tqdm={}):
-    kwargs_tqdm.update(desc="Rebuilding forward pointers")
     n_snap = snap_max + 1
     df_source_all = [None]*n_snap
     pool = [{} for i_snap in range(n_snap)]
     snap_target = [None]*n_snap
+    kwargs_tqdm.update(desc="Rebuilding original trees")
     for snap in trange(snap_min, n_snap, **kwargs_tqdm):
         cntr_target.SwitchSnapshot(snap)
         cntr_source.SwitchSnapshot(snap)
@@ -229,7 +229,6 @@ class ForwardRebuilder(Constructor):
 
 
     def __init__(self, cntr_target, cntr_source, snap_max, snap_min=0, kwargs_tqdm={}):
-        kwargs_tqdm.update(desc='Adding forward pointers')
         super().__init__(
             cntr_target=cntr_target,
             cntr_source=cntr_source,
@@ -240,6 +239,7 @@ class ForwardRebuilder(Constructor):
             read_prog=['Index'],
             inherit=False,
             forward=False,
+            desc_tqdm='Add forward pointers',
             kwargs_tqdm=kwargs_tqdm
         )
         self.snap_max = snap_max

@@ -56,7 +56,6 @@ class VirialConstructor(Constructor):
         cntr_target, cntr_source, cols, snap_max, snap_min=0,
         delta_collapse=200., mode='crit', kwargs_tqdm={}
     ):
-        kwargs_tqdm.update(desc = 'Adding virial properties')
         super().__init__(
             cntr_target=cntr_target,
             cntr_source=cntr_source,
@@ -67,6 +66,7 @@ class VirialConstructor(Constructor):
             read_prog=[],
             inherit=True,
             forward=True,
+            desc_tqdm='Adding virial properties',
             kwargs_tqdm=kwargs_tqdm
         )
         self.col_m_vir = cols['m_vir']
