@@ -9,7 +9,10 @@ from hmf.growth_factor import GrowthFactor
 from hmf.hmf import MassFunction
 
 
-__all__ = ['EnhancedMassFunction']
+__all__ = [
+    'EnhancedMassFunction',
+    'SmartBins'
+]
 
 
 class EnhancedMassFunction(MassFunction):
@@ -104,3 +107,55 @@ class EnhancedMassFunction(MassFunction):
             return bias
         else:
             return spl(self.m, bias)(m)
+
+
+def SmartBins(data, n_min, d_min, scale='linear', centre=True):
+    """
+    Generate bin edges/centres given the minimum number of points in each bin
+    and the minimum bin width.
+
+    Parameters
+    ----------
+        data: array_like
+            Input data.
+        n_min:
+            Minimum number of points in each bin.
+        d_min:
+            Minimum bin width.
+        scale: {'linear', 'log'}, optional.
+            Bin scale.
+        centre:
+            If True, return bin centres instead of bin edges.
+
+    Returns
+    -------
+        array_like
+            Bin edges/centres
+    """
+    if scale == 'linear':
+        op1 = lambda a, b: a - b
+        op2 = lambda a, b: .5*(a + b)
+    elif scale == 'log':
+        op1 = lambda a, b: a/b
+        op2 = lambda a, b: np.sqrt(a*b)
+    else:
+        raise ValueError("Unknown scale type '%s'"%scale)
+
+    b_min = min(data)
+    b_curr = max(data)
+    bins = [b_curr]
+    while len(data) > 2*n_min:
+        b_next = np.percentile(data, 100*(1 - n_min/len(data)))
+        if op1(b_curr, b_next) > d_min:
+            bins.append(b_next)
+        else:
+            b_next = max(b_min, op1(b_curr, d_min))
+            bins.append(b_next)
+        data = data[data < b_next]
+        b_curr = b_next
+    bins.reverse()
+    bins = np.asarray(bins)
+    if centre:
+        return op2(bins[:-1], bins[1:])
+    else:
+        return bins
