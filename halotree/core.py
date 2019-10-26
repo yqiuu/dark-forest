@@ -109,9 +109,9 @@ class EnhancedMassFunction(MassFunction):
             return spl(self.m, bias)(m)
 
 
-def SmartBins(data, n_min, d_min, scale='linear', centre=True):
+def SmartBins(data, n_min, d_min, scale='linear'):
     """
-    Generate bin edges/centres given the minimum number of points in each bin
+    Generate bin edges given the minimum number of points in each bin
     and the minimum bin width.
 
     Parameters
@@ -124,20 +124,16 @@ def SmartBins(data, n_min, d_min, scale='linear', centre=True):
             Minimum bin width.
         scale: {'linear', 'log'}, optional.
             Bin scale.
-        centre:
-            If True, return bin centres instead of bin edges.
 
     Returns
     -------
         array_like
-            Bin edges/centres
+            Bin edges.
     """
     if scale == 'linear':
         op1 = lambda a, b: a - b
-        op2 = lambda a, b: .5*(a + b)
     elif scale == 'log':
         op1 = lambda a, b: a/b
-        op2 = lambda a, b: np.sqrt(a*b)
     else:
         raise ValueError("Unknown scale type '%s'"%scale)
 
@@ -154,8 +150,4 @@ def SmartBins(data, n_min, d_min, scale='linear', centre=True):
         data = data[data < b_next]
         b_curr = b_next
     bins.reverse()
-    bins = np.asarray(bins)
-    if centre:
-        return op2(bins[:-1], bins[1:])
-    else:
-        return bins
+    return np.asarray(bins)
