@@ -1,5 +1,6 @@
 import os
 
+from ..core import SmartBins
 from ..dfield import Index2Grid, Grid2Index, SampleFromIndex
 from .constructor import Constructor
 
@@ -28,6 +29,30 @@ class PositionConstructor(Constructor):
         return pos_x, pos_y, pos_z, grid_index
 
 
+    def _MovePosition(self, mass, grid_index, snap):
+        # Load local variables
+        snap_min = self.snap_min
+        density_grid = self.density_grid
+        n_grid = density_grid.n_grid
+        box_size = density_grid.box_size
+        ages = self.ages
+        rstate = self.rstate
+        #
+        x_h, y_h, z_h = SampleFromIndex(grid_index, n_grid, box_size, rstate)
+        if snap == snap_min:
+            return x_h, y_h, z_h
+        else:
+            dt = ages[snap] - ages[snap - 1]
+            bin_edges = SmartBins(mass, 100000, .1, 'log')
+            bin_centres = np.sqrt(bin_edges[:-1]*bin_edges[1:])
+            for m_c, m_l, m_u in zip(bin_centres, bin_edges[:-1], bin_edges[1:]):
+                cond = (mass >= m_l) & (mass < m_u)
+                x_h[cond], y_h[cond], z_h[cond], grid_index[cond] = density_grid.MovePosition(
+                    m_c, x_h[cond], y_h[cond], z_h[cond], grid_index[cond], snap, dt
+                )
+        return x_h, y_h, z_h
+
+
     def _AddProperty(self, df_inh, df_req, list_prog, snap, z):
         # Load local variables
         snap_max = self.snap_max
@@ -45,13 +70,13 @@ class PositionConstructor(Constructor):
         # Sample positions for MC halos
         select_mc = df_req.index < 0
         grid_index = np.zeros(len(df_req), dtype='i4')
+        mass = df_req.loc[select_mc, col_m_vir].values
         if snap == snap_max:
-            pos_x, pos_y, pos_z, grid_index[select_mc] = \
-                self._SamplePosition(df_req.loc[select_mc, col_m_vir].values, snap)
+            pos_x, pos_y, pos_z, grid_index[select_mc] = self._SamplePosition(mass, snap)
         else:
             df_pool = pd.DataFrame.from_dict(self.pool, orient='index', columns=['GridIndex'])
             grid_index_mc = df_pool.loc[df_req.index[select_mc], 'GridIndex'].values
-            pos_x, pos_y, pos_z = SampleFromIndex(grid_index_mc, n_grid, box_size, rstate)
+            pos_x, pos_y, pos_z = self._MovePosition(mass, grid_index_mc, snap)
             grid_index[select_mc] = grid_index_mc
         #
         df_pos = pd.DataFrame(index=df_req.index[select_mc])
@@ -111,6 +136,7 @@ class PositionConstructor(Constructor):
         self.col_z = cols['z']
         self.col_m_vir = cols['m_vir']
         self.density_grid = density_grid
+        self.ages = handler.ages
         self.n_bin = n_bin
         self.comoving = comoving
         if rstate is None:

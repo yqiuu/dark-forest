@@ -53,10 +53,36 @@ class DensityGrid(ABC):
         return np.array([0.])
 
 
+    @abstractmethod
+    def HaloVelocityGrid(self, m_halo, snap):
+        return np.array([0.])
+
+
+    def BoundaryCondition(self, a):
+        box_size = self.box_size
+        res = np.copy(a)
+        res[res >= box_size] -= box_size
+        res[res < 0.] += box_size
+        return res
+
+
     def SamplePosition(self, m_halo, snap, n_sample, rstate):
         den_halo = self.HaloDensityGrid(m_halo, snap)
         index = rstate.choice(len(den_halo), n_sample, p=den_halo)
         x, y, z = SampleFromIndex(index, self.n_grid, self.box_size, rstate)
+        return x, y, z, index
+
+
+    def MovePosition(self, m_halo, x, y, z, index, snap, dt):
+        x = self.BoundaryCondition(x)
+        y = self.BoundaryCondition(y)
+        z = self.BoundaryCondition(z)
+        index = Grid2Index(x, y, z, self.n_grid, self.box_size)
+        vx, vy, vz = self.HaloVelocityGrid(m_halo, snap)
+        x = self.BoundaryCondition(x - vx[index]*dt)
+        y = self.BoundaryCondition(y - vy[index]*dt)
+        z = self.BoundaryCondition(z - vz[index]*dt)
+        index = Grid2Index(x, y, z, self.n_grid, self.box_size)
         return x, y, z, index
 
 
