@@ -16,6 +16,24 @@ __all__ = [
 
 
 class EnhancedMassFunction(MassFunction):
+    @cached_quantity
+    def bias(self):
+        """
+        Halo bias using the fitting formula of Tinker et al. 2010.
+        """
+        nu = np.sqrt(self.nu)
+        delta_c = self.delta_c
+        y = log10(self.delta_h)
+        exp_factor = exp(-(4./y)**4)
+        A = 1. + .24*y*exp_factor
+        a = .44*y - 0.88
+        B = .183
+        b = 1.5
+        C = .019 + .107*y + .19*exp_factor
+        c = 2.4
+        return 1 - A*nu**a/(nu**a + delta_c**a) + B*nu**b + C*nu**c
+
+
     def ProgenitorMassFunction(self, m_prog, z_prog, m_root, z_root, frac=True):
         #
         delta_c = self.delta_c
