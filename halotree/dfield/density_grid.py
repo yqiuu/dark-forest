@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 
 import numpy as np
+from scipy.interpolate import InterpolatedUnivariateSpline as spl
 
 
 def Index2Grid(index, n_grid):
@@ -54,12 +55,12 @@ class DensityGrid(ABC):
 
 
     @abstractmethod
-    def HaloVelocityGrid(self, m_halo, snap):
+    def VelocityGrid(self, snap):
         return np.array([0.])
 
 
-    def BoundaryCondition(self, a):
-        box_size = self.box_size
+    def BoundaryCondition(self, a, z=0.):
+        box_size = self.box_size/(1 + z)
         res = np.copy(a)
         res[res >= box_size] -= box_size
         res[res < 0.] += box_size
@@ -73,17 +74,36 @@ class DensityGrid(ABC):
         return x, y, z, index
 
 
-    def MovePosition(self, m_halo, x, y, z, index, snap, dt):
-        x = self.BoundaryCondition(x)
-        y = self.BoundaryCondition(y)
-        z = self.BoundaryCondition(z)
-        index = Grid2Index(x, y, z, self.n_grid, self.box_size)
-        vx, vy, vz = self.HaloVelocityGrid(m_halo, snap)
-        x = self.BoundaryCondition(x - vx[index]*dt)
-        y = self.BoundaryCondition(y - vy[index]*dt)
-        z = self.BoundaryCondition(z - vz[index]*dt)
-        index = Grid2Index(x, y, z, self.n_grid, self.box_size)
-        return x, y, z, index
+    def MovePosition(self, x_h, y_h, z_h, inds, m1, m2, snap1):
+        """
+        Parameters
+        ----------
+            m1: array [h^-1 M_solar]
+                Mass of the halos to be moved.
+            m2: array [h^-1 M_solar]
+                Mass of the descendant halos.
+        """
+        snap2 = snap1 + 1
+        z1 = self.redshifts[snap1]
+        z2 = self.redshifts[snap2]
+        t1 = self.ages[snap1]
+        t2 = self.ages[snap2]
+        D = self.D[snap2]
+        dDdt = self.dDdt[snap2]
+
+        hmf = self.hmf
+        hmf.update(z=z1)
+        b1 = spl(hmf.m, hmf.bias)(m1)
+        hmf.update(z=z2)
+        b2 = spl(hmf.m, hmf.bias)(m2)
+
+        factor = (D/dDdt*(b2 - b1) + b2*(t2 - t1))*(1 + z2)
+        vx, vy, vz = self.VelocityGrid(snap2)
+        x_h = self.BoundaryCondition(x_h - vx[inds]*factor)
+        y_h = self.BoundaryCondition(y_h - vy[inds]*factor)
+        z_h = self.BoundaryCondition(z_h - vz[inds]*factor)
+        inds = Grid2Index(x_h, y_h, z_h, self.n_grid, self.box_size)
+        return x_h, y_h, z_h, inds
 
 
     @abstractmethod
