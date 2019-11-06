@@ -1,7 +1,7 @@
 import os
 
 from ..core import SmartBins
-from ..dfield import Index2Grid, Grid2Index, SampleFromIndex
+from ..dfield import HaloDensityField
 from .constructor import Constructor
 
 import numpy as np
@@ -9,35 +9,14 @@ import pandas as pd
 
 
 class PositionConstructor(Constructor):
-    def _SamplePosition(self, mass, snap):
-        # Load local variables
-        n_bin = self.n_bin
-        density_grid = self.density_grid
-        rstate = self.rstate
-        #
-        bin_edge = 10**np.linspace(np.log10(min(mass)), np.log10(max(mass)), n_bin)
-        bin_centre = np.sqrt(bin_edge[:-1]*bin_edge[1:])
-        n_sample = len(mass)
-        x_h = np.zeros(n_sample)
-        y_h = np.zeros(n_sample)
-        y_z = np.zeros(n_sample)
-        grid_index = np.zeros(n_sample, dtype='i4')
-        for m_c, m_l, m_u in zip(bin_centre, bin_edge[:-1], bin_edge[1:]):
-            cond = (mass >= m_l) & (mass < m_u)
-            x_h[cond], y_h[cond], y_z[cond], grid_index[cond] = \
-                density_grid.SamplePosition(m_c, snap, np.sum(cond), rstate)
-        return x_h, y_h, y_z, grid_index
+    def _PopulateHalos(self, m_halo, snap):
+        bins = SmartBins(m_halo, self.n_min, self.d_min, 'log')
+        return self.density_field.PopulateHalos(m_halo, bins, snap, self.rstate)
 
 
-    def _MovePosition(self, inds, m_self, m_desc, snap):
-        # Load local variables
-        density_grid = self.density_grid
-        n_grid = density_grid.n_grid
-        box_size = density_grid.box_size
-        rstate = self.rstate
-        #
-        x_h, y_h, z_h = SampleFromIndex(inds, n_grid, box_size, rstate)
-        return density_grid.MovePosition(x_h, y_h, z_h, inds, m_self, m_desc, snap - 1)
+    def _MoveHalos(self, inds, m_self, m_desc, snap):
+        x_h, y_h, z_h = self.density_field.SampleFromIndex(inds, rstate=self.rstate)
+        return self.density_field.MoveHalos(x_h, y_h, z_h, inds, m_self, m_desc, snap)
 
 
     def _AddProperty(self, df_inh, df_req, list_prog, snap, z):
@@ -48,10 +27,10 @@ class PositionConstructor(Constructor):
         col_x = self.col_x
         col_y = self.col_y
         col_z = self.col_z
-        density_grid = self.density_grid
-        n_grid = density_grid.n_grid
-        box_size = density_grid.box_size
-        comoving = self.comoving
+        density_field = self.density_field
+        n_grid = density_field.n_grid
+        box_size = density_field.box_size
+        z_fix = 0 if self.comoving else z
         rstate = self.rstate
         #
         # Sample positions for MC halos
@@ -59,7 +38,7 @@ class PositionConstructor(Constructor):
         grid_index = np.zeros(len(df_req), dtype='i4')
         m_mc = df_req.loc[select_mc, col_m_vir].values
         if snap == snap_max:
-            x_h, y_h, y_z, grid_index[select_mc] = self._SamplePosition(m_mc, snap)
+            x_h, y_h, z_h, grid_index[select_mc] = self._PopulateHalos(m_mc, snap)
         else:
             df_pool = pd.DataFrame.from_dict(
                 self.pool, orient='index', columns=['GridIndex', 'MassDesc']
@@ -67,35 +46,28 @@ class PositionConstructor(Constructor):
             df_pool_mc = df_pool.loc[df_req.index[select_mc]]
             grid_index_mc = df_pool_mc['GridIndex'].values
             m_desc_mc = df_pool_mc['MassDesc'].values
-            x_h, y_h, y_z, grid_index_mc \
-                = self._MovePosition(grid_index_mc, m_mc, m_desc_mc, snap)
+            x_h, y_h, z_h, grid_index_mc = self._MoveHalos(grid_index_mc, m_mc, m_desc_mc, snap)
             grid_index[select_mc] = grid_index_mc
         #
         df_pos = pd.DataFrame(index=df_req.index[select_mc])
         df_pos[col_x] = x_h
         df_pos[col_y] = y_h
-        df_pos[col_z] = y_z
-        if not comoving:
-            df_pos[[col_x, col_y, col_z]] /= (1. + z)
+        df_pos[col_z] = z_h
+        if z_fix != 0.:
+            df_pos[[col_x, col_y, col_z]] /= (1. + z_fix)
         # Apply boundary condition to simulation halos
-        if comoving:
-            z_fix = 0.
-        else:
-            z_fix = z
-        df_inh[col_x] = density_grid.BoundaryCondition(df_inh[col_x], z_fix)
-        df_inh[col_y] = density_grid.BoundaryCondition(df_inh[col_y], z_fix)
-        df_inh[col_z] = density_grid.BoundaryCondition(df_inh[col_z], z_fix)
+        df_inh[col_x] = density_field.BoundaryCondition(df_inh[col_x], z_fix)
+        df_inh[col_y] = density_field.BoundaryCondition(df_inh[col_y], z_fix)
+        df_inh[col_z] = density_field.BoundaryCondition(df_inh[col_z], z_fix)
         # Finalise output
         df_pos = df_inh.append(df_pos)
         #
         if snap > snap_min:
-            if not comoving:
-                box_size /= (1. + z)
             # Compute grid indices for simulation halos
             select_sim = ~select_mc
             df_inh = df_inh.loc[df_req.index[select_sim]]
-            grid_index[select_sim] = Grid2Index(
-                df_inh[col_x], df_inh[col_y], df_inh[col_z], n_grid, box_size
+            grid_index[select_sim] = density_field.Grid2Index(
+                df_inh[col_x], df_inh[col_y], df_inh[col_z], z_fix=z_fix
             )
             # Put grid indices into the pool
             pool = {}
@@ -111,8 +83,8 @@ class PositionConstructor(Constructor):
 
 
     def __init__(self,
-        handler, hc_path, hc_prefix, snap_min, snap_max, cols, density_grid, n_bin,
-        comoving=True, rstate=None, progress_bar=True, kwargs_tqdm={}
+        handler, hc_path, hc_prefix, snap_min, snap_max, cols, density_field,
+        n_min=10**5, d_min=0.2, comoving=True, rstate=None, progress_bar=True, kwargs_tqdm={}
     ):
         kwargs_tqdm.update(desc='Constructing coordinates')
         super().__init__(
@@ -136,8 +108,9 @@ class PositionConstructor(Constructor):
         self.col_y = cols['y']
         self.col_z = cols['z']
         self.col_m_vir = cols['m_vir']
-        self.density_grid = density_grid
-        self.n_bin = n_bin
+        self.density_field = density_field
+        self.n_min = n_min
+        self.d_min = d_min
         self.comoving = comoving
         if rstate is None:
             self.rstate = np.random.RandomState()
