@@ -151,6 +151,7 @@ def SmartBins(data, n_min, d_min, scale='linear'):
     if scale == 'linear':
         op1 = lambda a, b: a - b
     elif scale == 'log':
+        d_min = 10**d_min
         op1 = lambda a, b: a/b
     else:
         raise ValueError("Unknown scale type '%s'"%scale)
