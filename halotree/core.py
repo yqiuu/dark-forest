@@ -135,17 +135,22 @@ def SmartBins(data, n_min, d_min, scale='linear'):
     else:
         raise ValueError("Unknown scale type '%s'"%scale)
 
-    b_min = min(data)
-    b_curr = max(data)
+    data = np.sort(data)
+    b_min = data[0]
+    b_curr = data[-1]
     bins = [b_curr]
-    while len(data) > 2*n_min:
-        b_next = np.percentile(data, 100*(1 - n_min/len(data)))
+    while len(data) > 0:
+        if len(data) <= n_min:
+            bins.append(b_min)
+            break
+        else:
+            b_next = data[-n_min]
         if op1(b_curr, b_next) > d_min:
             bins.append(b_next)
         else:
             b_next = max(b_min, op1(b_curr, d_min))
             bins.append(b_next)
-        data = data[data < b_next]
+        data = data[:data.searchsorted(b_next)]
         b_curr = b_next
     bins.reverse()
     return np.asarray(bins)
