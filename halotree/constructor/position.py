@@ -38,7 +38,8 @@ class PositionConstructor(Constructor):
         grid_index = np.zeros(len(df_req), dtype='i4')
         m_mc = df_req.loc[select_mc, col_m_vir].values
         if snap == snap_max:
-            x_h, y_h, z_h, grid_index[select_mc] = self._PopulateHalos(m_mc, snap)
+            if len(m_mc) > 0:
+                x_h, y_h, z_h, grid_index[select_mc] = self._PopulateHalos(m_mc, snap)
         else:
             df_pool = pd.DataFrame.from_dict(
                 self.pool, orient='index', columns=['GridIndex', 'MassDesc']
@@ -49,12 +50,13 @@ class PositionConstructor(Constructor):
             x_h, y_h, z_h, grid_index_mc = self._MoveHalos(grid_index_mc, m_mc, m_desc_mc, snap)
             grid_index[select_mc] = grid_index_mc
         #
-        df_pos = pd.DataFrame(index=df_req.index[select_mc])
-        df_pos[col_x] = x_h
-        df_pos[col_y] = y_h
-        df_pos[col_z] = z_h
-        if z_fix != 0.:
-            df_pos[[col_x, col_y, col_z]] /= (1. + z_fix)
+        df_pos = pd.DataFrame(index=df_req.index[select_mc], columns=[col_x, col_y, col_z])
+        if len(m_mc) > 0:
+            df_pos[col_x] = x_h
+            df_pos[col_y] = y_h
+            df_pos[col_z] = z_h
+            if z_fix != 0.:
+                df_pos[[col_x, col_y, col_z]] /= (1. + z_fix)
         # Apply boundary condition to simulation halos
         df_inh[col_x] = density_field.BoundaryCondition(df_inh[col_x], z_fix)
         df_inh[col_y] = density_field.BoundaryCondition(df_inh[col_y], z_fix)
