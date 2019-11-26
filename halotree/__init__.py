@@ -6,7 +6,6 @@ from .converter import *
 from .sampler import *
 from .spin import *
 from .dfield import *
-from .plain_growth import *
 from .hybrid_growth import *
 
 #from .auxiliary import *
