@@ -7,6 +7,7 @@ import os
 import tables
 import numpy as np
 import pandas as pd
+from astropy import units
 
 logger = CreateLogger(__name__)
 
@@ -20,18 +21,38 @@ def CreateRandomState(seed, comm):
 
 def CreateOutput(cntr, fname, filters, comm, master_rank):
     if comm is None or comm.Get_rank() == master_rank:
-        if cntr is not None:
+        if isinstance(cntr, DarkSeed):
+            with tables.File('%s.hdf5'%fname, 'w', filters=filters) as hf:
+                header = hf.create_group('/', 'Header')
+                # Save redshifts
+                hf.create_carray(header, 'Redshift', obj=cntr.redshifts)
+                # Save attributes
+                hmf = cntr.hmf
+                cosmo = hmf.cosmo
+                hf.set_node_attr(header, 'little_h', cosmo.H0.value*0.01)
+                hf.set_node_attr(header, 'omega_m', cosmo.Om0)
+                hf.set_node_attr(header, 'sigma_8', hmf.sigma_8)
+                hf.set_node_attr(header, 'n_spectral', hmf.n)
+                hf.set_node_attr(header, 'box_size', cntr.box_size)
+                hf.set_node_attr(header, 'mass_unit_to_solarmass', 1e-10)
+                hf.set_node_attr(header, 'length_unit_to_kpc', 1.)
+                hf.set_node_attr(header, 'velocity_unit_to_km', 1.)
+                hf.set_node_attr(header, 'm_particle', 0.)
+        else:
             with tables.File('%s.hdf5'%fname, 'w', filters=filters) as hf:
                 SaveHeader(hf, cntr)
 
 
 def ReadHaloData(cntr, snap, mass_key, comm, master_rank):
     if comm is None or comm.Get_rank() == master_rank:
-        logger.info("Read snapshot %d"%snap)
-        cntr.SwitchSnapshot(snap)
-        prog_data = cntr.Read('Prog', ['Snap', mass_key], 'pandas', 'Index')
-        host_data = cntr.Read('Host', ['ProgIndex', 'ProgNumber', mass_key], 'pandas', 'Index')
-        return host_data, prog_data
+        if isinstance(cntr, DarkSeed):
+            return None, None
+        else:
+            logger.info("Read snapshot %d"%snap)
+            cntr.SwitchSnapshot(snap)
+            prog_data = cntr.Read('Prog', ['Snap', mass_key], 'pandas', 'Index')
+            host_data = cntr.Read('Host', ['ProgIndex', 'ProgNumber', mass_key], 'pandas', 'Index')
+            return host_data, prog_data
     else:
         return None, None
 
@@ -77,30 +98,34 @@ def ScatterData(
     else:
         i_rank = master_rank
     if i_rank == master_rank:
-        if pool_data is None:
-            host_data = host_data_raw[host_data_raw[mass_key] > m_cut]
-            host_data = host_data.to_records()
-            cond = np.full(len(host_data), True)
-            for key, item in filters.items():
-                cond &= item(host_data[key])
-            host_data = host_data[cond]
+        if host_data_raw is None:
+            host_data = np.array([], dtype=next_host_data.dtype)
         else:
-            host_data = host_data_raw.loc[pool_data]
-            host_data = host_data.to_records()
+            if pool_data is None:
+                host_data = host_data_raw[host_data_raw[mass_key] > m_cut]
+                host_data = host_data.to_records()
+                cond = np.full(len(host_data), True)
+                for key, item in filters.items():
+                    cond &= item(host_data[key])
+                host_data = host_data[cond]
+            else:
+                host_data = host_data_raw.loc[pool_data]
+                host_data = host_data.to_records()
         host_data = np.asarray(
             host_data[list(next_host_data.dtype.names)], dtype = next_host_data.dtype
         )
         host_data = np.append(host_data, next_host_data, axis = 0)
         host_data[::-1].sort(order = ['ProgNumber', mass_key])
         #
-        prog_data_raw = list(prog_data_raw.to_records())
         prog_data = np.full(len(host_data), None)
-        cond = host_data['ProgNumber'] > 0
-        idx_arr = host_data['ProgIndex'][cond]
-        num_arr = host_data['ProgNumber'][cond]
-        prog_data[np.where(cond)] = list(
-            map(lambda idx, num:prog_data_raw[idx:idx + num], idx_arr, num_arr)
-        )
+        if prog_data_raw is not None:
+            prog_data_raw = list(prog_data_raw.to_records())
+            cond = host_data['ProgNumber'] > 0
+            idx_arr = host_data['ProgIndex'][cond]
+            num_arr = host_data['ProgNumber'][cond]
+            prog_data[np.where(cond)] = list(
+                map(lambda idx, num:prog_data_raw[idx:idx + num], idx_arr, num_arr)
+            )
         logger.info("Process %d host halos"%len(host_data))
     if comm is None:
         return host_data, prog_data
@@ -299,9 +324,9 @@ def AugmentChunk(
     dtype_stats = np.dtype([('MassCutFix', 'f4'), ('EpsMatchFix', 'f4'), ('Trail', 'i4')])
     # Make empty arrays for outputs
     n_host_chunk = len(host_chunk)
-    new_prog_chunk = np.empty(n_host_chunk, dtype = object)
-    next_host_chunk = np.empty(n_host_chunk, dtype = object)
-    stats_chunk = np.zeros(n_host_chunk, dtype = dtype_stats)
+    new_prog_chunk = np.empty(n_host_chunk, dtype=object)
+    next_host_chunk = np.empty(n_host_chunk, dtype=object)
+    stats_chunk = np.zeros(n_host_chunk, dtype=dtype_stats)
     #
     n_new_halo = 0
     for i_chunk in range(n_host_chunk):
@@ -363,14 +388,23 @@ def AugmentChunk(
 
 
 def GrowMass(
-    cntr, fname, mass_key, halo_kit, m_res, params_ag, params_mc,
-    snap_max, snap_min=0, root_halos=None, redshifts=None, ages=None,
-    seed=20070831, n_base=5000, filters=None, comm=None, master_rank=0
+    cntr, fname, mass_key, halo_kit, m_res, snap_max, snap_min=0, params_mc=None, params_ag=None,
+    root_halos=None, seed=20070831, n_base=5000, filters=None, comm=None, master_rank=0
 ):
-    if cntr is not None:
-        redshifts = cntr.redshifts
-        ages = cntr.ages
+    redshifts = cntr.redshifts
+    ages = cntr.ages
     rstate = CreateRandomState(seed, comm)
+    if params_mc is None:
+        params_mc = {
+            'G0': 0.57, 'gamma1': 0.38, 'gamma2': -0.01, 'eps1': 0.1, 'eps2': 0.1
+        }
+    if isinstance(cntr, DarkSeed):
+        params_ag = {
+            'm_min_cut': 1e10, 'm_max_cut': 1e10, 'eps_cut': 0., 'n_trail_cut': 0,
+            'eps_match':0, 'n_trail_match': 0, 'n_max_trail': 0
+        }
+    elif params_ag is None:
+        raise ValueError("When augmenting trees, params_ag should not be None.")
     m_cut = params_ag['m_min_cut']
     #
     CreateOutput(cntr, fname, filters, comm, master_rank)
@@ -408,3 +442,11 @@ def GrowMass(
             fname, host_data, prog_data, stats_data, snap, snap_min, filters, comm, master_rank
         )
 
+
+class DarkSeed:
+    def __init__(self, hmf, redshifts, box_size, z_grid=None):
+        self.hmf = hmf
+        self.halo_kit = HaloKit(hmf, z_grid=z_grid)
+        self.redshifts = redshifts
+        self.ages = hmf.cosmo.age(redshifts).to(units.megayear).value
+        self.box_size = box_size
