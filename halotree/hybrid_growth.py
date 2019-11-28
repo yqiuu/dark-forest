@@ -184,28 +184,32 @@ def GatherData(
 def SaveData(fname, host_data, prog_data, stats_data, snap, snap_min, filters, comm, master_rank):
     if comm is None or comm.Get_rank() == master_rank:
         with tables.File('%s.hdf5'%fname, 'a', filters=filters) as hf:
+            n_prog_data = len(prog_data)
+            n_host_data = len(host_data)
             # Save progenitor data
             group_prog = hf.create_group('/Snapshot_%03d'%snap, 'Prog', createparents=True)
-            prog_data = np.concatenate(prog_data)
-            if len(prog_data) > 0:
+            if n_prog_data > 0:
+                prog_data = np.concatenate(prog_data)
                 for c in prog_data.dtype.names:
                     hf.create_carray(group_prog, c, obj=prog_data[c])
             # Save host data
             group_host = hf.create_group('/Snapshot_%03d'%snap, 'Host', createparents=True)
-            for c in host_data.dtype.names:
-                hf.create_carray(group_host, c, obj=host_data[c])
-            for c in stats_data.dtype.names:
-                hf.create_carray(group_host, c, obj=stats_data[c])
+            if n_host_data > 0:
+                for c in host_data.dtype.names:
+                    hf.create_carray(group_host, c, obj=host_data[c])
+                for c in stats_data.dtype.names:
+                    hf.create_carray(group_host, c, obj=stats_data[c])
             # Save host data for the last snapshot
             if snap - 1 == snap_min:
                 group_last = hf.create_group('/Snapshot_%03d'%snap_min, 'Host', createparents=True)
-                prog_index = np.full(len(prog_data), -1, dtype=host_data.dtype['ProgIndex'])
-                hf.create_carray(group_last, 'ProgIndex', obj=prog_index)
-                prog_number = np.full(len(prog_data), 0, dtype=host_data.dtype['ProgNumber'])
-                hf.create_carray(group_last, 'ProgNumber', obj=prog_number)
-                for c in prog_data.dtype.names:
-                    if c != 'Snap':
-                        hf.create_carray(group_last, c, obj=prog_data[c])
+                if n_prog_data > 0:
+                    prog_index = np.full(n_prog_data, -1, dtype=host_data.dtype['ProgIndex'])
+                    hf.create_carray(group_last, 'ProgIndex', obj=prog_index)
+                    prog_number = np.full(n_prog_data, 0, dtype=host_data.dtype['ProgNumber'])
+                    hf.create_carray(group_last, 'ProgNumber', obj=prog_number)
+                    for c in prog_data.dtype.names:
+                        if c != 'Snap':
+                            hf.create_carray(group_last, c, obj=prog_data[c])
 
 
 def NewID(n_halo, snap, offset):
@@ -324,9 +328,14 @@ def AugmentChunk(
     dtype_stats = np.dtype([('MassCutFix', 'f4'), ('EpsMatchFix', 'f4'), ('Trail', 'i4')])
     # Make empty arrays for outputs
     n_host_chunk = len(host_chunk)
-    new_prog_chunk = np.empty(n_host_chunk, dtype=object)
-    next_host_chunk = np.empty(n_host_chunk, dtype=object)
-    stats_chunk = np.zeros(n_host_chunk, dtype=dtype_stats)
+    if n_host_chunk == 0:
+        new_prog_chunk = np.array([], dtype=dtype_prog)
+        next_host_chunk = np.array([[], []], dtype=dtype_host)
+        stats_chunk = np.array([], dtype=dtype_stats)
+    else:
+        new_prog_chunk = np.empty(n_host_chunk, dtype=object)
+        next_host_chunk = np.empty(n_host_chunk, dtype=object)
+        stats_chunk = np.zeros(n_host_chunk, dtype=dtype_stats)
     #
     n_new_halo = 0
     for i_chunk in range(n_host_chunk):
@@ -400,8 +409,8 @@ def GrowMass(
         }
     if isinstance(cntr, DarkSeed):
         params_ag = {
-            'm_min_cut': 1e10, 'm_max_cut': 1e10, 'eps_cut': 0., 'n_trail_cut': 0,
-            'eps_match':0, 'n_trail_match': 0, 'n_max_trail': 0
+            'm_min_cut': 0., 'm_max_cut': 0., 'eps_cut': 0., 'n_trail_cut': 0,
+            'eps_match':0, 'n_trail_match': 0, 'n_max_trail': 1
         }
     elif params_ag is None:
         raise ValueError("When augmenting trees, params_ag should not be None.")
