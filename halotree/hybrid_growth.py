@@ -7,6 +7,7 @@ import os
 import tables
 import numpy as np
 import pandas as pd
+from tables import NoSuchNodeError
 from astropy import units
 
 logger = CreateLogger(__name__)
@@ -49,9 +50,18 @@ def ReadHaloData(cntr, snap, mass_key, comm, master_rank):
             return None, None
         else:
             cntr.SwitchSnapshot(snap)
-            prog_data = cntr.Read('Prog', ['Snap', mass_key], 'pandas', 'Index')
-            host_data = cntr.Read('Host', ['ProgIndex', 'ProgNumber', mass_key], 'pandas', 'Index')
-            logger.info("Read in %d halos"%len(host_data))
+            try:
+                prog_data = cntr.Read('Prog', ['Snap', mass_key], 'pandas', 'Index')
+                logger.info("Read in %d progenitor halos"%len(prog_data))
+            except NoSuchNodeError:
+                prog_data = None
+            try:
+                host_data = cntr.Read(
+                    'Host', ['ProgIndex', 'ProgNumber', mass_key], 'pandas', 'Index'
+                )
+                logger.info("Read in %d host halos"%len(host_data))
+            except NoSuchNodeError:
+                host_data = None
             return host_data, prog_data
     else:
         return None, None
@@ -126,7 +136,6 @@ def ScatterData(
             prog_data[np.where(cond)] = list(
                 map(lambda idx, num:prog_data_raw[idx:idx + num], idx_arr, num_arr)
             )
-        logger.info("Finding %d halos above the mass cut"%len(host_data))
     if comm is None:
         return host_data, prog_data
     else:
