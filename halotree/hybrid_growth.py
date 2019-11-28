@@ -48,10 +48,10 @@ def ReadHaloData(cntr, snap, mass_key, comm, master_rank):
         if isinstance(cntr, DarkSeed):
             return None, None
         else:
-            logger.info("Read snapshot %d"%snap)
             cntr.SwitchSnapshot(snap)
             prog_data = cntr.Read('Prog', ['Snap', mass_key], 'pandas', 'Index')
             host_data = cntr.Read('Host', ['ProgIndex', 'ProgNumber', mass_key], 'pandas', 'Index')
+            logger.info("Read in %d halos"%len(host_data))
             return host_data, prog_data
     else:
         return None, None
@@ -126,7 +126,7 @@ def ScatterData(
             prog_data[np.where(cond)] = list(
                 map(lambda idx, num:prog_data_raw[idx:idx + num], idx_arr, num_arr)
             )
-        logger.info("Process %d host halos"%len(host_data))
+        logger.info("Finding %d halos above the mass cut"%len(host_data))
     if comm is None:
         return host_data, prog_data
     else:
@@ -191,12 +191,14 @@ def SaveData(
             # Save progenitor data
             group_prog = hf.create_group('/Snapshot_%03d'%snap, 'Prog', createparents=True)
             if n_prog_data > 0:
+                logger.info("Saving data of %d progenitor halos"%n_prog_data)
                 prog_data = np.concatenate(prog_data)
                 for c in prog_data.dtype.names:
                     hf.create_carray(group_prog, c, obj=prog_data[c])
             # Save host data
             group_host = hf.create_group('/Snapshot_%03d'%snap, 'Host', createparents=True)
             if n_host_data > 0:
+                logger.info("Saving data of %d host halos"%n_host_data)
                 for c in host_data.dtype.names:
                     hf.create_carray(group_host, c, obj=host_data[c])
                 if not isinstance(cntr, DarkSeed):
@@ -206,6 +208,7 @@ def SaveData(
             if snap - 1 == snap_min:
                 group_last = hf.create_group('/Snapshot_%03d'%snap_min, 'Host', createparents=True)
                 if n_prog_data > 0:
+                    logger.info("Saving data for the last snapshot")
                     prog_index = np.full(n_prog_data, -1, dtype=host_data.dtype['ProgIndex'])
                     hf.create_carray(group_last, 'ProgIndex', obj=prog_index)
                     prog_number = np.full(n_prog_data, 0, dtype=host_data.dtype['ProgNumber'])
@@ -326,6 +329,7 @@ def AugmentChunk(
     z_root, t_root, z_target, t_target, redshifts, ages,
     halo_kit, m_cut, m_res, params_ag, params_mc, rstate, n_base, comm,
 ):
+    #
     dtype_host = host_chunk.dtype
     dtype_prog = np.dtype([('Index', 'i8'), ('Snap', 'i4'), (mass_key, 'f8')])
     dtype_stats = np.dtype([('MassCutFix', 'f4'), ('EpsMatchFix', 'f4'), ('Trail', 'i4')])
@@ -339,6 +343,9 @@ def AugmentChunk(
         new_prog_chunk = np.empty(n_host_chunk, dtype=object)
         next_host_chunk = np.empty(n_host_chunk, dtype=object)
         stats_chunk = np.zeros(n_host_chunk, dtype=dtype_stats)
+    #
+    i_rank = 0 if comm is None else comm.Get_rank()
+    logger.info("Growing %d halos (i_rank = %d)"%(n_host_chunk, i_rank))
     #
     n_new_halo = 0
     for i_chunk in range(n_host_chunk):
@@ -434,6 +441,9 @@ def GrowMass(
     pool_data, pool_list_chunk = None, [[] for i in range(snap_max + 1)]
     #
     for snap in range(snap_max, snap_min, -1):
+        if comm is None or comm.Get_rank() == master_rank:
+            logger.info("Processing snapshot %d"%snap)
+
         host_data_raw, prog_data_raw = ReadHaloData(cntr, snap, mass_key, comm, master_rank)
         host_chunk, prog_chunk = ScatterData(
             host_data_raw, prog_data_raw, next_host_data, pool_data,
@@ -454,6 +464,9 @@ def GrowMass(
             cntr, fname, host_data, prog_data, stats_data,
             snap, snap_min,filters, comm, master_rank
         )
+
+        if comm is None or comm.Get_rank() == master_rank:
+            logger.info("Finishing snapshot %d\n"%snap)
 
 
 class DarkSeed:
