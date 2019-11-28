@@ -1,4 +1,3 @@
-from ..core import EnhancedMassFunction
 from ..halotree import *
 from .connector import Connector
 
@@ -129,16 +128,6 @@ class GenesisConnector(Connector):
                 redshifts[snap] = 1./self.fp.get('Snap_%03d'%snap).attrs['scalefactor'] - 1.
             self._redshifts = redshifts
             return np.array(self._redshifts)
-
-
-    def HaloKit(self, **kwargs):
-        params = {'Mmin':5, 'dlog10m':0.05}
-        params.update(kwargs)
-        params['cosmo_params'] = self.cosmo_params
-        params['sigma_8'] = self.sigma_8
-        params['n'] = self.n_spectral
-        hmf = EnhancedMassFunction(**params)
-        return HaloKit(hmf), hmf
 
 
     def HostID(self, n = 1):

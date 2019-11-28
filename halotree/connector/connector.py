@@ -2,6 +2,7 @@ import os
 from abc import ABC, abstractmethod
 
 from ..utils import Range
+from ..core import EnhancedMassFunction
 from ..logger import CreateLogger
 from ..halotree import *
 
@@ -129,6 +130,16 @@ class Connector(ABC):
             cosmo = FlatLambdaCDM(**self.cosmo_params)
             self._ages = cosmo.age(self.redshifts).value*1e3
             return np.array(self._ages)
+
+
+    def HaloKit(self, z_grid=None, **kwargs):
+        params = {'Mmin':5, 'dlog10m':0.05}
+        params.update(kwargs)
+        params['cosmo_params'] = self.cosmo_params
+        params['sigma_8'] = self.sigma_8
+        params['n'] = self.n_spectral
+        hmf = EnhancedMassFunction(**params)
+        return HaloKit(hmf, z_grid=z_grid), hmf
 
 
     @abstractmethod
