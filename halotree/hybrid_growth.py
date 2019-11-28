@@ -36,7 +36,7 @@ def CreateOutput(cntr, fname, filters, comm, master_rank):
                 hf.set_node_attr(header, 'box_size', cntr.box_size)
                 hf.set_node_attr(header, 'mass_unit_to_solarmass', 1e-10)
                 hf.set_node_attr(header, 'length_unit_to_kpc', 1.)
-                hf.set_node_attr(header, 'velocity_unit_to_km', 1.)
+                hf.set_node_attr(header, 'velocity_unit_to_kms', 1.)
                 hf.set_node_attr(header, 'm_particle', 0.)
         else:
             with tables.File(fname, 'w', filters=filters) as hf:
