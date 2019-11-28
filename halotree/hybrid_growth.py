@@ -22,7 +22,7 @@ def CreateRandomState(seed, comm):
 def CreateOutput(cntr, fname, filters, comm, master_rank):
     if comm is None or comm.Get_rank() == master_rank:
         if isinstance(cntr, DarkSeed):
-            with tables.File('%s.hdf5'%fname, 'w', filters=filters) as hf:
+            with tables.File(fname, 'w', filters=filters) as hf:
                 header = hf.create_group('/', 'Header')
                 # Save redshifts
                 hf.create_carray(header, 'Redshift', obj=cntr.redshifts)
@@ -39,7 +39,7 @@ def CreateOutput(cntr, fname, filters, comm, master_rank):
                 hf.set_node_attr(header, 'velocity_unit_to_km', 1.)
                 hf.set_node_attr(header, 'm_particle', 0.)
         else:
-            with tables.File('%s.hdf5'%fname, 'w', filters=filters) as hf:
+            with tables.File(fname, 'w', filters=filters) as hf:
                 SaveHeader(hf, cntr)
 
 
@@ -185,7 +185,7 @@ def SaveData(
     cntr, fname, host_data, prog_data, stats_data, snap, snap_min, filters, comm, master_rank
 ):
     if comm is None or comm.Get_rank() == master_rank:
-        with tables.File('%s.hdf5'%fname, 'a', filters=filters) as hf:
+        with tables.File(fname, 'a', filters=filters) as hf:
             n_prog_data = len(prog_data)
             n_host_data = len(host_data)
             # Save progenitor data
