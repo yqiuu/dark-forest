@@ -181,7 +181,9 @@ def GatherData(
         return None, None, None, None, None
 
 
-def SaveData(fname, host_data, prog_data, stats_data, snap, snap_min, filters, comm, master_rank):
+def SaveData(
+    cntr, fname, host_data, prog_data, stats_data, snap, snap_min, filters, comm, master_rank
+):
     if comm is None or comm.Get_rank() == master_rank:
         with tables.File('%s.hdf5'%fname, 'a', filters=filters) as hf:
             n_prog_data = len(prog_data)
@@ -197,8 +199,9 @@ def SaveData(fname, host_data, prog_data, stats_data, snap, snap_min, filters, c
             if n_host_data > 0:
                 for c in host_data.dtype.names:
                     hf.create_carray(group_host, c, obj=host_data[c])
-                for c in stats_data.dtype.names:
-                    hf.create_carray(group_host, c, obj=stats_data[c])
+                if not isinstance(cntr, DarkSeed):
+                    for c in stats_data.dtype.names:
+                        hf.create_carray(group_host, c, obj=stats_data[c])
             # Save host data for the last snapshot
             if snap - 1 == snap_min:
                 group_last = hf.create_group('/Snapshot_%03d'%snap_min, 'Host', createparents=True)
@@ -448,7 +451,8 @@ def GrowMass(
             pool_list_chunk[snap - 1], stats_chunk, comm, master_rank
         )
         SaveData(
-            fname, host_data, prog_data, stats_data, snap, snap_min, filters, comm, master_rank
+            cntr, fname, host_data, prog_data, stats_data,
+            snap, snap_min,filters, comm, master_rank
         )
 
 
