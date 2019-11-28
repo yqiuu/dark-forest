@@ -176,7 +176,7 @@ def GatherData(
             new_prog_data = []
             for item in new_prog_list:
                 new_prog_data.extend(item)
-            new_prog_data = np.asarray(new_prog_data, dtype = object)
+            new_prog_data = np.asarray(new_prog_data)
             next_host_data = np.concatenate(next_host_data)
             pool_data = np.concatenate(pool_data)
             stats_data = np.concatenate(stats_data)
