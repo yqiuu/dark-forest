@@ -44,6 +44,25 @@ def CreateOutput(cntr, fname, filters, comm, master_rank):
                 SaveHeader(hf, cntr)
 
 
+def InitRootHalos(cntr, mass_key, snap_max, root_halos):
+    dtype_host = [
+        ('Index', 'i8'), ('ProgIndex', 'i4'), ('ProgNumber', 'i4'),
+        ('LeafType', 'i4'), (mass_key, 'f8')
+    ]
+    if root_halos is None:
+        next_host_data = np.array([], dtype=dtype_host)
+    else:
+        n_new = len(root_halos)
+        next_host_data = np.zeros(n_new, dtype=dtype_host)
+        next_host_data['Index'] = NewID(n_new, snap_max, 0)
+        next_host_data['ProgIndex'] = np.full(n_new, -1, dtype='i4')
+        next_host_data['LeafType'] = np.full(
+            n_new, 0 if isinstance(cntr, DarkSeed) else 2, dtype='i4'
+        )
+        next_host_data[mass_key] = root_halos
+    return next_host_data
+
+
 def ReadHaloData(cntr, snap, mass_key, comm, master_rank):
     if comm is None or comm.Get_rank() == master_rank:
         if isinstance(cntr, DarkSeed):
@@ -113,6 +132,8 @@ def ScatterData(
         else:
             if pool_data is None:
                 host_data = host_data_raw[host_data_raw[mass_key] > m_cut]
+                host_data.index.name = 'Index'
+                host_data.insert(2, 'LeafType', np.full(len(host_data), 0, dtype='i4'))
                 host_data = host_data.to_records()
                 cond = np.full(len(host_data), True)
                 for key, item in filters.items():
@@ -120,6 +141,8 @@ def ScatterData(
                 host_data = host_data[cond]
             else:
                 host_data = host_data_raw.loc[pool_data]
+                host_data.insert(2, 'LeafType', np.full(len(host_data), 0, dtype='i4'))
+                host_data.index.name = 'Index'
                 host_data = host_data.to_records()
         host_data = np.asarray(
             host_data[list(next_host_data.dtype.names)], dtype = next_host_data.dtype
@@ -212,6 +235,7 @@ def SaveData(
                 logger.info("Saving data of %d host halos"%n_host_data)
                 if isinstance(cntr, DarkSeed):
                     host_data['Index'] = np.abs(host_data['Index'])
+                    host_data['LeafType'] = np.zeros_like(host_data['LeafType'])
                 for c in host_data.dtype.names:
                     hf.create_carray(group_host, c, obj=host_data[c])
                 if not isinstance(cntr, DarkSeed):
@@ -398,6 +422,7 @@ def AugmentChunk(
             next_host = np.full(n_unres, -1, dtype = dtype_host)
             next_host['Index'] = new_id
             next_host['ProgNumber'] = 0
+            next_host['LeafType'] = 2 if host['LeafType'] == 2 else 1
             next_host[mass_key] = m_unres
             next_host_chunk[i_chunk] = next_host
         else:
@@ -441,15 +466,7 @@ def GrowMass(
     #
     CreateOutput(cntr, fname, filters, comm, master_rank)
     # Initialise new halos
-    dtype_host = [('Index', 'i8'), ('ProgIndex', 'i4'), ('ProgNumber', 'i4'), (mass_key, 'f8')]
-    if root_halos is None:
-        next_host_data = np.array([], dtype=dtype_host)
-    else:
-        n_new = len(root_halos)
-        next_host_data = np.zeros(n_new, dtype=dtype_host)
-        next_host_data['Index'] = NewID(n_new, snap_max, 0)
-        next_host_data['ProgIndex'] = np.full(n_new, -1, dtype='i4')
-        next_host_data[mass_key] = root_halos
+    next_host_data = InitRootHalos(cntr, mass_key, snap_max, root_halos)
     #
     pool_data, pool_list_chunk = None, [[] for i in range(snap_max + 1)]
     #
