@@ -169,8 +169,11 @@ class DarkForestConnector(Connector):
         pass
 
 
-    def __enter__(self, mode='r'):
-        self.hf = tables.File(self.fname, mode=mode)
+    def __enter__(self, write=False):
+        if write:
+            self.hf = tables.File(self.fname, 'r+')
+        else:
+            self.hf = tables.File(self.fname, 'r')
         return self
 
 
