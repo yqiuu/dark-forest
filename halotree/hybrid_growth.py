@@ -202,12 +202,16 @@ def SaveData(
             if n_prog_data > 0:
                 logger.info("Saving data of %d progenitor halos"%n_prog_data)
                 prog_data = np.concatenate(prog_data)
+                if isinstance(cntr, DarkSeed):
+                    prog_data['Index'] = np.abs(prog_data['Index'])
                 for c in prog_data.dtype.names:
                     hf.create_carray(group_prog, c, obj=prog_data[c])
             # Save host data
             group_host = hf.create_group('/Snapshot_%03d'%snap, 'Host', createparents=True)
             if n_host_data > 0:
                 logger.info("Saving data of %d host halos"%n_host_data)
+                if isinstance(cntr, DarkSeed):
+                    host_data['Index'] = np.abs(host_data['Index'])
                 for c in host_data.dtype.names:
                     hf.create_carray(group_host, c, obj=host_data[c])
                 if not isinstance(cntr, DarkSeed):
