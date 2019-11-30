@@ -274,7 +274,7 @@ def InterploateMass(m_prog, s_prog, m_root, t_root, t_target, ages):
 
 def Augment(
     host, prog, mass_key, m_root, z_root, z_target,
-    halo_kit, m_res, params_ag, params_mc, rstate, n_base
+    halo_kit, grow_kit, params_ag, rstate, n_base
 ):
     """
     Given a pruned branch, generate Monte Carlo tree to find a match.
@@ -330,8 +330,7 @@ def Augment(
             n_prog_trail = n_best
         else:
             tree = Tree_Parkinson08(
-                halo_kit, m_root, z_root, z_target, m_res,
-                rstate = rstate, n_base = n_base, **params_mc
+                halo_kit, grow_kit, m_root, z_root, z_target, rstate=rstate, n_base=n_base,
             )
             m_prog_trail = tree.Halos(next_level)['mass']
             n_prog_trail = len(m_prog_trail)
@@ -364,7 +363,7 @@ def Augment(
 def AugmentChunk(
     host_chunk, prog_chunk, pool_list_chunk, mass_key, snap,
     z_root, t_root, z_target, t_target, redshifts, ages,
-    halo_kit, m_cut, m_res, params_ag, params_mc, rstate, n_base, comm,
+    halo_kit, grow_kit, m_cut, params_ag, rstate, n_base, comm,
 ):
     #
     dtype_host = host_chunk.dtype
@@ -400,7 +399,7 @@ def AugmentChunk(
         InterploateMass(m_prog, prog['Snap'], m_root, t_root, t_target, ages)
         prog, m_unres, m_cut_fix, eps_match_fix, n_trail = Augment(
             host, prog, mass_key, m_root, z_root, z_target,
-            halo_kit, m_res, params_ag, params_mc, rstate, n_base
+            halo_kit, grow_kit, params_ag, rstate, n_base
         )
         stats_chunk[i_chunk] = m_cut_fix, eps_match_fix, n_trail
         # Create new progenitor and next host data
@@ -445,16 +444,12 @@ def AugmentChunk(
 
 
 def GrowMass(
-    cntr, fname, mass_key, halo_kit, m_res, snap_max, snap_min=0, params_mc=None, params_ag=None,
+    cntr, fname, mass_key, halo_kit, grow_kit, snap_max, snap_min=0, params_ag=None,
     root_halos=None, seed=20070831, n_base=5000, filters=None, comm=None, master_rank=0
 ):
     redshifts = cntr.redshifts
     ages = cntr.ages
     rstate = CreateRandomState(seed, comm)
-    if params_mc is None:
-        params_mc = {
-            'G0': 0.57, 'gamma1': 0.38, 'gamma2': -0.01, 'eps1': 0.1, 'eps2': 0.1
-        }
     if isinstance(cntr, DarkSeed):
         params_ag = {
             'm_min_cut': 0., 'm_max_cut': 0., 'eps_cut': 0., 'n_trail_cut': 0,
@@ -462,6 +457,7 @@ def GrowMass(
         }
     elif params_ag is None:
         raise ValueError("When augmenting trees, params_ag should not be None.")
+    #
     m_cut = params_ag['m_min_cut']
     #
     CreateOutput(cntr, fname, filters, comm, master_rank)
@@ -484,7 +480,7 @@ def GrowMass(
         new_prog_chunk, next_host_chunk, stats_chunk = AugmentChunk(
             host_chunk, prog_chunk, pool_list_chunk, mass_key, snap,
             z_root, t_root, z_target, t_target, redshifts, ages,
-            halo_kit, m_cut, m_res, params_ag, params_mc, rstate, n_base, comm
+            halo_kit, grow_kit, m_cut, params_ag, rstate, n_base, comm
         )
         host_data, prog_data, next_host_data, pool_data, stats_data = GatherData(
             host_chunk, new_prog_chunk, next_host_chunk,

@@ -52,6 +52,7 @@ def QuickPlainGrowth(fname, m_res, box_size, hmf_model='PS'):
 
     hmf = MassFunction(Mmin=np.log10(m_res) - .5, Mmax=15.5, hmf_model=hmf_model)
     halo_kit = halotree.HaloKit(hmf, z_grid=np.linspace(0, 50, 1000))
+    grow_kit = halotree.GrowKit(m_res=m_res, G0=0.57, gamma1=0.38, gamma2=-0.01, eps1=0.1, eps2=0.1)
     volume = box_size**3
 
     seed = 20070831
@@ -64,7 +65,7 @@ def QuickPlainGrowth(fname, m_res, box_size, hmf_model='PS'):
         fname=fname,
         mass_key="Mvir",
         halo_kit=halo_kit,
-        m_res=m_res,
+        grow_kit=grow_kit,
         snap_max=snap_max,
         snap_min=snap_min,
         root_halos=root_halos,

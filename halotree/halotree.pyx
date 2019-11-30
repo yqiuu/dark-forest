@@ -95,6 +95,22 @@ cdef class RandomStateGSL:
         gsl_rng_free(self.rstate)
 
 
+cdef class GrowKit:
+    cdef:
+        SplitKit split
+
+        public double m_res
+
+
+    def __cinit__(self, G0, gamma1, gamma2, m_res, eps1, eps2):
+        self.split = SplitKit_Init(G0, gamma1, gamma2, m_res, eps1, eps2)
+        self.m_res = m_res
+
+    
+    def __dealloc__(self):
+        SplitKit_Free(&self.split)
+
+
 def RebuildHaloKit(*rebuild_args):
     return HaloKit(None, rebuild_args = rebuild_args)
 
@@ -200,20 +216,15 @@ cdef class HaloMergeTree:
 
 
     cdef _InitParkinson08(self,
-        HaloKit halo_kit, double m_root, double z_root, double[::1] z_target, double m_res,
-        double G0, double gamma1, double gamma2, double eps1, double eps2,
-        RandomStateGSL rstate, int n_base
+        HaloKit halo_kit, GrowKit grow_kit, double m_root, double z_root, double[::1] z_target,
+        double m_res, RandomStateGSL rstate, int n_base
     ):
         self._CheckMassRange(halo_kit, m_root, m_res)
-        # Initialise algorithm parameters
-        cdef SplitKit kit_sp = SplitKit_Init(G0, gamma1, gamma2, m_res, eps1, eps2)
         # Create the tree
         self.tree = MergeTree_Grow(
-            m_root, z_root, &z_target[0], z_target.shape[0], &halo_kit.hr, &kit_sp,
+            m_root, z_root, &z_target[0], z_target.shape[0], &halo_kit.hr, &grow_kit.split,
             rstate.rstate, n_base
         )
-        # Free
-        SplitKit_Free(&kit_sp);
         # Convert delta to redshift
         self._ConvertRedshift(z_root, z_target)
     
@@ -268,10 +279,8 @@ cdef class HaloMergeTree:
         self.z_arr = None
         if method == 'Parkinson08':
             self._InitParkinson08(
-                params['halo_kit'], params['m_root'], params['z_root'],
-                params['z_target'], params['m_res'],
-                params['G0'], params['gamma1'], params['gamma2'], params['eps1'], params['eps2'],
-                params['rstate'], params['n_base']
+                params['halo_kit'], params['grow_kit'], params['m_root'], params['z_root'],
+                params['z_target'], params['m_res'], params['rstate'], params['n_base']
             )
         elif method == 'empty':
             self._InitEmpty(params['n_base'])
@@ -283,17 +292,13 @@ cdef class HaloMergeTree:
         NodeVector_Free(&self.tree)
 
 
-def Tree_Parkinson08(
-    halo_kit, m_root, z_root, z_target, m_res = 1e8, G0 = 0.57, gamma1 = 0.38,
-    gamma2 = -0.01, eps1 = 0.1, eps2 = 0.1, rstate = None, n_base = 100000
-):
+def Tree_Parkinson08(halo_kit, grow_kit, m_root, z_root, z_target, rstate=None, n_base=100000):
     z_target = np.ravel(z_target).astype('f8')
     if rstate is None:
         rstate = RandomStateGSL(209204)
     return HaloMergeTree(
-        method = 'Parkinson08', halo_kit = halo_kit, m_root = m_root, z_root = z_root,
-        z_target = z_target, m_res = m_res, G0 = G0, gamma1 = gamma1, gamma2 = gamma2,
-        eps1 = eps1, eps2 = eps2, rstate = rstate, n_base = n_base
+        method='Parkinson08', halo_kit=halo_kit, grow_kit=grow_kit, m_root=m_root, z_root=z_root,
+        z_target=z_target, m_res=grow_kit.m_res, rstate=rstate, n_base=n_base
     )
 
 
