@@ -74,17 +74,39 @@ def QuickPlainGrowth(fname, m_res, box_size, hmf_model='PS'):
 
 
 @pytest.fixture(scope="session")
-def plain_growth_file(tmpdir_factory):
-    fname = tmpdir_factory.mktemp("data").join("__plain_growth.hdf5")
-    m_res = 9.2e10
-    box_size = 23
+def plain_growth_low_file(tmpdir_factory):
+    box_size = 17
+    m_res = 7.2e10
+    fname = tmpdir_factory.mktemp("data").join("__plain_growth_low.hdf5")
     QuickPlainGrowth(str(fname), m_res, box_size, 'PS')
     return fname
 
 
-def test_plain_growth(plain_growth_file):
-    fname1 = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'test_plain_growth.hdf5')
-    fname2 = str(plain_growth_file)
+def test_plain_growth_low(plain_growth_low_file):
+    fname1 = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "data/test_plain_growth_low.hdf5"
+    )
+    fname2 = str(plain_growth_low_file)
     with halotree.DarkForestConnector(fname1) as dfor1, \
         halotree.DarkForestConnector(fname2) as dfor2:
         CompareDarkForest(dfor1, dfor2)
+
+
+@pytest.fixture(scope="session")
+def plain_growth_high_file(tmpdir_factory):
+    box_size = 17
+    m_res = 7.2e9
+    fname = tmpdir_factory.mktemp("data").join("__plain_growth_high.hdf5")
+    QuickPlainGrowth(str(fname), m_res, box_size, 'PS')
+    return fname
+
+
+def test_plain_growth_low(plain_growth_high_file):
+    fname1 = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "data/test_plain_growth_high.hdf5"
+    )
+    fname2 = str(plain_growth_high_file)
+    with halotree.DarkForestConnector(fname1) as dfor1, \
+        halotree.DarkForestConnector(fname2) as dfor2:
+        CompareDarkForest(dfor1, dfor2)
+

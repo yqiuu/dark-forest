@@ -17,7 +17,7 @@ def test_binary_spkit():
     ).Halos(-1)
     # Load fiducial tree
     tree_fid = np.load(
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), 'test_binary_split.npy')
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data/test_binary_split.npy')
     )
     # Compare
     assert_allclose(tree_test['z'], tree_fid['z'])
