@@ -231,10 +231,9 @@ def SaveData(
         else:
             save_mode = 'hybrid'
         with tables.File(fname, 'a', filters=filters) as hf:
-            n_prog_data = len(prog_data)
-            n_host_data = len(host_data)
             # Save progenitor data
             group_prog = hf.create_group('/Snapshot_%03d'%snap, 'Prog', createparents=True)
+            n_prog_data = len(prog_data)
             if n_prog_data > 0:
                 logger.info("Saving data of %d progenitor halos"%n_prog_data)
                 prog_data = np.concatenate(prog_data)
@@ -242,20 +241,9 @@ def SaveData(
                     prog_data['Index'] = np.abs(prog_data['Index'])
                 for c in prog_data.dtype.names:
                     hf.create_carray(group_prog, c, obj=prog_data[c])
-            # Save host data
-            group_host = hf.create_group('/Snapshot_%03d'%snap, 'Host', createparents=True)
-            if n_host_data > 0:
-                logger.info("Saving data of %d host halos"%n_host_data)
-                if save_mode == 'plain':
-                    host_data['Index'] = np.abs(host_data['Index'])
-                    host_data['LeafType'] = np.zeros_like(host_data['LeafType'])
-                for c in host_data.dtype.names:
-                    hf.create_carray(group_host, c, obj=host_data[c])
-                if save_mode == 'hybrid':
-                    for c in stats_data.dtype.names:
-                        hf.create_carray(group_host, c, obj=stats_data[c])
             # Save host data for the last snapshot
             if snap - 1 == snap_min:
+                n_prog_data = len(prog_data)
                 group_last = hf.create_group('/Snapshot_%03d'%snap_min, 'Host', createparents=True)
                 if n_prog_data > 0:
                     logger.info("Saving data for the last snapshot")
@@ -266,6 +254,19 @@ def SaveData(
                     for c in prog_data.dtype.names:
                         if c != 'Snap':
                             hf.create_carray(group_last, c, obj=prog_data[c])
+            # Save host data
+            group_host = hf.create_group('/Snapshot_%03d'%snap, 'Host', createparents=True)
+            n_host_data = len(host_data)
+            if n_host_data > 0:
+                logger.info("Saving data of %d host halos"%n_host_data)
+                if save_mode == 'plain':
+                    host_data['Index'] = np.abs(host_data['Index'])
+                    host_data['LeafType'] = np.zeros_like(host_data['LeafType'])
+                for c in host_data.dtype.names:
+                    hf.create_carray(group_host, c, obj=host_data[c])
+                if save_mode == 'hybrid':
+                    for c in stats_data.dtype.names:
+                        hf.create_carray(group_host, c, obj=stats_data[c])
 
 
 def NewID(n_halo, snap, offset):
