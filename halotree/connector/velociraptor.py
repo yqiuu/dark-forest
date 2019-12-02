@@ -7,10 +7,10 @@ import h5py
 from astropy import units as u
 
 
-__all__ = ['GenesisConnector']
+__all__ = ['VELOCIraptorConnector']
 
 
-class GenesisConnector(Connector):
+class VELOCIraptorConnector(Connector):
     @property
     def little_h(self):
         try:
