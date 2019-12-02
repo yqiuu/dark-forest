@@ -106,6 +106,40 @@ class EnhancedMassFunction(MassFunction):
         return den_halo
 
 
+    def SampleMassFunction(self, m_min, m_max, volume, rstate=None):
+        """
+        Draw samples from the halo mass function in a given volume.
+
+        Parameters
+        ----------
+        m_min: float [h^-1 M_solar]
+            Minimum mass of the resulting sample.
+        m_max: float [h^-1 M_solar]
+            Maximum mass of the resulting sample.
+        volume: float [h^-3 Mpc]
+            Effective volume for the resulting sample.
+
+        Returns
+        -------
+        1-D array
+             A sample of masses which follows the given halo mass function.
+        """
+        if rstate is None:
+            rstate = np.random.RandomState()
+        m_hmf = self.m
+        dndm = self.dndm
+        hmf_spl = spl(m_hmf, dndm)
+        m_cdf = np.append(m_min, m_hmf[(m_hmf > m_min) & (m_hmf < m_max)])
+        m_cdf = np.append(m_cdf, m_max)
+        cdf = np.asarray(list(map(lambda m: hmf_spl.integral(m_min, m), m_cdf)))
+        cdf, inds =  np.unique(cdf, return_index=True)
+        m_cdf = m_cdf[inds]
+        n_sample = int(cdf[-1]*volume)
+        cdf /= cdf[-1]
+        cdf_spl = spl(cdf, m_cdf)
+        return cdf_spl(rstate.rand(n_sample))
+
+
 def SmartBins(data, n_min, d_min, scale='linear'):
     """
     Generate bin edges given the minimum number of points in each bin

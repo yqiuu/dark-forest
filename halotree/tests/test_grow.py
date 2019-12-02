@@ -4,7 +4,6 @@ import pytest
 import numpy as np
 import halotree
 from numpy.testing import assert_allclose, assert_array_equal
-from hmf.hmf import MassFunction
 
 
 def CompareDarkForest(dfor1, dfor2):
@@ -50,14 +49,14 @@ def QuickPlainGrowth(fname, m_res, box_size, hmf_model='PS'):
     snap_max=20
     redshifts = np.linspace(10., 0., snap_max - snap_min + 1)
 
-    hmf = MassFunction(Mmin=np.log10(m_res) - .5, Mmax=15.5, hmf_model=hmf_model)
+    hmf = halotree.EnhancedMassFunction(Mmin=np.log10(m_res) - .5, Mmax=15.5, hmf_model=hmf_model)
     halo_kit = halotree.HaloKit(hmf, z_grid=np.linspace(0, 50, 1000))
     grow_kit = halotree.GrowKit(m_res=m_res, G0=0.57, gamma1=0.38, gamma2=-0.01, eps1=0.1, eps2=0.1)
     volume = box_size**3
 
     seed = 20070831
     rstate = np.random.RandomState(seed)
-    root_halos = halotree.SampleHaloMassFunction(m_res, 10**15, hmf.m, hmf.dndm, volume, rstate)
+    root_halos = hmf.SampleMassFunction(m_res, 10**15, volume, rstate)
     dark_seed = halotree.DarkSeed(hmf, redshifts, box_size)
 
     halotree.GrowMass(
