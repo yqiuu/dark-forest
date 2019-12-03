@@ -85,26 +85,22 @@ class PositionConstructor(Constructor):
 
 
     def __init__(self,
-        handler, hc_path, hc_prefix, snap_min, snap_max, cols, density_grid, n_bin,
-        comoving=True, rstate=None, kwargs_tqdm={}
+        cntr_target, cntr_source, cols, density_field, n_min, d_min,
+        snap_max, snap_min=0, comoving=True, rstate=None, kwargs_tqdm={}
     ):
-        kwargs_tqdm.update(desc='Constructing coordinates')
         super().__init__(
-            handler=handler,
-            hc_path=hc_path,
-            hc_prefix=hc_prefix,
-            snap_min=snap_min,
-            snap_max=snap_max,
-            key_new='Pos',
+            cntr_target=cntr_target,
+            cntr_source=cntr_source,
             col_inh=[cols['x'], cols['y'], cols['z']],
-            col_req=['ProgNumber', 'ProgIndex', cols['m_vir']],
-            read_prog=['ID'],
+            col_req=['ProgIndex', 'ProgNumber', cols['m_vir']],
+            snap_max=snap_max,
+            snap_min=snap_min,
+            read_prog=['Index'],
             inherit=True,
             forward=False,
+            desc_tqdm='Constructing coordinates',
             kwargs_tqdm=kwargs_tqdm
         )
-        self.snap_max = snap_max
-        self.snap_min = snap_min
         self.col_x = cols['x']
         self.col_y = cols['y']
         self.col_z = cols['z']
