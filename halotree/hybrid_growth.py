@@ -72,7 +72,7 @@ def InitRootHalos(cntr, mass_key, snap_max, root_halos):
     return next_host_data
 
 
-def ReadHaloData(cntr, snap, mass_key, comm, master_rank):
+def ReadHaloData(cntr, mass_key, snap, snap_max, inds_sub, comm, master_rank):
     if comm is None or comm.Get_rank() == master_rank:
         if isinstance(cntr, DarkSeed):
             return None, None
@@ -90,6 +90,8 @@ def ReadHaloData(cntr, snap, mass_key, comm, master_rank):
                 logger.info("Read in %d host halos"%len(host_data))
             except NoSuchNodeError:
                 host_data = None
+            if snap == snap_max and inds_sub is not None:
+                host_data = host_data.iloc[inds_sub]
             return host_data, prog_data
     else:
         return None, None
@@ -459,7 +461,8 @@ def AugmentChunk(
 
 def GrowMass(
     cntr, fname, mass_key, halo_kit, grow_kit, snap_max, snap_min=0, params_ag=None,
-    root_halos=None, seed=20070831, n_base=5000, filters=None, comm=None, master_rank=0
+    root_halos=None, inds_sub=None, seed=20070831, n_base=5000, filters=None,
+    comm=None, master_rank=0
 ):
     redshifts = cntr.redshifts
     ages = cntr.ages
@@ -484,7 +487,9 @@ def GrowMass(
         if comm is None or comm.Get_rank() == master_rank:
             logger.info("Processing snapshot %d"%snap)
 
-        host_data_raw, prog_data_raw = ReadHaloData(cntr, snap, mass_key, comm, master_rank)
+        host_data_raw, prog_data_raw = ReadHaloData(
+            cntr, mass_key, snap, snap_max, inds_sub, comm, master_rank
+        )
         host_chunk, prog_chunk = ScatterData(
             host_data_raw, prog_data_raw, next_host_data, pool_data,
             mass_key, m_cut, {}, comm, master_rank
@@ -507,6 +512,39 @@ def GrowMass(
 
         if comm is None or comm.Get_rank() == master_rank:
             logger.info("Finishing snapshot %d\n"%snap)
+
+
+def CreatePartitions(cntr, mass_key, snap, n_par, by_forest_id=True):
+    cntr.SwitchSnapshot(snap)
+    if by_forest_id:
+        data = cntr.Read('Host', cols=[mass_key, 'ForestID'])
+        m_halo = data[mass_key]
+        forest_id = data['ForestID']
+
+        m_forest = {f_id: 0. for f_id in forest_id}
+        for m_h, f_id in zip(m_halo, forest_id):
+            m_forest[f_id] += m_h
+        keys = np.asarray(list(m_forest.keys()))
+        m_forest = np.asarray(list(m_forest.values()))
+        keys = keys[m_forest.argsort()[::-1]]
+        inds = np.zeros(len(keys), dtype='i4')
+        for i_par in range(n_par):
+            inds[i_par::n_par] = i_par
+        inds_hash = {k: idx for k, idx in zip(keys, inds)}
+        parts = [[] for i_par in range(n_par)]
+        for idx, f_id in enumerate(forest_id):
+            parts[inds_hash[f_id]].append(idx)
+        parts = [np.asarray(p) for p in parts]
+        return parts
+    else:
+        m_halo = cntr.Read('Host', cols=[mass_key])[mass_key]
+
+        inds_sorted = m_halo.argsort()[::-1]
+        parts = [None]*n_par
+        for i_par in range(n_par):
+            parts[i_par] = inds_sorted[i_par::n_par]
+        return parts
+
 
 # Footnotes
 # [1] IDs and leaf types will be overwritten when saving the data depending
