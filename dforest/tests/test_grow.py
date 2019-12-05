@@ -2,7 +2,7 @@ import os
 
 import pytest
 import numpy as np
-import halotree
+import dforest
 from numpy.testing import assert_allclose, assert_array_equal
 
 
@@ -49,17 +49,17 @@ def QuickPlainGrowth(fname, m_res, box_size, hmf_model='PS'):
     snap_max=20
     redshifts = np.linspace(10., 0., snap_max - snap_min + 1)
 
-    hmf = halotree.EnhancedMassFunction(Mmin=np.log10(m_res) - .5, Mmax=15.5, hmf_model=hmf_model)
-    halo_kit = halotree.HaloKit(hmf, z_grid=np.linspace(0, 50, 1000))
-    grow_kit = halotree.GrowKit(m_res=m_res, G0=0.57, gamma1=0.38, gamma2=-0.01, eps1=0.1, eps2=0.1)
+    hmf = dforest.EnhancedMassFunction(Mmin=np.log10(m_res) - .5, Mmax=15.5, hmf_model=hmf_model)
+    halo_kit = dforest.HaloKit(hmf, z_grid=np.linspace(0, 50, 1000))
+    grow_kit = dforest.GrowKit(m_res=m_res, G0=0.57, gamma1=0.38, gamma2=-0.01, eps1=0.1, eps2=0.1)
     volume = box_size**3
 
     seed = 20070831
     rstate = np.random.RandomState(seed)
     root_halos = hmf.SampleMassFunction(m_res, 10**15, volume, rstate)
-    dark_seed = halotree.DarkSeed(hmf, redshifts, box_size)
+    dark_seed = dforest.DarkSeed(hmf, redshifts, box_size)
 
-    halotree.GrowHalos(
+    dforest.GrowHalos(
         cntr=dark_seed,
         fname=fname,
         mass_key="Mvir",
@@ -86,8 +86,8 @@ def test_plain_growth_low(plain_growth_low_file):
         os.path.dirname(os.path.abspath(__file__)), "data/test_plain_growth_low.hdf5"
     )
     fname2 = str(plain_growth_low_file)
-    with halotree.DarkForestConnector(fname1) as dfor1, \
-        halotree.DarkForestConnector(fname2) as dfor2:
+    with dforest.DarkForestConnector(fname1) as dfor1, \
+        dforest.DarkForestConnector(fname2) as dfor2:
         CompareDarkForest(dfor1, dfor2)
 
 
@@ -105,7 +105,7 @@ def test_plain_growth_low(plain_growth_high_file):
         os.path.dirname(os.path.abspath(__file__)), "data/test_plain_growth_high.hdf5"
     )
     fname2 = str(plain_growth_high_file)
-    with halotree.DarkForestConnector(fname1) as dfor1, \
-        halotree.DarkForestConnector(fname2) as dfor2:
+    with dforest.DarkForestConnector(fname1) as dfor1, \
+        dforest.DarkForestConnector(fname2) as dfor2:
         CompareDarkForest(dfor1, dfor2)
 

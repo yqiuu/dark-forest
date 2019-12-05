@@ -1,6 +1,6 @@
 # project specific
 .nfs*
-halotree/halotree.c
+*/halotree.c
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

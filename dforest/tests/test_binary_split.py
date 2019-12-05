@@ -2,7 +2,7 @@ import os
 
 import numpy as np
 from numpy.testing import assert_allclose, assert_array_equal
-from halotree import RandomStateGSL, Tree_Parkinson08, HaloKit, GrowKit, EnhancedMassFunction
+from dforest import RandomStateGSL, Tree_Parkinson08, HaloKit, GrowKit, EnhancedMassFunction
 
 
 def test_binary_spkit():
