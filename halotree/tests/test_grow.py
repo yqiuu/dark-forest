@@ -59,7 +59,7 @@ def QuickPlainGrowth(fname, m_res, box_size, hmf_model='PS'):
     root_halos = hmf.SampleMassFunction(m_res, 10**15, volume, rstate)
     dark_seed = halotree.DarkSeed(hmf, redshifts, box_size)
 
-    halotree.GrowMass(
+    halotree.GrowHalos(
         cntr=dark_seed,
         fname=fname,
         mass_key="Mvir",

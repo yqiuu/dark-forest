@@ -459,7 +459,7 @@ def AugmentChunk(
     return new_prog_chunk, next_host_chunk, stats_chunk
 
 
-def GrowMass(
+def GrowHalos(
     cntr, fname, mass_key, halo_kit, grow_kit, snap_max, snap_min=0, params_ag=None,
     root_halos=None, inds_sub=None, seed=20070831, n_base=5000, filters=None,
     comm=None, master_rank=0

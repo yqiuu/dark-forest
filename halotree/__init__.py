@@ -6,6 +6,6 @@ from .constructor import *
 from .converter import *
 from .spin import *
 from .dfield import *
-from .hybrid_growth import *
+from .grow import *
 
 #from .auxiliary import *
