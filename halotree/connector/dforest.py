@@ -1,3 +1,5 @@
+import os
+
 from .connector import Connector
 
 import tables
@@ -104,7 +106,10 @@ class DarkForestConnector(Connector):
 
 
     def SwitchSnapshot(self, snap):
-        self.group = self.hf.get_node('/Snapshot_%03d'%snap)
+        groups = []
+        for f in self.files:
+            groups.append(f.get_node('/Snapshot_%03d'%snap))
+        self.groups = groups
 
 
     def Read(self, target, cols=None, rtype='dict', index=None):
@@ -129,40 +134,62 @@ class DarkForestConnector(Connector):
         -------
             Required data.
         """
-        hf = self.hf
-        group = hf.get_node(self.group, target)
-        if cols is None:
-            cols = [node.name for node in hf.iter_nodes(group)]
-        else:
-            cols = list(cols)
-        if index is not None:
-            if index not in cols:
-                cols.append(index)
-        data = {}
+        n_file = len(self.files)
+        data_all = [None]*n_file
+        offset = [0]*(n_file + 1)
+        n_tot = 0
+        for i_f, (hf, grp) in enumerate(zip(self.files, self.groups)):
+            grp = hf.get_node(grp, target)
+            if i_f == 0:
+                if cols is None:
+                    cols = [node.name for node in hf.iter_nodes(grp)]
+                else:
+                    cols = list(cols)
+                if index is not None:
+                    if index not in cols:
+                        cols.append(index)
+            data = {}
+            for c in cols:
+                data[c] = hf.get_node(grp, c).read()
+            data_all[i_f] = data
+            n_tot += len(data[c])
+            offset[i_f + 1] = n_tot
+
+        data_out = {}
+        inds_offset = 0
         for c in cols:
-            data[c] = hf.get_node(group, c).read()
+            arr = np.zeros(n_tot, dtype=data_all[0][c].dtype)
+            for i_f in range(n_file):
+                a = data_all[i_f][c]
+                if c == 'Index':
+                    cond = a < 0
+                    a[cond] -= inds_offset
+                    inds_offset += np.count_nonzero(cond)
+                arr[offset[i_f] : offset[i_f + 1]] = a
+            data_out[c] = arr
+        # Change data type
         if rtype == 'dict':
-            return data
-        data = pd.DataFrame.from_dict(data)
+            return data_out
+        data_out = pd.DataFrame.from_dict(data_out)
         if rtype == 'pandas':
             if index is not None:
-                data.set_index(index, inplace=True)
-            return data
+                data_out.set_index(index, inplace=True)
+            return data_out
         elif rtype == 'records':
-            return data.to_records(index=False)
+            return data_out.to_records(index=False)
         else:
             raise ValueError(f"Unkown rtype: '{rtype}'")
 
 
     def Remove(self, name, kwargs_tqdm={}):
         kwargs_tqdm.update(desc="Removing '%s'"%name)
-        hf = self.hf
         n_snap = len(hf.list_nodes('/')) - 1
         for i_snap in trange(n_snap, **kwargs_tqdm):
-            try:
-                hf.remove_node('/Snapshot_%03d'%i_snap, name, recursive=True)
-            except NoSuchNodeError:
-                pass
+            for f in self.files:
+                try:
+                    f.remove_node('/Snapshot_%03d'%i_snap, name, recursive=True)
+                except NoSuchNodeError:
+                    pass
 
 
     def __getitem__(self, key):
@@ -171,16 +198,30 @@ class DarkForestConnector(Connector):
 
     def __enter__(self):
         if self.write:
-            self.hf = tables.File(self.fname, 'r+')
+            mode = 'r+'
         else:
-            self.hf = tables.File(self.fname, 'r')
+            mode = 'r'
+        files = []
+        for f in self.fname:
+            files.append(tables.File(f, mode))
+        self.files = files
+        self.hf = files[0]
         return self
 
 
     def __exit__(self, *args):
-        self.hf.close()
+        for f in self.files:
+            f.close()
 
 
-    def __init__(self, fname, write=False):
-        self.fname = fname
-        self.write = write
+    def __init__(self, fname, prefix=None, write=False):
+        if prefix is None:
+            self.fname = [fname]
+            self.write = write
+        else:
+            files = []
+            for f in os.listdir(fname):
+                if f.startswith(prefix):
+                    files.append(os.path.join(fname, f))
+            self.fname = files
+            self.write = False
