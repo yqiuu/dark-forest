@@ -145,6 +145,10 @@ class Constructor(ABC):
             inds = None
         if inds is None or np.array_equal(inds, df_new.index):
             for col in df_new.columns:
+                try:
+                    hf.remove_node(group, col)
+                except NoSuchNodeError:
+                    pass
                 hf.create_carray(group, col, obj=df_new[col].values)
         else:
             raise ValueError("Indices mismatch.")
