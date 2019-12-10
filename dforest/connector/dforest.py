@@ -183,7 +183,7 @@ class DarkForestConnector(Connector):
 
     def Remove(self, name, kwargs_tqdm={}):
         kwargs_tqdm.update(desc="Removing '%s'"%name)
-        n_snap = len(hf.list_nodes('/')) - 1
+        n_snap = len(self.hf.list_nodes('/')) - 1
         for i_snap in trange(n_snap, **kwargs_tqdm):
             for f in self.files:
                 try:
