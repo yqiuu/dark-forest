@@ -139,8 +139,15 @@ class Constructor(ABC):
             group = hf.get_node('/Snapshot_%03d/Main'%snap)
         except NoSuchNodeError:
             group = hf.create_group('/Snapshot_%03d'%snap, 'Main')
-        for col in df_new.columns:
-            hf.create_carray(group, col, obj=df_new[col].values)
+        try:
+            inds = self.cntr_target.Read('Main', ['Index'])['Index']
+        except NoSuchNodeError:
+            inds = None
+        if inds is None or np.array_equal(inds, df_new.index):
+            for col in df_new.columns:
+                hf.create_carray(group, col, obj=df_new[col].values)
+        else:
+            raise ValueError("Indices mismatch.")
 
 
     def Run(self):
