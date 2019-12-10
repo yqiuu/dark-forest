@@ -74,7 +74,7 @@ class SpinConstructor(Constructor):
 
     def __init__(self,
         cntr_target, cntr_source, cols, spin_sampler, snap_max, snap_min=0,
-        primary_spin=False, rstate=None, kwargs_tqdm={}
+        postfix=None, primary_spin=False, rstate=None, kwargs_tqdm={}
     ):
         super().__init__(
             cntr_target=cntr_target,
@@ -86,6 +86,7 @@ class SpinConstructor(Constructor):
             read_prog=['ID', cols['m_vir']],
             inherit=True,
             forward=True,
+            postfix=postfix,
             desc_tqdm='Adding spin parameters',
             kwargs_tqdm=kwargs_tqdm
         )

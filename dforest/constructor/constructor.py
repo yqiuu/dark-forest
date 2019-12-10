@@ -135,21 +135,23 @@ class Constructor(ABC):
 
     def _SaveOutput(self, df_new, snap):
         hf = self.cntr_target.hf
+        postfix = '' if self.postfix is None else f'_{self.postfix}'
         try:
-            group = hf.get_node('/Snapshot_%03d/Main'%snap)
+            group = hf.get_node(f'/Snapshot_{snap:03d}/Main')
         except NoSuchNodeError:
-            group = hf.create_group('/Snapshot_%03d'%snap, 'Main')
+            group = hf.create_group(f'/Snapshot_{snap:03d}', 'Main')
         try:
             inds = self.cntr_target.Read('Main', ['Index'])['Index']
         except NoSuchNodeError:
             inds = None
         if inds is None or np.array_equal(inds, df_new.index):
             for col in df_new.columns:
+                col_save = f'{col}{postfix}'
                 try:
-                    hf.remove_node(group, col)
+                    hf.remove_node(group, col_save)
                 except NoSuchNodeError:
                     pass
-                hf.create_carray(group, col, obj=df_new[col].values)
+                hf.create_carray(group, col_save, obj=df_new[col].values)
         else:
             raise ValueError("Indices mismatch.")
 
@@ -175,7 +177,7 @@ class Constructor(ABC):
 
     def __init__(self,
         cntr_target, cntr_source, col_inh, col_req, snap_max, snap_min,
-        read_prog, inherit, forward, desc_tqdm, kwargs_tqdm
+        read_prog, inherit, forward, postfix, desc_tqdm, kwargs_tqdm
     ):  
         self.cntr_target = cntr_target
         self.cntr_source = cntr_source
@@ -186,6 +188,7 @@ class Constructor(ABC):
         self.read_prog = read_prog
         self.inherit = inherit
         self.forward = forward
+        self.postfix = postfix
         self.desc_tqdm = desc_tqdm
         self.kwargs_tqdm = kwargs_tqdm
         self._CreateColumnName(col_req, snap_min)

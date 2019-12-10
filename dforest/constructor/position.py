@@ -86,7 +86,7 @@ class PositionConstructor(Constructor):
 
     def __init__(self,
         cntr_target, cntr_source, cols, density_field, n_min, d_min,
-        snap_max, snap_min=0, comoving=True, rstate=None, kwargs_tqdm={}
+        snap_max, snap_min=0, postfix=None, comoving=True, rstate=None, kwargs_tqdm={}
     ):
         super().__init__(
             cntr_target=cntr_target,
@@ -98,6 +98,7 @@ class PositionConstructor(Constructor):
             read_prog=['Index'],
             inherit=True,
             forward=False,
+            postfix=postfix,
             desc_tqdm='Constructing coordinates',
             kwargs_tqdm=kwargs_tqdm
         )

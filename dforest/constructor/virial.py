@@ -54,7 +54,7 @@ class VirialConstructor(Constructor):
 
     def __init__(self,
         cntr_target, cntr_source, cols, snap_max, snap_min=0,
-        delta_collapse=200., mode='crit', kwargs_tqdm={}
+        postfix=None, delta_collapse=200., mode='crit', kwargs_tqdm={}
     ):
         super().__init__(
             cntr_target=cntr_target,
@@ -66,6 +66,7 @@ class VirialConstructor(Constructor):
             read_prog=[],
             inherit=True,
             forward=True,
+            postfix=postfix,
             desc_tqdm='Adding virial properties',
             kwargs_tqdm=kwargs_tqdm
         )
