@@ -41,8 +41,10 @@ class KernelSpinSampler(SpinSampler):
             else:
                 snap_target += 1
                 self.snap_fit = snap_target
-        spin = 10**gaussian_kde(np.log10(spin_sample)).resample(n_halo).flatten()
-        return spin
+        cond = spin_sample != 0.
+        if len(spin_sample) != np.count_nonzero(cond):
+            logger.warning("Find halos with zero spin.")
+        return np.ravel(10**gaussian_kde(np.log10(spin_sample[cond])).resample(n_halo))
 
 
     def __init__(self, handler, mass_key, m_cut = 0., n_min = 100000):
