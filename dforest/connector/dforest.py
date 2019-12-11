@@ -199,11 +199,13 @@ class DarkForestConnector(Connector):
     def __enter__(self):
         if self.write:
             mode = 'r+'
+            filters = self.filters
         else:
             mode = 'r'
+            filters = None
         files = []
         for f in self.fname:
-            files.append(tables.File(f, mode))
+            files.append(tables.File(f, mode, filters=filters))
         self.files = files
         self.hf = files[0]
         return self
@@ -214,10 +216,11 @@ class DarkForestConnector(Connector):
             f.close()
 
 
-    def __init__(self, fname, prefix=None, write=False):
+    def __init__(self, fname, prefix=None, write=False, filters=None):
         if prefix is None:
             self.fname = [fname]
             self.write = write
+            self.filters = filters
         else:
             files = []
             for f in os.listdir(fname):
@@ -225,3 +228,4 @@ class DarkForestConnector(Connector):
                     files.append(os.path.join(fname, f))
             self.fname = files
             self.write = False
+            self.filters = None
