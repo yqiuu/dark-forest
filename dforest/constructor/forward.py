@@ -230,10 +230,13 @@ class ForwardRebuilder(Constructor):
 
 
     def Run(self):
-        self.snap_jump = RebuildForwardConnection(
-            self.cntr_target, self.cntr_source, self.snap_max, self.snap_min, self.kwargs_tqdm
-        )
-        super().Run()
+        try:
+            self.snap_jump = RebuildForwardConnection(
+                self.cntr_target, self.cntr_source, self.snap_max, self.snap_min, self.kwargs_tqdm
+            )
+            super().Run()
+        finally:
+            self._Clean()
 
 
     def __init__(self, cntr_target, cntr_source, snap_max, snap_min=0, kwargs_tqdm={}):
