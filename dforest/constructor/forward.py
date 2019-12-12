@@ -3,7 +3,6 @@ from .constructor import Constructor
 import numpy as np
 import pandas as pd
 from tqdm import trange
-from tables import NoSuchNodeError
 
 
 def PrepareSourceData(cntr_source):
@@ -123,7 +122,7 @@ class ForwardRebuilder(Constructor):
             # [1] Specifiy columns to obtain correct order
             cols = ['HostHaloID', 'DescendantSnap', 'Descendant', 'ForestID'] # [1]
             df_inh = self.cntr_target.Read('_ForwardFix', cols, 'pandas', 'Index')
-        except NoSuchNodeError:
+        except IOError:
             df_inh = pd.DataFrame()
         return df_inh
 

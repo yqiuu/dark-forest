@@ -46,7 +46,7 @@ class Constructor(ABC):
         if len(read_prog) > 0:
             try:
                 rec_prog = cntr_target.Read('Prog', read_prog, 'records')
-            except NoSuchNodeError:
+            except OSError:
                 return None
             if len(read_prog) == 1:
                 list_prog = list(rec_prog[read_prog[0]])

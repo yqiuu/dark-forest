@@ -82,7 +82,7 @@ class SpinConstructor(Constructor):
             col_req=['ProgIndex', 'ProgNumber', cols['m_vir'], cols['r_vir'], cols['v_vir']],
             snap_min=snap_min,
             snap_max=snap_max,
-            read_prog=['ID', cols['m_vir']],
+            read_prog=['Index', cols['m_vir']],
             inherit=True,
             forward=True,
             postfix=postfix,

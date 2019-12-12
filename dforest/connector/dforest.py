@@ -139,7 +139,10 @@ class DarkForestConnector(Connector):
         offset = [0]*(n_file + 1)
         n_tot = 0
         for i_f, (hf, grp) in enumerate(zip(self.files, self.groups)):
-            grp = hf.get_node(grp, target)
+            if target in grp:
+                grp = hf.get_node(grp, target)
+            else:
+                raise IOError(f"Cannot find group '{target}'")
             if i_f == 0:
                 if cols is None:
                     cols = [node.name for node in hf.iter_nodes(grp)]
