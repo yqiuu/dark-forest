@@ -20,7 +20,7 @@ def PutTopHalo(cntr_target, cntr_source, pool_sub, df_source):
     halo_id_surv = halo_id_surv[halo_id_surv > 0]
 
     halo_id = df_source.index.values
-    host_id = df_source['HostHaloID'].values
+    host_id = df_source['HostHaloID'].values.copy()
     select_host = host_id == cntr_source.HostID()
     host_id[select_host] = halo_id[select_host]
     select_top = np.in1d(halo_id, pool_sub.keys(), invert=True)
