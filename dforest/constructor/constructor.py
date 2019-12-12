@@ -172,6 +172,7 @@ class Constructor(ABC):
             cntr_source.SwitchSnapshot(snap)
             df_req = self._PrepareReqData()
             df_inh = self._PrepareInhData()
+            df_inh.index = df_inh.index.astype(df_req.index.dtype)
             list_prog = self._PrepareProgData()
             df_new = self._AddProperty(df_inh, df_req, list_prog, snap, z)
             self._SaveOutput(df_new, snap)
