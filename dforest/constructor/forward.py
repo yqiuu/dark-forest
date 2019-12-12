@@ -215,10 +215,18 @@ class ForwardRebuilder(Constructor):
 
     def _SaveOutput(self, df_new, snap):
         hf = self.cntr_target.hf
-        group = hf.create_group('/Snapshot_%03d'%snap, 'Main')
+        grp_snap = hf.get_node(f'/Snapshot_{snap:03d}')
+        if 'MainA' in grp_snap:
+            hf.remove_node(grp_snap, 'MainA', recursive=True)
+        if 'MainB' in grp_snap:
+            hf.remove_node(grp_snap, 'MainB', recursive=True)
+        grp_a = hf.create_group(f'/Snapshot_{snap:03d}', 'MainA')
         for col in df_new.columns:
-            hf.create_carray(group, col, obj=df_new[col].values)
-        hf.create_carray(group, 'Index', obj=df_new.index.values)
+            hf.create_carray(grp_a, col, obj=df_new[col].values)
+        inds = df_new.index.values.astype('i8')
+        hf.create_carray(grp_a, 'Index', obj=inds)
+        grp_b = hf.create_group(f'/Snapshot_{snap:03d}', 'MainB')
+        hf.create_carray(grp_b, 'Index', obj=inds[inds < 0])
 
 
     def Run(self):

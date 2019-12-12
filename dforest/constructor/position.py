@@ -61,8 +61,6 @@ class PositionConstructor(Constructor):
         df_inh[col_x] = density_field.BoundaryCondition(df_inh[col_x], z_fix)
         df_inh[col_y] = density_field.BoundaryCondition(df_inh[col_y], z_fix)
         df_inh[col_z] = density_field.BoundaryCondition(df_inh[col_z], z_fix)
-        # Finalise output
-        df_pos = df_inh.append(df_pos)
         #
         if snap > snap_min:
             # Compute grid indices for simulation halos

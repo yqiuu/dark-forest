@@ -60,7 +60,7 @@ class TailConstructor(Constructor):
             snap_min=snap_min,
             snap_max=snap_max,
             read_prog=['Index', cols['m_main']],
-            inherit=True,
+            inherit=False,
             forward=True,
             postfix=postfix,
             desc_tqdm='Adding primary progenitor pointers',

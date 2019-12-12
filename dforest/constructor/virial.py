@@ -64,7 +64,7 @@ class VirialConstructor(Constructor):
             snap_max=snap_max,
             snap_min=snap_min,
             read_prog=[],
-            inherit=True,
+            inherit=False,
             forward=True,
             postfix=postfix,
             desc_tqdm='Adding virial properties',

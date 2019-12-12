@@ -63,7 +63,6 @@ class SpinConstructor(Constructor):
         df_spin = pd.DataFrame(
             np.vstack([spin, L]).T, index = df_req_mc.index, columns = df_inh.columns
         )
-        df_spin = df_inh.append(df_spin)
         # Walk forwad
         if primary_spin:
             pool.update(

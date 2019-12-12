@@ -65,7 +65,7 @@ class Constructor(ABC):
         #
         df_host = cntr_target.Read('Host', col_host, 'pandas', 'Index')
         if len(col_main) > 0:
-            df_main = cntr_target.Read('Main', col_main, 'pandas', 'Index')
+            df_main = cntr_target.Read('MainA', col_main, 'pandas', 'Index')
             df_req = pd.concat([df_host, df_main], axis=1, join='inner')
         else:
             df_req = df_host
@@ -77,21 +77,19 @@ class Constructor(ABC):
         cntr_target = self.cntr_target
         cntr_source = self.cntr_source
         col_inh = self.col_inh
-        inherit = self.inherit
         # 
         halo_id_sim = cntr_source['ID']
         df_sim = pd.DataFrame(index=halo_id_sim)
-        if inherit:
-            for col in col_inh:
-                try:
-                    df_sim[col] = cntr_source[col]
-                except KeyError:
-                    pass
+        for col in col_inh:
             try:
-                halo_id_fix = cntr_target.Read('Main', ['Index'])['Index']
-            except NoSuchNodeError:
-                raise Exception("Run FowardRebuilder before adding any other properties") from None
-            df_sim = df_sim.loc[halo_id_fix[halo_id_fix > 0]]
+                df_sim[col] = cntr_source[col]
+            except KeyError:
+                pass
+        try:
+            halo_id_fix = cntr_target.Read('MainA', ['Index'])['Index']
+        except NoSuchNodeError:
+            raise Exception("Run FowardRebuilder before adding any other properties") from None
+        df_sim = df_sim.loc[halo_id_fix[halo_id_fix > 0]]
         return df_sim
 
 
@@ -100,28 +98,25 @@ class Constructor(ABC):
         """
         Parameters
         ----------
-            df_inh: pandas.DataFrame:
-                Requested data read from the handler.
-
-                column:
-                    If `inherit` = True, columns are specified by `col_inh`.
-                    If 'inherit` = False, there will be no column.
-                index:
-                    Halo ID of all simulation host halos stored in the halo
-                    connector and all sub halos read from the handler.
-            df_req: pandas.DataFrame
-                Requested data read from the halo connector.
-
-                column:
-                    Specified by `col_req`.
-                index:
-                    The same with those stored in the halo connector.
-            list_prog: list
-                Progenitor data read from the halo connector.
-            snap: int
-                Snapshot number that the data should be read at.
-            z: float
-                Redshift of the given snapshot.
+        df_inh: pandas.DataFrame:
+            Requested data read from the handler.
+            Column:
+                Specified by `col_inh`.
+            Index:
+                Halo ID of all simulation host halos stored in the halo
+                connector and all sub halos read from the handler.
+        df_req: pandas.DataFrame
+            Requested data read from the halo connector.
+            Column:
+                Specified by `col_req`.
+            Index:
+                The same with those stored in the halo connector.
+        list_prog: list
+            Progenitor data read from the halo connector.
+        snap: int
+            Snapshot number that the data should be read at.
+        z: float
+            Redshift of the given snapshot.
         """
 
         # Load local variables
@@ -138,12 +133,10 @@ class Constructor(ABC):
     def _SaveOutput(self, df_new, snap):
         hf = self.cntr_target.hf
         postfix = '' if self.postfix is None else f'_{self.postfix}'
+        name = 'MainB' if self.inherit else 'MainA'
+        group = hf.get_node(f'/Snapshot_{snap:03d}', name)
         try:
-            group = hf.get_node(f'/Snapshot_{snap:03d}/Main')
-        except NoSuchNodeError:
-            group = hf.create_group(f'/Snapshot_{snap:03d}', 'Main')
-        try:
-            inds = self.cntr_target.Read('Main', ['Index'])['Index']
+            inds = self.cntr_target.Read(name, ['Index'])['Index']
         except NoSuchNodeError:
             inds = None
         if inds is None or np.array_equal(inds, df_new.index):
