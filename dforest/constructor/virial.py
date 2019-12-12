@@ -60,7 +60,7 @@ class VirialConstructor(Constructor):
             cntr_target=cntr_target,
             cntr_source=cntr_source,
             col_inh=[cols['m_vir'], cols['r_vir']],
-            col_req=[cols['m_hc']],
+            col_req=[cols['m_main']],
             snap_max=snap_max,
             snap_min=snap_min,
             read_prog=[],
