@@ -50,6 +50,8 @@ class Constructor(ABC):
                 return None
             if len(read_prog) == 1:
                 list_prog = list(rec_prog[read_prog[0]])
+            else:
+                list_prog = rec_prog
             return list_prog
         else:
             return None
