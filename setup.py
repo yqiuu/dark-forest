@@ -3,13 +3,13 @@ from distutils.extension import Extension
 from Cython.Distutils import build_ext
 
 
-exts = [Extension("halotree.halotree",
-                  sources = ["halotree/clib/node_vector.c",
-                             "halotree/clib/halo_relation.c",
-                             "halotree/clib/tool_kit.c",
-                             "halotree/clib/merge_tree.c",
-                             "halotree/halotree.pyx"],
-                  include_dirs = ["planter/"],
+exts = [Extension("dforest.halotree",
+                  sources = ["dforest/clib/node_vector.c",
+                             "dforest/clib/halo_relation.c",
+                             "dforest/clib/tool_kit.c",
+                             "dforest/clib/merge_tree.c",
+                             "dforest/halotree.pyx"],
+                  include_dirs = ["dforest/"],
                   extra_compile_args = ['-lgsl', '-lgslcblas'],
                   extra_link_args = ['-lgsl', '-lgslcblas'])]
 
