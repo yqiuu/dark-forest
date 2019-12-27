@@ -244,6 +244,8 @@ def SaveData(
                     hf.create_carray(group_last, 'ProgIndex', obj=prog_index)
                     prog_number = np.full(n_prog_data, 0, dtype=host_data.dtype['ProgNumber'])
                     hf.create_carray(group_last, 'ProgNumber', obj=prog_number)
+                    leaf_type = ProgLeafType(host_data, prog_data)
+                    hf.create_carray(group_last, 'LeafType', obj=leaf_type)
                     for c in prog_data.dtype.names:
                         if c != 'Snap':
                             hf.create_carray(group_last, c, obj=prog_data[c])
@@ -257,6 +259,23 @@ def SaveData(
                 if not isinstance(cntr, DarkSeed):
                     for c in stats_data.dtype.names:
                         hf.create_carray(group_host, c, obj=stats_data[c])
+
+
+def ProgLeafType(host_data, prog_data):
+    cond = host_data['ProgNumber'] > 0
+    halo_id = host_data['Index'][cond]
+    prog_index = host_data['ProgIndex'][cond]
+    prog_number = host_data['ProgNumber'][cond]
+    leaf_type_host = host_data['LeafType'][cond]
+    leaf_type_prog = np.zeros(len(prog_data), dtype=host_data.dtype['LeafType'])
+    prog_id = prog_data['Index']
+    for h_id, idx, num, lt_host in zip(halo_id, prog_index, prog_number, leaf_type_host):
+        if h_id > 0:
+            lt_prog = (prog_id[idx: idx + num] < 0).astype(host_data.dtype['LeafType'])
+            leaf_type_prog[idx : idx+num] = lt_prog
+        else:
+            leaf_type_prog[idx : idx+num] = lt_host
+    return leaf_type_prog
 
 
 def NewID(n_halo, snap, offset):
