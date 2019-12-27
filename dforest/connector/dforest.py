@@ -155,7 +155,8 @@ class DarkForestConnector(Connector):
             for c in cols:
                 data[c] = hf.get_node(grp, c).read()
             data_all[i_f] = data
-            n_tot += len(data[c])
+            if len(data) > 0:
+                n_tot += len(data[c])
             offset[i_f + 1] = n_tot
 
         data_out = {}
