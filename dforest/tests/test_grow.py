@@ -100,7 +100,7 @@ def plain_growth_high_file(tmpdir_factory):
     return fname
 
 
-def test_plain_growth_low(plain_growth_high_file):
+def test_plain_growth_high(plain_growth_high_file):
     fname1 = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "data/test_plain_growth_high.hdf5"
     )
