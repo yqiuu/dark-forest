@@ -217,6 +217,8 @@ def GatherData(
     if i_rank == master_rank:
         cond = host_data['ProgNumber'] > 0
         new_prog_data = new_prog_data[cond]
+        if len(new_prog_data) > 0:
+            new_prog_data = np.concatenate(new_prog_data)
         host_data['ProgIndex'][cond] = np.append(0, np.cumsum(host_data['ProgNumber'][cond])[:-1])
         host_data['ProgIndex'][~cond] = -1
         return host_data, new_prog_data, next_host_data, pool_data, stats_data
@@ -238,14 +240,12 @@ def SaveData(
             n_prog_data = len(prog_data)
             if n_prog_data > 0:
                 logger.info("Saving data of %d progenitor halos"%n_prog_data)
-                prog_data = np.concatenate(prog_data)
                 if save_mode == 'plain':
                     prog_data['Index'] = np.abs(prog_data['Index'])
                 for c in prog_data.dtype.names:
                     hf.create_carray(group_prog, c, obj=prog_data[c])
             # Save host data for the last snapshot
             if snap - 1 == snap_min:
-                n_prog_data = len(prog_data)
                 group_last = hf.create_group('/Snapshot_%03d'%snap_min, 'Host', createparents=True)
                 if n_prog_data > 0:
                     logger.info("Saving data for the last snapshot")
