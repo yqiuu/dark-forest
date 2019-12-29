@@ -185,6 +185,36 @@ class DarkForestConnector(Connector):
             raise ValueError(f"Unkown rtype: '{rtype}'")
 
 
+    def Gather(self, cntr_source, cols):
+        inds = self.Read('MainA', ['Index'])['Index']
+        inds_sim = inds[inds > 0]
+        inds_mc = inds[inds < 0]
+        df_ret = pd.DataFrame(index=inds)
+
+        for c in np.ravel(cols):
+            grp_name = None
+            for hf, grp in zip(self.files, self.groups):
+                if c in hf.get_node(grp, 'Host'):
+                    grp_name = 'Host'
+                    break
+                elif c in hf.get_node(grp, 'MainA'):
+                    grp_name = 'MainA'
+                    break
+                elif c in hf.get_node(grp, 'MainB'):
+                    grp_name = 'MainB'
+                    break
+            if grp_name == 'MainA':
+                df_ret[c] = self.Read('MainA', [c])[c]
+            else:
+                df_source = pd.DataFrame(cntr_source[c], index=cntr_source['ID'], columns=[c])
+                df_self = self.Read(grp_name, [c], 'pandas', 'Index')
+                df_ret[c] = np.zeros(len(df_ret), dtype=df_source.dtypes[c])
+                df_ret.loc[inds_sim, c] = df_source.loc[inds_sim, c]
+                df_ret.loc[inds_mc, c] = df_self.loc[inds_mc, c]
+
+        return df_ret
+
+
     def Remove(self, name, kwargs_tqdm={}):
         kwargs_tqdm.update(desc="Removing '%s'"%name)
         n_snap = len(self.hf.list_nodes('/')) - 1
