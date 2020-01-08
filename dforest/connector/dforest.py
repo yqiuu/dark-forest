@@ -112,7 +112,7 @@ class DarkForestConnector(Connector):
         self.groups = groups
 
 
-    def Read(self, target, cols=None, rtype='dict', index=None, link_props=['Index']):
+    def Read(self, target, cols=None, rtype='dict', index=None, link_props=[]):
         """
         Read data.
 
@@ -165,14 +165,13 @@ class DarkForestConnector(Connector):
             arr = np.zeros(n_tot, dtype=data_all[0][c].dtype)
             for i_f in range(n_file):
                 a = data_all[i_f][c]
-                if c in link_props:
-                    if c == 'Index':
-                        cond = a < 0
-                        a[cond] -= link_offset
-                        link_offset += np.count_nonzero(cond)
-                    else:
-                        a += link_offset
-                        link_offset += len(a)
+                if c == 'Index':
+                    cond = a < 0
+                    a[cond] -= link_offset
+                    link_offset += np.count_nonzero(cond)
+                elif c in link_props:
+                    a += link_offset
+                    link_offset += len(a)
                 arr[offset[i_f] : offset[i_f + 1]] = a
             data_out[c] = arr
         # Change data type
@@ -189,7 +188,7 @@ class DarkForestConnector(Connector):
             raise ValueError(f"Unkown rtype: '{rtype}'")
 
 
-    def Gather(self, cntr_source, cols):
+    def Gather(self, cntr_source, cols, link_props=[]):
         inds = self.Read('MainA', ['Index'])['Index']
         inds_sim = inds[inds > 0]
         inds_mc = inds[inds < 0]
@@ -208,10 +207,10 @@ class DarkForestConnector(Connector):
                     grp_name = 'MainB'
                     break
             if grp_name == 'MainA':
-                df_ret[c] = self.Read('MainA', [c])[c]
+                df_ret[c] = self.Read('MainA', [c], link_props=link_props)[c]
             else:
                 df_source = pd.DataFrame(cntr_source[c], index=cntr_source['ID'], columns=[c])
-                df_self = self.Read(grp_name, [c], 'pandas', 'Index')
+                df_self = self.Read(grp_name, [c], 'pandas', 'Index', link_props=link_props)
                 df_ret[c] = np.zeros(len(df_ret), dtype=df_source.dtypes[c])
                 df_ret.loc[inds_sim, c] = df_source.loc[inds_sim, c]
                 df_ret.loc[inds_mc, c] = df_self.loc[inds_mc, c]
