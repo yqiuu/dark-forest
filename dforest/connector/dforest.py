@@ -112,7 +112,7 @@ class DarkForestConnector(Connector):
         self.groups = groups
 
 
-    def Read(self, target, cols=None, rtype='dict', index=None):
+    def Read(self, target, cols=None, rtype='dict', index=None, link_props=['Index']):
         """
         Read data.
 
@@ -160,15 +160,19 @@ class DarkForestConnector(Connector):
             offset[i_f + 1] = n_tot
 
         data_out = {}
-        inds_offset = 0
         for c in cols:
+            link_offset = 0
             arr = np.zeros(n_tot, dtype=data_all[0][c].dtype)
             for i_f in range(n_file):
                 a = data_all[i_f][c]
-                if c == 'Index':
-                    cond = a < 0
-                    a[cond] -= inds_offset
-                    inds_offset += np.count_nonzero(cond)
+                if c in link_props:
+                    if c == 'Index':
+                        cond = a < 0
+                        a[cond] -= link_offset
+                        link_offset += np.count_nonzero(cond)
+                    else:
+                        a += link_offset
+                        link_offset += len(a)
                 arr[offset[i_f] : offset[i_f + 1]] = a
             data_out[c] = arr
         # Change data type
