@@ -4,10 +4,15 @@ from .connector import Connector
 import numpy as np
 import pandas as pd
 import h5py
+import tables
+from tqdm import trange
 from astropy import units as u
 
 
-__all__ = ['VELOCIraptorConnector']
+__all__ = [
+    'VELOCIraptorConnector',
+    'VELOCIraptorSaver',
+]
 
 
 class VELOCIraptorConnector(Connector):
@@ -165,12 +170,101 @@ class VELOCIraptorConnector(Connector):
 
     def __enter__(self):
         self.fp = h5py.File(self.fname, "r")
+        self.hf = tables.File(self.fname, "r")
         return self
 
 
     def __exit__(self, *args):
         self.fp.close()
-
+        self.hf.close()
 
     def __init__(self, fname):
         self.fname = fname
+
+
+class VELOCIraptorSaver:
+    def _SaveHeader(self, hf_out, hf_src, n_snap):
+        header = hf_out.create_group('/', 'Header')
+        hf_out.set_node_attr(header, 'NSnaps', n_snap)
+        for grp_src in hf_src.iter_nodes('/Header'):
+            grp_out = hf_out.create_group(header, grp_src._v_name)
+            for name in grp_src._v_attrs._f_list():
+                hf_out.set_node_attr(grp_out, name, hf_src.get_node_attr(grp_src, name))
+
+
+    def _SaveColumns(self, hf_out, grp, items):
+        cols = [None]*len(items)
+        items_algin = [None]*len(items)
+        for i_it, it in enumerate(items):
+            it = tuple(np.ravel(it))
+            if len(it) == 1:
+                items_algin[i_it] = (it[0], it[0], None)
+            elif len(it) == 2:
+                items_algin[i_it] = (*it, None)
+            elif len(it) == 3:
+                items_algin[i_it] = it
+            else:
+                raise ValueError(f"Unknown items {c}")
+            cols[i_it] = it[0]
+        data = self.cntr_ext.Gather(self.cntr_src, cols, self.cols_link, self.cols_mass)
+        for name_c, name_s, transform in items_algin:
+            if callable(transform):
+                arr = transform(data[name_c].values).astype(self.data_type[name_c])
+            else:
+                arr = data[name_c].values.astype(self.data_type[name_s])
+            hf_out.create_carray(grp, name_s, obj=arr)
+        return len(data)
+
+
+    def _SaveReversed(self, hf_out, grp, snap, a):
+        # Save Index and LeafType
+        leaf_type = self.cntr_ext.Read('Host', ['Index', 'LeafType'])
+        data = self.cntr_ext.Gather(self.cntr_src, [])
+        data['LeafType'] = 0
+        data.loc[leaf_type['Index'], 'LeafType'] = leaf_type['LeafType']
+        hf_out.create_carray(grp, 'Index', obj=data.index.values.astype('i8'))
+        hf_out.create_carray(grp, 'LeafType', obj=data['LeafType'].values.astype('i4'))
+        # Save attributes
+        hf_out.set_node_attr(grp, 'Nhalos', len(data))
+        hf_out.set_node_attr(grp, 'Snapnum', snap)
+        hf_out.set_node_attr(grp, 'scalefactor', a)
+ 
+
+    def __init__(self,
+        cntr_ext, cntr_src, save_name, items_link, items_mass, items_norm,
+        snap_max, snap_min=0, kwargs_tqdm={}
+    ):
+        self.cntr_ext = cntr_ext
+        self.cntr_src = cntr_src
+        self.save_name = save_name
+        self.items_link = items_link
+        self.items_mass = items_mass
+        self.items_norm = items_norm
+        self.cols_link = [np.ravel(item)[0] for item in items_link]
+        self.cols_mass = [np.ravel(item)[0] for item in items_mass]
+        self.snap_max = snap_max
+        self.snap_min = snap_min
+        self.kwargs_tqdm = kwargs_tqdm
+        #
+        data_type = cntr_src.data_type
+        data_type['Index'] = 'i8'
+        data_type['LeafType'] = 'i4'
+        self.data_type = data_type
+
+
+    def Run(self):
+        scale_factors = 1./(1. + self.cntr_ext.redshifts)
+        with tables.File(self.save_name, 'w') as hf_out:
+            self._SaveHeader(hf_out, self.cntr_src.hf, self.snap_max - self.snap_min + 1)
+            for snap in trange(self.snap_min, self.snap_max + 1, **self.kwargs_tqdm):
+                self.cntr_src.SwitchSnapshot(snap)
+                self.cntr_ext.SwitchSnapshot(snap)
+                grp = hf_out.create_group('/', 'Snap_%03d'%snap)
+                # Save Reversed properties
+                self._SaveReversed(hf_out, grp, snap, scale_factors[snap])
+                # Save Link properties
+                self._SaveColumns(hf_out, grp, self.items_link)
+                # Save halo masses
+                self._SaveColumns(hf_out, grp, self.items_mass)
+                # Save other halo properties
+                self._SaveColumns(hf_out, grp, self.items_norm)
