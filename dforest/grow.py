@@ -74,15 +74,14 @@ def ReadHaloData(cntr, mass_key, snap, snap_max, inds_sub, comm, master_rank):
         if isinstance(cntr, DarkSeed):
             return None, None
         else:
-            cntr.SwitchSnapshot(snap)
             try:
-                prog_data = cntr.Read('Prog', ['Snap', mass_key], 'pandas', 'Index')
+                prog_data = cntr.Read(snap, 'Prog', ['Snap', mass_key], 'pandas', 'Index')
                 logger.info("Read in %d progenitor halos"%len(prog_data))
             except NoSuchNodeError:
                 prog_data = None
             try:
                 host_data = cntr.Read(
-                    'Host', ['ProgIndex', 'ProgNumber', mass_key], 'pandas', 'Index'
+                    snap, 'Host', ['ProgIndex', 'ProgNumber', mass_key], 'pandas', 'Index'
                 )
                 logger.info("Read in %d host halos"%len(host_data))
             except NoSuchNodeError:
@@ -522,9 +521,8 @@ def GrowHalos(
 
 
 def CreatePartitions(cntr, mass_key, snap, n_par, by_forest_id=True):
-    cntr.SwitchSnapshot(snap)
     if by_forest_id:
-        data = cntr.Read('Host', cols=[mass_key, 'ForestID'])
+        data = cntr.Read(snap, 'Host', cols=[mass_key, 'ForestID'])
         m_halo = data[mass_key]
         forest_id = data['ForestID']
 
@@ -544,7 +542,7 @@ def CreatePartitions(cntr, mass_key, snap, n_par, by_forest_id=True):
         parts = [np.asarray(p) for p in parts]
         return parts
     else:
-        m_halo = cntr.Read('Host', cols=[mass_key])[mass_key]
+        m_halo = cntr.Read(snap, 'Host', cols=[mass_key])[mass_key]
 
         inds_sorted = m_halo.argsort()[::-1]
         parts = [None]*n_par

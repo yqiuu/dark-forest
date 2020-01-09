@@ -143,11 +143,6 @@ class Connector(ABC):
 
 
     @abstractmethod
-    def SwitchSnapshot(self, snap):
-        pass
-
-
-    @abstractmethod
     def __getitem__(self, key):
         pass
 
@@ -204,11 +199,10 @@ def SaveHaloConnector(handler, snap_min, snap_max, mass_key, path = './', prefix
     desc_pool_arr = np.asarray([{} for snap in range(n_snap)])
     for snap in range(snap_min, n_snap):
         logger.info("Processing snaphost %d"%snap)
-        handler.SwitchSnapshot(snap)
         # Merge subhalos to their host halo
         desc_pool = desc_pool_arr[snap]
-        halo_id_arr = handler['ID']
-        host_id_arr = handler['HostHaloID']
+        halo_id_arr = handler[snap, 'ID']
+        host_id_arr = handler[snap, 'HostHaloID']
         host_table = dict(zip(halo_id_arr, host_id_arr))
         for halo_id in list(desc_pool.keys()):
             host_id = host_table[halo_id]
@@ -222,9 +216,9 @@ def SaveHaloConnector(handler, snap_min, snap_max, mass_key, path = './', prefix
         # Save existing descendants
         SaveOutput(handler, desc_pool, mass_key, snap, path, prefix)
         # Walk forward
-        desc_id_arr = handler['Descendant']
-        desc_snap_arr = handler['DescendantSnap']
-        props_arr = np.asarray([handler[k] for k in mass_key])
+        desc_id_arr = handler[snap, 'Descendant']
+        desc_snap_arr = handler[snap, 'DescendantSnap']
+        props_arr = np.asarray([handler[snap, k] for k in mass_key])
         for desc_id, desc_snap, host_id, halo_id, *props in zip(
             desc_id_arr, desc_snap_arr, host_id_arr, halo_id_arr, *props_arr
         ):

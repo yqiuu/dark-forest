@@ -89,8 +89,7 @@ class VELOCIraptorConnector(Connector):
         try:
             return self._m_particle
         except AttributeError:
-            self.SwitchSnapshot(0)
-            self._m_particle = self['Mass_tot'][0]/self['npart'][0]*self.mass_conversion
+            self._m_particle = self[0, 'Mass_tot'][0]/self[0, 'npart'][0]*self.mass_conversion
             return self._m_particle
 
 
@@ -143,11 +142,9 @@ class VELOCIraptorConnector(Connector):
 
 
     def MaxForestID(self, snap_max):
-        self.SwitchSnapshot(0) # Assume that the snapshot starts at zero
-        forest_id_max = max(self['ForestID'])
+        forest_id_max = max(self[0, 'ForestID']) # Assume that the snapshot starts at zero
         for snap in range(1, snap_max + 1):
-            self.SwitchSnapshot(snap)
-            forest_id_max = max(forest_id_max, *self['ForestID'])
+            forest_id_max = max(forest_id_max, *self[snap, 'ForestID'])
         return forest_id_max
 
 
@@ -155,17 +152,15 @@ class VELOCIraptorConnector(Connector):
         return snap*10**12 + inds + 1
 
 
-    def SwitchSnapshot(self, snap):
-        self.dataset = self.fp.get('Snap_%03d'%snap)
-
-
     def __getitem__(self, key):
-        if key == 'DescendantSnap':
-            return np.asarray(self.dataset['Descendant'])//10**12
-        elif key == 'HostHaloID':
-            return np.asarray(self.dataset['hostHaloID'])
+        snap, column = key
+        dataset = self.fp.get('Snap_%03d'%snap)
+        if column == 'DescendantSnap':
+            return np.asarray(dataset['Descendant'])//10**12
+        elif column == 'HostHaloID':
+            return np.asarray(dataset['hostHaloID'])
         else:
-            return np.asarray(self.dataset[key])
+            return np.asarray(dataset[column])
 
 
     def __enter__(self):
@@ -192,7 +187,7 @@ class VELOCIraptorSaver:
                 hf_out.set_node_attr(grp_out, name, hf_src.get_node_attr(grp_src, name))
 
 
-    def _SaveColumns(self, hf_out, grp, items):
+    def _SaveColumns(self, hf_out, grp, items, snap):
         cols = [None]*len(items)
         items_algin = [None]*len(items)
         for i_it, it in enumerate(items):
@@ -206,7 +201,7 @@ class VELOCIraptorSaver:
             else:
                 raise ValueError(f"Unknown items {c}")
             cols[i_it] = it[0]
-        data = self.cntr_ext.Gather(self.cntr_src, cols, self.cols_link, self.cols_mass)
+        data = self.cntr_ext.Gather(snap, self.cntr_src, cols, self.cols_link, self.cols_mass)
         for name_c, name_s, transform in items_algin:
             if callable(transform):
                 arr = transform(data[name_c].values).astype(self.data_type[name_c])
@@ -218,8 +213,8 @@ class VELOCIraptorSaver:
 
     def _SaveReversed(self, hf_out, grp, snap, a):
         # Save Index and LeafType
-        leaf_type = self.cntr_ext.Read('Host', ['Index', 'LeafType'])
-        data = self.cntr_ext.Gather(self.cntr_src, [])
+        leaf_type = self.cntr_ext.Read(snap, 'Host', ['Index', 'LeafType'])
+        data = self.cntr_ext.Gather(snap, self.cntr_src, [])
         data['LeafType'] = 0
         data.loc[leaf_type['Index'], 'LeafType'] = leaf_type['LeafType']
         hf_out.create_carray(grp, 'Index', obj=data.index.values.astype('i8'))
@@ -257,14 +252,12 @@ class VELOCIraptorSaver:
         with tables.File(self.save_name, 'w') as hf_out:
             self._SaveHeader(hf_out, self.cntr_src.hf, self.snap_max - self.snap_min + 1)
             for snap in trange(self.snap_min, self.snap_max + 1, **self.kwargs_tqdm):
-                self.cntr_src.SwitchSnapshot(snap)
-                self.cntr_ext.SwitchSnapshot(snap)
                 grp = hf_out.create_group('/', 'Snap_%03d'%snap)
                 # Save Reversed properties
                 self._SaveReversed(hf_out, grp, snap, scale_factors[snap])
                 # Save Link properties
-                self._SaveColumns(hf_out, grp, self.items_link)
+                self._SaveColumns(hf_out, grp, self.items_link, snap)
                 # Save halo masses
-                self._SaveColumns(hf_out, grp, self.items_mass)
+                self._SaveColumns(hf_out, grp, self.items_mass, snap)
                 # Save other halo properties
-                self._SaveColumns(hf_out, grp, self.items_norm)
+                self._SaveColumns(hf_out, grp, self.items_norm, snap)

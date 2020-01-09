@@ -74,11 +74,10 @@ def SaveDarkForest(
         n_snap = snap_max + 1
         desc_pool_arr = np.asarray([{} for snap in range(n_snap)])
         for snap in Range(snap_min, n_snap, **kwargs_tqdm):
-            cntr.SwitchSnapshot(snap)
             # Merge subhalos to their host halo
             desc_pool = desc_pool_arr[snap]
-            halo_id_arr = cntr['ID']
-            host_id_arr = cntr['HostHaloID']
+            halo_id_arr = cntr[snap, 'ID']
+            host_id_arr = cntr[snap, 'HostHaloID']
             host_table = dict(zip(halo_id_arr, host_id_arr))
             for halo_id in list(desc_pool.keys()):
                 host_id = host_table[halo_id]
@@ -92,9 +91,9 @@ def SaveDarkForest(
             # Save existing descendants
             SaveSnapshot(hf, cntr, desc_pool, mass_key, cols, snap)
             # Walk forward
-            desc_id_arr = cntr['Descendant']
-            desc_snap_arr = cntr['DescendantSnap']
-            props_arr = np.asarray([cntr[k] for k in mass_key])
+            desc_id_arr = cntr[snap, 'Descendant']
+            desc_snap_arr = cntr[snap, 'DescendantSnap']
+            props_arr = np.asarray([cntr[snap, k] for k in mass_key])
             for desc_id, desc_snap, host_id, halo_id, *props in zip(
                 desc_id_arr, desc_snap_arr, host_id_arr, halo_id_arr, *props_arr
             ):
@@ -114,8 +113,9 @@ def ReadDarkForest(
     #
     redshifts = cntr.redshifts
     # Select host halos
-    cntr.SwitchSnapshot(snap_max)
-    host_data = cntr.Read('Host', ['ProgIndex', 'ProgNumber', mass_key], 'pandas', 'Index')
+    host_data = cntr.Read(
+        snap_max, 'Host', ['ProgIndex', 'ProgNumber', mass_key], 'pandas', 'Index'
+    )
     if m_range is not None:
         m_min, m_max = m_range
         m_host = host_data[mass_key].values
@@ -128,8 +128,9 @@ def ReadDarkForest(
         z = redshifts[snap - 1]
         # Read data
         if snap != snap_max:
-            cntr.SwitchSnapshot(snap)
-            host_data = cntr.Read('Host', ['ProgIndex', 'ProgNumber', mass_key], 'pandas', 'Index')
+            host_data = cntr.Read(
+                snap, 'Host', ['ProgIndex', 'ProgNumber', mass_key], 'pandas', 'Index'
+            )
         else:
             # Initialise root halos and the pool to read progenitors
             z_root = redshifts[snap_max]

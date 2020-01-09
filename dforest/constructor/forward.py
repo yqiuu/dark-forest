@@ -5,17 +5,17 @@ import pandas as pd
 from tqdm import trange
 
 
-def PrepareSourceData(cntr_source):
-    df_source = pd.DataFrame(index=cntr_source['ID'])
-    df_source['HostHaloID'] = cntr_source['HostHaloID']
-    df_source['DescendantSnap'] = cntr_source['DescendantSnap']
-    df_source['Descendant'] = cntr_source['Descendant']
-    df_source['ForestID'] = cntr_source['ForestID']
+def PrepareSourceData(cntr_source, snap):
+    df_source = pd.DataFrame(index=cntr_source[snap, 'ID'])
+    df_source['HostHaloID'] = cntr_source[snap, 'HostHaloID']
+    df_source['DescendantSnap'] = cntr_source[snap, 'DescendantSnap']
+    df_source['Descendant'] = cntr_source[snap, 'Descendant']
+    df_source['ForestID'] = cntr_source[snap, 'ForestID']
     return df_source
 
 
-def PutTopHalo(cntr_target, cntr_source, pool_sub, df_source):
-    halo_id_surv = cntr_target.Read('Host', ['Index'])['Index']
+def PutTopHalo(cntr_target, cntr_source, snap, pool_sub, df_source):
+    halo_id_surv = cntr_target.Read(snap, 'Host', ['Index'])['Index']
     halo_id_surv = halo_id_surv[halo_id_surv > 0]
 
     halo_id = df_source.index.values
@@ -81,12 +81,9 @@ def RebuildForwardConnection(cntr_target, cntr_source, snap_max, snap_min=0, kwa
     snap_target = [None]*n_snap
     kwargs_tqdm.update(desc="Rebuilding original trees")
     for snap in trange(snap_min, n_snap, **kwargs_tqdm):
-        cntr_target.SwitchSnapshot(snap)
-        cntr_source.SwitchSnapshot(snap)
-
         pool_sub = pool[snap]
-        df_source = PrepareSourceData(cntr_source)
-        PutTopHalo(cntr_target, cntr_source, pool_sub, df_source)
+        df_source = PrepareSourceData(cntr_source, snap)
+        PutTopHalo(cntr_target, cntr_source, snap, pool_sub, df_source)
         SetSurviveIndex(pool_sub, df_source)
         CutDescendant(df_source, snap, snap_max)
         WalkForward(pool, df_source)
@@ -113,15 +110,15 @@ def RebuildForwardConnection(cntr_target, cntr_source, snap_max, snap_min=0, kwa
 
 
 class ForwardRebuilder(Constructor):
-    def _PrepareReqData(self):
-        return self.cntr_target.Read('Host', ['ProgIndex', 'ProgNumber'], 'pandas', 'Index')
+    def _PrepareReqData(self, snap):
+        return self.cntr_target.Read(snap, 'Host', ['ProgIndex', 'ProgNumber'], 'pandas', 'Index')
 
 
-    def _PrepareInhData(self):
+    def _PrepareInhData(self, snap):
         try:
             # [1] Specifiy columns to obtain correct order
             cols = ['HostHaloID', 'DescendantSnap', 'Descendant', 'ForestID'] # [1]
-            df_inh = self.cntr_target.Read('_ForwardFix', cols, 'pandas', 'Index')
+            df_inh = self.cntr_target.Read(snap, '_ForwardFix', cols, 'pandas', 'Index')
         except IOError:
             df_inh = pd.DataFrame()
         return df_inh

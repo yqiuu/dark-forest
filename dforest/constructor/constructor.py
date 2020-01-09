@@ -40,12 +40,12 @@ class Constructor(ABC):
             return trange(snap_max, snap_min - 1, -1, **kwargs_tqdm)
 
 
-    def _PrepareProgData(self):
+    def _PrepareProgData(self, snap):
         cntr_target = self.cntr_target
         read_prog = self.read_prog
         if len(read_prog) > 0:
             try:
-                rec_prog = cntr_target.Read('Prog', read_prog, 'records')
+                rec_prog = cntr_target.Read(snap, 'Prog', read_prog, 'records')
             except OSError:
                 return None
             if len(read_prog) == 1:
@@ -57,36 +57,36 @@ class Constructor(ABC):
             return None
 
 
-    def _PrepareReqData(self):
+    def _PrepareReqData(self, snap):
         # Load local variables
         cntr_target = self.cntr_target
         col_host = self.col_host
         col_main = self.col_main
         #
-        df_host = cntr_target.Read('Host', col_host, 'pandas', 'Index')
+        df_host = cntr_target.Read(snap, 'Host', col_host, 'pandas', 'Index')
         if len(col_main) > 0:
-            df_main = cntr_target.Read('MainA', col_main, 'pandas', 'Index')
+            df_main = cntr_target.Read(snap, 'MainA', col_main, 'pandas', 'Index')
             df_req = pd.concat([df_host, df_main], axis=1, join='inner')
         else:
             df_req = df_host
         return df_req
 
 
-    def _PrepareInhData(self):
+    def _PrepareInhData(self, snap):
         # Load local variables
         cntr_target = self.cntr_target
         cntr_source = self.cntr_source
         col_inh = self.col_inh
         # 
-        halo_id_sim = cntr_source['ID']
+        halo_id_sim = cntr_source[snap, 'ID']
         df_sim = pd.DataFrame(index=halo_id_sim)
         for col in col_inh:
             try:
-                df_sim[col] = cntr_source[col]
+                df_sim[col] = cntr_source[snap, col]
             except KeyError:
                 pass
         try:
-            halo_id_fix = cntr_target.Read('MainA', ['Index'])['Index']
+            halo_id_fix = cntr_target.Read(snap, 'MainA', ['Index'])['Index']
         except NoSuchNodeError:
             raise Exception("Run FowardRebuilder before adding any other properties") from None
         df_sim = df_sim.loc[halo_id_fix[halo_id_fix > 0]]
@@ -136,7 +136,7 @@ class Constructor(ABC):
         name = 'MainB' if self.inherit else 'MainA'
         group = hf.get_node(f'/Snapshot_{snap:03d}', name)
         try:
-            inds = self.cntr_target.Read(name, ['Index'])['Index']
+            inds = self.cntr_target.Read(snap, name, ['Index'])['Index']
         except NoSuchNodeError:
             inds = None
         if inds is None or np.array_equal(inds, df_new.index):
@@ -161,12 +161,10 @@ class Constructor(ABC):
         redshifts = cntr_source.redshifts
         for snap in self._SnapRange():
             z = redshifts[snap]
-            cntr_target.SwitchSnapshot(snap)
-            cntr_source.SwitchSnapshot(snap)
-            df_req = self._PrepareReqData()
-            df_inh = self._PrepareInhData()
+            df_req = self._PrepareReqData(snap)
+            df_inh = self._PrepareInhData(snap)
             df_inh.index = df_inh.index.astype(df_req.index.dtype)
-            list_prog = self._PrepareProgData()
+            list_prog = self._PrepareProgData(snap)
             df_new = self._AddProperty(df_inh, df_req, list_prog, snap, z)
             self._SaveOutput(df_new, snap)
 
@@ -207,7 +205,6 @@ class QuickConstructor(Constructor):
         hc_prefix = self.hc_prefix
         col_req = self.col_req
         #
-        handler.SwitchSnapshot(snap)
         with pd.HDFStore(os.path.join(hc_path, '%s_%03d.hdf5'%(hc_prefix, snap))) as store:
             try:
                 self.column_lookup

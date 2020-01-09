@@ -105,14 +105,14 @@ class DarkForestConnector(Connector):
             return np.array(self._redshifts)
 
 
-    def SwitchSnapshot(self, snap):
+    def _SwitchSnapshot(self, snap):
         groups = []
         for f in self.files:
             groups.append(f.get_node('/Snapshot_%03d'%snap))
         self.groups = groups
 
 
-    def Read(self, target, cols=None, rtype='dict', index=None, cols_link=[]):
+    def Read(self, snap, target, cols=None, rtype='dict', index=None, cols_link=[]):
         """
         Read data.
 
@@ -134,6 +134,8 @@ class DarkForestConnector(Connector):
         -------
             Required data.
         """
+        self._SwitchSnapshot(snap)
+
         n_file = len(self.files)
         data_all = [None]*n_file
         offset = [0]*(n_file + 1)
@@ -188,8 +190,8 @@ class DarkForestConnector(Connector):
             raise ValueError(f"Unkown rtype: '{rtype}'")
 
 
-    def Gather(self, cntr_source, cols, cols_link=[], cols_mass=[]):
-        inds = self.Read('MainA', ['Index'])['Index']
+    def Gather(self, snap, cntr_source, cols, cols_link=[], cols_mass=[]):
+        inds = self.Read(snap, 'MainA', ['Index'])['Index']
         inds_sim = inds[inds > 0]
         inds_mc = inds[inds < 0]
         df_ret = pd.DataFrame(index=inds)
@@ -209,10 +211,12 @@ class DarkForestConnector(Connector):
                 else:
                     raise ValueError(f"Unstored column '{c}'")
             if grp_name == 'MainA':
-                df_ret[c] = self.Read('MainA', [c], cols_link=cols_link)[c]
+                df_ret[c] = self.Read(snap, 'MainA', [c], cols_link=cols_link)[c]
             else:
-                df_source = pd.DataFrame(cntr_source[c], index=cntr_source['ID'], columns=[c])
-                df_self = self.Read(grp_name, [c], 'pandas', 'Index', cols_link=cols_link)
+                df_source = pd.DataFrame(
+                    cntr_source[snap, c], index=cntr_source[snap, 'ID'], columns=[c]
+                )
+                df_self = self.Read(snap, grp_name, [c], 'pandas', 'Index', cols_link=cols_link)
                 df_ret[c] = np.zeros(len(df_ret), dtype=df_source.dtypes[c])
                 df_ret.loc[inds_sim, c] = df_source.loc[inds_sim, c]
                 if c in cols_mass:
