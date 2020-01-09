@@ -188,7 +188,7 @@ class DarkForestConnector(Connector):
             raise ValueError(f"Unkown rtype: '{rtype}'")
 
 
-    def Gather(self, cntr_source, cols, cols_link=[]):
+    def Gather(self, cntr_source, cols, cols_link=[], cols_mass=[]):
         inds = self.Read('MainA', ['Index'])['Index']
         inds_sim = inds[inds > 0]
         inds_mc = inds[inds < 0]
@@ -213,7 +213,10 @@ class DarkForestConnector(Connector):
                 df_self = self.Read(grp_name, [c], 'pandas', 'Index', cols_link=cols_link)
                 df_ret[c] = np.zeros(len(df_ret), dtype=df_source.dtypes[c])
                 df_ret.loc[inds_sim, c] = df_source.loc[inds_sim, c]
-                df_ret.loc[inds_mc, c] = df_self.loc[inds_mc, c]
+                if c in cols_mass:
+                    df_ret.loc[inds_mc, c] = df_self.loc[inds_mc, c]/self.mass_conversion
+                else:
+                    df_ret.loc[inds_mc, c] = df_self.loc[inds_mc, c]
 
         return df_ret
 
