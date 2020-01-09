@@ -194,7 +194,7 @@ class DarkForestConnector(Connector):
         inds_mc = inds[inds < 0]
         df_ret = pd.DataFrame(index=inds)
 
-        for c in np.ravel(cols):
+        for c in cols:
             grp_name = None
             for hf, grp in zip(self.files, self.groups):
                 if c in hf.get_node(grp, 'Host'):
