@@ -206,6 +206,8 @@ class DarkForestConnector(Connector):
                 elif c in hf.get_node(grp, 'MainB'):
                     grp_name = 'MainB'
                     break
+                else:
+                    raise ValueError(f"Unstored column '{c}'")
             if grp_name == 'MainA':
                 df_ret[c] = self.Read('MainA', [c], cols_link=cols_link)[c]
             else:
