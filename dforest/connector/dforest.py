@@ -112,7 +112,7 @@ class DarkForestConnector(Connector):
         self.groups = groups
 
 
-    def Read(self, target, cols=None, rtype='dict', index=None, link_props=[]):
+    def Read(self, target, cols=None, rtype='dict', index=None, cols_link=[]):
         """
         Read data.
 
@@ -169,7 +169,7 @@ class DarkForestConnector(Connector):
                     cond = a < 0
                     a[cond] -= link_offset
                     link_offset += np.count_nonzero(cond)
-                elif c in link_props:
+                elif c in cols_link:
                     a += link_offset
                     link_offset += len(a)
                 arr[offset[i_f] : offset[i_f + 1]] = a
@@ -188,7 +188,7 @@ class DarkForestConnector(Connector):
             raise ValueError(f"Unkown rtype: '{rtype}'")
 
 
-    def Gather(self, cntr_source, cols, link_props=[]):
+    def Gather(self, cntr_source, cols, cols_link=[]):
         inds = self.Read('MainA', ['Index'])['Index']
         inds_sim = inds[inds > 0]
         inds_mc = inds[inds < 0]
@@ -207,10 +207,10 @@ class DarkForestConnector(Connector):
                     grp_name = 'MainB'
                     break
             if grp_name == 'MainA':
-                df_ret[c] = self.Read('MainA', [c], link_props=link_props)[c]
+                df_ret[c] = self.Read('MainA', [c], cols_link=cols_link)[c]
             else:
                 df_source = pd.DataFrame(cntr_source[c], index=cntr_source['ID'], columns=[c])
-                df_self = self.Read(grp_name, [c], 'pandas', 'Index', link_props=link_props)
+                df_self = self.Read(grp_name, [c], 'pandas', 'Index', cols_link=cols_link)
                 df_ret[c] = np.zeros(len(df_ret), dtype=df_source.dtypes[c])
                 df_ret.loc[inds_sim, c] = df_source.loc[inds_sim, c]
                 df_ret.loc[inds_mc, c] = df_self.loc[inds_mc, c]
