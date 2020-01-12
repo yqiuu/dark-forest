@@ -220,7 +220,7 @@ class VELOCIraptorSaver:
         hf_out.create_carray(grp, 'Index', obj=data.index.values.astype('i8'))
         hf_out.create_carray(grp, 'LeafType', obj=data['LeafType'].values.astype('i4'))
         # Save attributes
-        hf_out.set_node_attr(grp, 'Nhalos', len(data))
+        hf_out.set_node_attr(grp, 'NHalos', len(data))
         hf_out.set_node_attr(grp, 'Snapnum', snap)
         hf_out.set_node_attr(grp, 'scalefactor', a)
  
