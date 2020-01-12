@@ -171,6 +171,10 @@ class DarkForestConnector(Connector):
                     cond = a < 0
                     a[cond] -= link_offset
                     link_offset += np.count_nonzero(cond)
+                elif c == 'HostHaloID': # [1]
+                    cond = a > 0
+                    a[cond] += link_offset
+                    link_offset += len(a)
                 elif c in cols_link:
                     a += link_offset
                     link_offset += len(a)
@@ -275,3 +279,6 @@ class DarkForestConnector(Connector):
             self.fname = files
             self.write = False
             self.filters = None
+
+# Footnotes
+# [1] Assume that the `HostHaloID` of FOF/host halos are a negative number.
