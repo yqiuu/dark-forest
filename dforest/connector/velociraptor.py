@@ -204,7 +204,7 @@ class VELOCIraptorSaver:
         data = self.cntr_ext.Gather(snap, self.cntr_src, cols, self.cols_link, self.cols_mass)
         for name_c, name_s, transform in items_algin:
             if callable(transform):
-                arr = transform(data[name_c].values).astype(self.data_type[name_c])
+                arr = transform(data[name_c].values).astype(self.data_type[name_s])
             else:
                 arr = data[name_c].values.astype(self.data_type[name_s])
             hf_out.create_carray(grp, name_s, obj=arr)
