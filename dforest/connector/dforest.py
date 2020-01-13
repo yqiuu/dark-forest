@@ -200,33 +200,43 @@ class DarkForestConnector(Connector):
         inds_mc = inds[inds < 0]
         df_ret = pd.DataFrame(index=inds)
 
-        for c in cols:
-            grp_name = None
-            for hf, grp in zip(self.files, self.groups):
-                if c in hf.get_node(grp, 'Host'):
-                    grp_name = 'Host'
-                    break
-                elif c in hf.get_node(grp, 'MainA'):
-                    grp_name = 'MainA'
-                    break
-                elif c in hf.get_node(grp, 'MainB'):
-                    grp_name = 'MainB'
-                    break
+        if len(cols_mass) == 0:
+            for c in cols:
+                grp_name = None
+                for hf, grp in zip(self.files, self.groups):
+                    if c in hf.get_node(grp, 'Host'):
+                        grp_name = 'Host'
+                        break
+                    elif c in hf.get_node(grp, 'MainA'):
+                        grp_name = 'MainA'
+                        break
+                    elif c in hf.get_node(grp, 'MainB'):
+                        grp_name = 'MainB'
+                        break
+                    else:
+                        raise ValueError(f"Unstored column '{c}'")
+                if grp_name == 'MainA':
+                    df_ret[c] = self.Read(snap, 'MainA', [c], cols_link=cols_link)[c]
                 else:
-                    raise ValueError(f"Unstored column '{c}'")
-            if grp_name == 'MainA':
-                df_ret[c] = self.Read(snap, 'MainA', [c], cols_link=cols_link)[c]
-            else:
-                df_source = pd.DataFrame(
-                    cntr_source[snap, c], index=cntr_source[snap, 'ID'], columns=[c]
-                )
-                df_self = self.Read(snap, grp_name, [c], 'pandas', 'Index', cols_link=cols_link)
-                df_ret[c] = np.zeros(len(df_ret), dtype=df_source.dtypes[c])
-                df_ret.loc[inds_sim, c] = df_source.loc[inds_sim, c]
-                if c in cols_mass:
-                    df_ret.loc[inds_mc, c] = df_self.loc[inds_mc, c]/self.mass_conversion
-                else:
+                    df_source = pd.DataFrame(
+                        cntr_source[snap, c], index=cntr_source[snap, 'ID'], columns=[c]
+                    )
+                    df_self = self.Read(snap, grp_name, [c], 'pandas', 'Index', cols_link=cols_link)
+                    df_ret[c] = np.zeros(len(df_ret), dtype=df_source.dtypes[c])
+                    df_ret.loc[inds_sim, c] = df_source.loc[inds_sim, c]
                     df_ret.loc[inds_mc, c] = df_self.loc[inds_mc, c]
+        else:
+            assert (len(cols) == len(cols_mass)), \
+                "Both lists must have the same length if cols_mass is not empty"
+
+            for c, c_m in zip(cols, cols_mass):
+                df_source = pd.DataFrame(
+                    cntr_source[snap, c_m], index=cntr_source[snap, 'ID'], columns=[c_m]
+                )
+                df_self = self.Read(snap, 'Host', [c], 'pandas', 'Index')
+                df_ret[c_m] = np.zeros(len(df_ret), dtype=df_source.dtypes[c_m])
+                df_ret.loc[inds_sim, c_m] = df_source.loc[inds_sim, c_m]
+                df_ret.loc[inds_mc, c_m] = df_self.loc[inds_mc, c]/self.mass_conversion
 
         return df_ret
 

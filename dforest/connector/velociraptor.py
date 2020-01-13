@@ -187,7 +187,7 @@ class VELOCIraptorSaver:
                 hf_out.set_node_attr(grp_out, name, hf_src.get_node_attr(grp_src, name))
 
 
-    def _SaveColumns(self, hf_out, grp, items, snap):
+    def _SaveColumns(self, hf_out, grp, items, cols_link, cols_mass, snap):
         cols = [None]*len(items)
         items_algin = [None]*len(items)
         for i_it, it in enumerate(items):
@@ -201,8 +201,10 @@ class VELOCIraptorSaver:
             else:
                 raise ValueError(f"Unknown items {c}")
             cols[i_it] = it[0]
-        data = self.cntr_ext.Gather(snap, self.cntr_src, cols, self.cols_link, self.cols_mass)
+        data = self.cntr_ext.Gather(snap, self.cntr_src, cols, cols_link, cols_mass)
         for name_c, name_s, transform in items_algin:
+            if len(cols_mass) > 0:
+                name_c = name_s
             if callable(transform):
                 arr = transform(data[name_c].values).astype(self.data_type[name_s])
             else:
@@ -236,7 +238,7 @@ class VELOCIraptorSaver:
         self.items_mass = items_mass
         self.items_norm = items_norm
         self.cols_link = [np.ravel(item)[0] for item in items_link]
-        self.cols_mass = [np.ravel(item)[0] for item in items_mass]
+        self.cols_mass = [item[1] for item in items_mass]
         self.snap_max = snap_max
         self.snap_min = snap_min
         self.kwargs_tqdm = kwargs_tqdm
@@ -256,8 +258,8 @@ class VELOCIraptorSaver:
                 # Save Reversed properties
                 self._SaveReversed(hf_out, grp, snap, scale_factors[snap])
                 # Save Link properties
-                self._SaveColumns(hf_out, grp, self.items_link, snap)
+                self._SaveColumns(hf_out, grp, self.items_link, self.cols_link, [], snap)
                 # Save halo masses
-                self._SaveColumns(hf_out, grp, self.items_mass, snap)
+                self._SaveColumns(hf_out, grp, self.items_mass, [], self.cols_mass, snap)
                 # Save other halo properties
-                self._SaveColumns(hf_out, grp, self.items_norm, snap)
+                self._SaveColumns(hf_out, grp, self.items_norm, [], [], snap)
