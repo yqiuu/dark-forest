@@ -187,36 +187,18 @@ class VELOCIraptorSaver:
                 hf_out.set_node_attr(grp_out, name, hf_src.get_node_attr(grp_src, name))
 
 
-    def _SaveColumns(self, hf_out, grp, items, cols_link, cols_mass, snap):
-        cols = [None]*len(items)
-        items_algin = [None]*len(items)
-        for i_it, it in enumerate(items):
-            it = tuple(np.ravel(it))
-            if len(it) == 1:
-                items_algin[i_it] = (it[0], it[0], None)
-            elif len(it) == 2:
-                items_algin[i_it] = (*it, None)
-            elif len(it) == 3:
-                items_algin[i_it] = it
-            else:
-                raise ValueError(f"Unknown items {c}")
-            cols[i_it] = it[0]
-        data = self.cntr_ext.Gather(snap, self.cntr_src, cols, cols_link, cols_mass)
-        for name_c, name_s, transform in items_algin:
-            if len(cols_mass) > 0:
-                name_c = name_s
-            if callable(transform):
-                arr = transform(data[name_c].values).astype(self.data_type[name_s])
-            else:
-                arr = data[name_c].values.astype(self.data_type[name_s])
-            hf_out.create_carray(grp, name_s, obj=arr)
-        return len(data)
+    def _SaveColumns(self, hf_out, grp, snap, list_args):
+        for args in list_args:
+            c_target = args['c_target']
+            arr = np.ravel(self.cntr_ext.Gather(self.cntr_src, snap, **args))
+            hf_out.create_carray(grp, c_target, obj=arr.astype(self.data_type[c_target]))
+        return len(arr)
 
 
     def _SaveReversed(self, hf_out, grp, snap, a):
         # Save Index and LeafType
         leaf_type = self.cntr_ext.Read(snap, 'Host', ['Index', 'LeafType'])
-        data = self.cntr_ext.Gather(snap, self.cntr_src, [])
+        data = self.cntr_ext.Gather(self.cntr_src, snap, 'ID', is_link=True)
         data['LeafType'] = 0
         data.loc[leaf_type['Index'], 'LeafType'] = leaf_type['LeafType']
         hf_out.create_carray(grp, 'Index', obj=data.index.values.astype('i8'))
@@ -227,6 +209,22 @@ class VELOCIraptorSaver:
         hf_out.set_node_attr(grp, 'scalefactor', a)
  
 
+    def _SetArgs(self, items, is_mass, is_link):
+        list_args = [None]*len(items)
+        for i_it, it in enumerate(items):
+            args = {}
+            it = np.ravel(it)
+            args['c_target'] = it[0]
+            if len(it) > 1:
+                args['c_rep'] = it[1]
+            if len(it) > 2:
+                args['transform'] = it[2]
+            args['is_link'] = is_link
+            args['is_mass'] = is_mass
+            list_args[i_it] = args
+        return list_args
+
+
     def __init__(self,
         cntr_ext, cntr_src, save_name, items_link, items_mass, items_norm,
         snap_max, snap_min=0, kwargs_tqdm={}
@@ -234,18 +232,14 @@ class VELOCIraptorSaver:
         self.cntr_ext = cntr_ext
         self.cntr_src = cntr_src
         self.save_name = save_name
-        self.items_link = items_link
-        self.items_mass = items_mass
-        self.items_norm = items_norm
-        self.cols_link = [np.ravel(item)[0] for item in items_link]
-        self.cols_mass = [item[1] for item in items_mass]
+        self.args_link = self._SetArgs(items_link, False, True)
+        self.args_mass = self._SetArgs(items_mass, True, False)
+        self.args_norm = self._SetArgs(items_norm, False, False)
         self.snap_max = snap_max
         self.snap_min = snap_min
         self.kwargs_tqdm = kwargs_tqdm
         #
         data_type = cntr_src.data_type
-        data_type['Index'] = 'i8'
-        data_type['LeafType'] = 'i4'
         self.data_type = data_type
 
 
@@ -258,8 +252,8 @@ class VELOCIraptorSaver:
                 # Save Reversed properties
                 self._SaveReversed(hf_out, grp, snap, scale_factors[snap])
                 # Save Link properties
-                self._SaveColumns(hf_out, grp, self.items_link, self.cols_link, [], snap)
+                self._SaveColumns(hf_out, grp, snap, self.args_link)
                 # Save halo masses
-                self._SaveColumns(hf_out, grp, self.items_mass, [], self.cols_mass, snap)
+                self._SaveColumns(hf_out, grp, snap, self.args_mass)
                 # Save other halo properties
-                self._SaveColumns(hf_out, grp, self.items_norm, [], [], snap)
+                self._SaveColumns(hf_out, grp, snap, self.args_norm)
