@@ -112,6 +112,23 @@ class DarkForestConnector(Connector):
         self.groups = groups
 
 
+    def _FindGroup(self, column, snap):
+        self._SwitchSnapshot(snap)
+        for hf, grp in zip(self.files, self.groups):
+            if column in hf.get_node(grp, 'Host'):
+                grp_name = 'Host'
+                break
+            elif column in hf.get_node(grp, 'MainA'):
+                grp_name = 'MainA'
+                break
+            elif column in hf.get_node(grp, 'MainB'):
+                grp_name = 'MainB'
+                break
+            else:
+                raise ValueError(f"Unstored column '{column}'")
+        return grp_name
+
+
     def Read(self, snap, target, cols=None, rtype='dict', index=None, cols_link=[]):
         """
         Read data.
@@ -194,49 +211,39 @@ class DarkForestConnector(Connector):
             raise ValueError(f"Unkown rtype: '{rtype}'")
 
 
-    def Gather(self, snap, cntr_source, cols, cols_link=[], cols_mass=[]):
+    def Gather(self,
+        cntr_src, snap, c_target, c_rep=None, is_mass=False, is_link=False, transform=None
+    ):
+        if c_rep is None:
+            c_rep = c_target
+
         inds = self.Read(snap, 'MainA', ['Index'])['Index']
         inds_sim = inds[inds > 0]
         inds_mc = inds[inds < 0]
         df_ret = pd.DataFrame(index=inds)
-
-        if len(cols_mass) == 0:
-            for c in cols:
-                grp_name = None
-                for hf, grp in zip(self.files, self.groups):
-                    if c in hf.get_node(grp, 'Host'):
-                        grp_name = 'Host'
-                        break
-                    elif c in hf.get_node(grp, 'MainA'):
-                        grp_name = 'MainA'
-                        break
-                    elif c in hf.get_node(grp, 'MainB'):
-                        grp_name = 'MainB'
-                        break
-                    else:
-                        raise ValueError(f"Unstored column '{c}'")
-                if grp_name == 'MainA':
-                    df_ret[c] = self.Read(snap, 'MainA', [c], cols_link=cols_link)[c]
-                else:
-                    df_source = pd.DataFrame(
-                        cntr_source[snap, c], index=cntr_source[snap, 'ID'], columns=[c]
-                    )
-                    df_self = self.Read(snap, grp_name, [c], 'pandas', 'Index', cols_link=cols_link)
-                    df_ret[c] = np.zeros(len(df_ret), dtype=df_source.dtypes[c])
-                    df_ret.loc[inds_sim, c] = df_source.loc[inds_sim, c]
-                    df_ret.loc[inds_mc, c] = df_self.loc[inds_mc, c]
+        grp_name = self._FindGroup(c_rep, snap)
+        if grp_name == 'MainA':
+            if is_link:
+                cols_link = [c_rep]
+            else:
+                cols_link = []
+            df_ret[c_target] = self.Read(snap, 'MainA', [c_rep], cols_link=cols_link)[c_rep]
         else:
-            assert (len(cols) == len(cols_mass)), \
-                "Both lists must have the same length if cols_mass is not empty"
-
-            for c, c_m in zip(cols, cols_mass):
-                df_source = pd.DataFrame(
-                    cntr_source[snap, c_m], index=cntr_source[snap, 'ID'], columns=[c_m]
-                )
-                df_self = self.Read(snap, 'Host', [c], 'pandas', 'Index')
-                df_ret[c_m] = np.zeros(len(df_ret), dtype=df_source.dtypes[c_m])
-                df_ret.loc[inds_sim, c_m] = df_source.loc[inds_sim, c_m]
-                df_ret.loc[inds_mc, c_m] = df_self.loc[inds_mc, c]/self.mass_conversion
+            # Combine simulation data
+            df_src = pd.DataFrame(
+                cntr_src[snap, c_target], index=cntr_src[snap, 'ID'], columns=[c_target]
+            )
+            df_ret[c_target] = np.zeros(len(df_ret), dtype=df_src.dtypes[c_target])
+            df_ret.loc[inds_sim, c_target] = df_src.loc[inds_sim, c_target]
+            # Combine extended data
+            df_ext = self.Read(snap, grp_name, [c_rep], 'pandas', 'Index')
+            arr = df_ext.loc[inds_mc, c_rep].values
+            if is_mass:
+                arr /= self.mass_conversion
+            if transform is not None:
+                arr = transform(arr)
+            arr = np.array(arr, dtype=df_src.dtypes[c_target])
+            df_ret.loc[inds_mc, c_target] = arr
 
         return df_ret
 
