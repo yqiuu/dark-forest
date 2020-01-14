@@ -11,21 +11,14 @@ logger = CreateLogger(__name__)
 
 class KernelSpinSampler:
     def Draw(self, n_halo, z):
-        # Load local variables
         cntr = self.cntr
-        redshifs = self.redshifs
-        mass_key = self.mass_key
-        m_cut = self.m_cut
-        n_min = self.n_min
-        snap_fit = self.snap_fit
-        #
-        snap_target = max(snap_fit, np.argmin(abs(self.redshifs - z)))
+        snap_target = max(self.snap_fit, np.argmin(abs(self.redshifts - z)))
         while True:
             spin_sample = cntr[snap_target, 'lambda_B'][
                 (cntr[snap_target, 'HostHaloID'] == cntr.HostID()) \
-                & (cntr[snap_target, mass_key] > m_cut)
+                & (cntr[snap_target, self.mass_key] > self.m_cut)
             ]
-            if len(spin_sample) > n_min:
+            if len(spin_sample) > self.n_min:
                 break
             else:
                 snap_target += 1
@@ -33,15 +26,20 @@ class KernelSpinSampler:
         cond = spin_sample != 0.
         if len(spin_sample) != np.count_nonzero(cond):
             logger.warning("Find halos with zero spin.")
-        return np.ravel(10**gaussian_kde(np.log10(spin_sample[cond])).resample(n_halo))
+        logspin = gaussian_kde(np.log10(spin_sample[cond])).resample(n_halo, self.rstate)
+        return np.ravel(10**logspin)
 
 
-    def __init__(self, cntr, mass_key, m_cut=0., n_min=100000):
+    def __init__(self, cntr, mass_key, m_cut=0., n_min=100000, rstate=None):
         self.cntr = cntr
-        self.redshifs = cntr.redshifts
+        self.redshifts = cntr.redshifts
         self.mass_key = mass_key
         self.m_cut = m_cut/cntr.mass_conversion
         self.n_min = n_min
+        if rstate is None:
+            self.rstate = np.random.RandomState()
+        else:
+            self.rstate = rstate
         self.snap_fit = 0 # Assume that the snapshot starts at zero
 
 
