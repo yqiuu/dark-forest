@@ -293,6 +293,7 @@ class DarkForestConnector(Connector):
             for f in os.listdir(fname):
                 if f.startswith(prefix):
                     files.append(os.path.join(fname, f))
+            files.sort()
             self.fname = files
             self.write = False
             self.filters = None
