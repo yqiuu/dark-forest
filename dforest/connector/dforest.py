@@ -95,6 +95,14 @@ class DarkForestConnector(Connector):
             self._m_particle = self.hf.get_node_attr('/Header', 'm_particle')
             return self._m_particle
 
+    @property
+    def n_snap(self):
+        try:
+            return self._n_snap
+        except AttributeError:
+            self._n_snap = len(self.hf.list_nodes('/')) - 1
+            return self._n_snap
+
 
     @property
     def redshifts(self):
@@ -250,8 +258,7 @@ class DarkForestConnector(Connector):
 
     def Remove(self, name, kwargs_tqdm={}):
         kwargs_tqdm.update(desc="Removing '%s'"%name)
-        n_snap = len(self.hf.list_nodes('/')) - 1
-        for i_snap in trange(n_snap, **kwargs_tqdm):
+        for i_snap in trange(self.n_snap, **kwargs_tqdm):
             for f in self.files:
                 try:
                     f.remove_node('/Snapshot_%03d'%i_snap, name, recursive=True)
