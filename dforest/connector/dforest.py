@@ -291,6 +291,7 @@ class DarkForestConnector(Connector):
 
 
     def __init__(self, fname, prefix=None, write=False, filters=None):
+        self.prefix = prefix
         if prefix is None:
             self.fname = [fname]
             self.write = write
@@ -301,9 +302,14 @@ class DarkForestConnector(Connector):
                 if f.startswith(prefix):
                     files.append(os.path.join(fname, f))
             files.sort()
-            self.fname = files
-            self.write = False
-            self.filters = None
+            if write is False:
+                self.fname = files
+                self.write = False
+                self.filters = None
+            else:
+                self.fname = [files[write]]
+                self.write = True
+                self.filters = filters
 
 # Footnotes
 # [1] Assume that the `HostHaloID` of FOF/host halos are a negative number.
