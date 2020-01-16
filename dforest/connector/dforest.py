@@ -137,7 +137,7 @@ class DarkForestConnector(Connector):
         return grp_name
 
 
-    def Read(self, snap, target, cols=None, rtype='dict', index=None, cols_link=[]):
+    def Read(self, snap, target, cols=None, rtype='dict', index=None):
         """
         Read data.
 
@@ -188,21 +188,14 @@ class DarkForestConnector(Connector):
 
         data_out = {}
         for c in cols:
-            link_offset = 0
+            offset_inds = 0
             arr = np.zeros(n_tot, dtype=data_all[0][c].dtype)
             for i_f in range(n_file):
                 a = data_all[i_f][c]
                 if c == 'Index':
                     cond = a < 0
-                    a[cond] -= link_offset
-                    link_offset += np.count_nonzero(cond)
-                elif c == 'HostHaloID': # [1]
-                    cond = a > 0
-                    a[cond] += link_offset
-                    link_offset += len(a)
-                elif c in cols_link:
-                    a += link_offset
-                    link_offset += len(a)
+                    a[cond] -= offset_inds
+                    offset_inds += np.count_nonzero(cond)
                 arr[offset[i_f] : offset[i_f + 1]] = a
             data_out[c] = arr
         # Change data type
@@ -219,9 +212,7 @@ class DarkForestConnector(Connector):
             raise ValueError(f"Unkown rtype: '{rtype}'")
 
 
-    def Gather(self,
-        cntr_src, snap, c_target, c_rep=None, is_mass=False, is_link=False, transform=None
-    ):
+    def Gather(self,cntr_src, snap, c_target, c_rep=None, is_mass=False, transform=None):
         if c_rep is None:
             c_rep = c_target
 
@@ -231,11 +222,7 @@ class DarkForestConnector(Connector):
         df_ret = pd.DataFrame(index=inds)
         grp_name = self._FindGroup(c_rep, snap)
         if grp_name == 'MainA':
-            if is_link:
-                cols_link = [c_rep]
-            else:
-                cols_link = []
-            df_ret[c_target] = self.Read(snap, 'MainA', [c_rep], cols_link=cols_link)[c_rep]
+            df_ret[c_target] = self.Read(snap, 'MainA', [c_rep])[c_rep]
         else:
             # Combine simulation data
             df_src = pd.DataFrame(
@@ -315,6 +302,3 @@ class DarkForestConnector(Connector):
                 self.i_part = write
                 self.write = True
                 self.filters = filters
-
-# Footnotes
-# [1] Assume that the `HostHaloID` of FOF/host halos are a negative number.
