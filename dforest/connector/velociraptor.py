@@ -198,7 +198,7 @@ class VELOCIraptorSaver:
     def _SaveReversed(self, hf_out, grp, snap, a):
         # Save Index and LeafType
         leaf_type = self.cntr_ext.Read(snap, 'Host', ['Index', 'LeafType'])
-        data = self.cntr_ext.Gather(self.cntr_src, snap, 'ID', is_link=True)
+        data = self.cntr_ext.Gather(self.cntr_src, snap, 'ID')
         data['LeafType'] = 0
         data.loc[leaf_type['Index'], 'LeafType'] = leaf_type['LeafType']
         hf_out.create_carray(grp, 'Index', obj=data.index.values.astype('i8'))
@@ -209,7 +209,7 @@ class VELOCIraptorSaver:
         hf_out.set_node_attr(grp, 'scalefactor', a)
  
 
-    def _SetArgs(self, items, is_mass, is_link):
+    def _SetArgs(self, items, is_mass):
         list_args = [None]*len(items)
         for i_it, it in enumerate(items):
             args = {}
@@ -219,22 +219,20 @@ class VELOCIraptorSaver:
                 args['c_rep'] = it[1]
             if len(it) > 2:
                 args['transform'] = it[2]
-            args['is_link'] = is_link
             args['is_mass'] = is_mass
             list_args[i_it] = args
         return list_args
 
 
     def __init__(self,
-        cntr_ext, cntr_src, save_name, items_link, items_mass, items_norm,
+        cntr_ext, cntr_src, save_name, items_mass, items_norm,
         snap_max, snap_min=0, kwargs_tqdm={}
     ):
         self.cntr_ext = cntr_ext
         self.cntr_src = cntr_src
         self.save_name = save_name
-        self.args_link = self._SetArgs(items_link, False, True)
-        self.args_mass = self._SetArgs(items_mass, True, False)
-        self.args_norm = self._SetArgs(items_norm, False, False)
+        self.args_mass = self._SetArgs(items_mass, True)
+        self.args_norm = self._SetArgs(items_norm, False)
         self.snap_max = snap_max
         self.snap_min = snap_min
         self.kwargs_tqdm = kwargs_tqdm
@@ -251,8 +249,6 @@ class VELOCIraptorSaver:
                 grp = hf_out.create_group('/', 'Snap_%03d'%snap)
                 # Save Reversed properties
                 self._SaveReversed(hf_out, grp, snap, scale_factors[snap])
-                # Save Link properties
-                self._SaveColumns(hf_out, grp, snap, self.args_link)
                 # Save halo masses
                 self._SaveColumns(hf_out, grp, snap, self.args_mass)
                 # Save other halo properties
