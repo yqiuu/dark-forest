@@ -278,7 +278,7 @@ class DarkForestConnector(Connector):
             mode = 'r'
             filters = None
         files = []
-        for f in self.fname:
+        for f in self.targets:
             files.append(tables.File(f, mode, filters=filters))
         self.files = files
         self.hf = files[0]
@@ -293,21 +293,26 @@ class DarkForestConnector(Connector):
     def __init__(self, fname, prefix=None, write=False, filters=None):
         self.prefix = prefix
         if prefix is None:
-            self.fname = [fname]
+            self.file_names = [fname]
+            self.targets = [fname]
+            self.i_part = 0
             self.write = write
             self.filters = filters
         else:
-            files = []
+            file_names = []
             for f in os.listdir(fname):
                 if f.startswith(prefix):
-                    files.append(os.path.join(fname, f))
-            files.sort()
+                    file_names.append(os.path.join(fname, f))
+            file_names.sort()
+            self.file_names = file_names
             if write is False:
-                self.fname = files
+                self.targets = list(file_names)
+                self.i_part = 0
                 self.write = False
                 self.filters = None
             else:
-                self.fname = [files[write]]
+                self.targets = [file_names[write]]
+                self.i_part = write
                 self.write = True
                 self.filters = filters
 

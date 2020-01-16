@@ -8,12 +8,15 @@ import tables
 from tqdm import trange
 from tables import NoSuchNodeError
 
-def _FileName(cntr_target):
+
+def _FileName(cntr_target, i_part=None):
     prefix = cntr_target.prefix
     if prefix is None:
-        fname = os.path.join(os.path.split(cntr_target.fname[0])[0], '_tmp_forward_fix.hdf5')
+        fname = os.path.join(os.path.split(cntr_target.targets[0])[0], '_tmp_forward_fix.hdf5')
+    elif i_part is None:
+        fname = cntr_target.targets[0].replace(prefix, f'_{prefix}_forward_fix')
     else:
-        fname = cntr_target.fname[0].replace(prefix, f'_{prefix}_forward_fix')
+        fname = cntr_target.file_names[i_part].replace(prefix, f'_{prefix}_forward_fix')
     return fname
 
 
@@ -78,15 +81,17 @@ class ForwardRebuilder:
 
     def _SaveOutput(self, hf, df_source, snap):
         df_save = df_source[df_source['Survive']]
-        n_halo = len(df_save)
-        if n_halo > 0:
-            grp = hf.create_group('/', f'Snapshot_{snap:03d}')
+        grp = hf.create_group('/', f'Snapshot_{snap:03d}')
+        n_halo = len(np.union1d(
+            self.cntr_target.Read(snap, 'Host', ['Index'])['Index'], df_save.index.values
+        ))
+        hf.set_node_attr(grp, 'n_halo', n_halo)
+        if len(df_save) > 0:
             hf.create_carray(grp, 'Index', obj=df_save.index.values.astype('i8'))
             hf.create_carray(grp, 'HostHaloID', obj=df_save['HostHaloID'].values.astype('i8'))
             hf.create_carray(grp, 'DescendantSnap', obj=df_save['DescendantSnap'].values.astype('i4'))
             hf.create_carray(grp, 'Descendant', obj=df_save['Descendant'].values.astype('i8'))
             hf.create_carray(grp, 'ForestID', obj=df_save['ForestID'].values.astype('i8'))
-            hf.set_node_attr(grp, 'n_halo', n_halo)
 
 
     def _Rebuild(self, hf):
@@ -146,23 +151,33 @@ class ForwardRebuilder:
 
 
 class ForwardConstructor(Constructor):
+    def _GetOffset(self, snap):
+        cntr_target = self.cntr_target
+        offset = 0
+        for i_part in range(cntr_target.i_part):
+            with tables.File(_FileName(cntr_target, i_part)) as hf:
+                try:
+                    offset += hf.get_node_attr(f'/Snapshot_{snap:03d}', 'n_halo')
+                except NoSuchNodeError:
+                    pass
+        return offset
+
+
     def _PrepareReqData(self, snap):
         return self.cntr_target.Read(snap, 'Host', ['ProgIndex', 'ProgNumber'], 'pandas', 'Index')
 
 
     def _PrepareInhData(self, snap):
-        try:
-            grp = self.hf_fix.get_node(f'/Snapshot_{snap:03d}')
-        except NoSuchNodeError:
-            return pd.DataFrame()
+        grp = self.hf_fix.get_node(f'/Snapshot_{snap:03d}')
         df_inh = pd.DataFrame()
-        for col in ['Index', 'HostHaloID', 'DescendantSnap', 'Descendant', 'ForestID']:
-            df_inh[col] = self.hf_fix.get_node(grp, col).read()
-        df_inh.set_index('Index', inplace=True)
+        if 'Index' in grp:
+            for col in ['Index', 'HostHaloID', 'DescendantSnap', 'Descendant', 'ForestID']:
+                df_inh[col] = self.hf_fix.get_node(grp, col).read()
+            df_inh.set_index('Index', inplace=True)
         return df_inh
 
 
-    def _GeneratePointerMC(self, df_inh, df_req, list_prog, snap):
+    def _GeneratePointerMC(self, df_inh, df_req, list_prog, snap, offset):
         # Load local variables
         cntr_source = self.cntr_source
         snap_max = self.snap_max
@@ -173,7 +188,9 @@ class ForwardConstructor(Constructor):
         df_forward_mc = pd.DataFrame(index=df_req.index[select_mc_halo])
         n_halo_mc = len(df_forward_mc)
         n_halo_sim = len(df_inh)
-        df_forward_mc['ID'] = cntr_source.NewID(snap, np.arange(n_halo_sim, n_halo_sim + n_halo_mc))
+        df_forward_mc['ID'] = cntr_source.NewID(
+            snap, np.arange(offset + n_halo_sim, offset + n_halo_sim + n_halo_mc)
+        )
         df_forward_mc['HostHaloID'] = cntr_source.HostID(n_halo_mc)
         if snap == snap_max:
             df_forward_mc['DescendantSnap'] = snap
@@ -204,7 +221,7 @@ class ForwardConstructor(Constructor):
         return df_forward_mc
 
 
-    def _GeneratePointerSim(self, df_inh, snap):
+    def _GeneratePointerSim(self, df_inh, snap, offset):
         """
         Generate new IDs for simulation halos, and change Descendant/HostHaloID
         accordingly.
@@ -215,7 +232,7 @@ class ForwardConstructor(Constructor):
         snap_max = self.snap_max
         snap_jump = self.snap_jump
         #
-        df_inh.insert(0, 'ID', cntr_source.NewID(snap, np.arange(len(df_inh))))
+        df_inh.insert(0, 'ID', cntr_source.NewID(snap, np.arange(offset, offset + len(df_inh))))
         #
         pool_sim[snap] = {old_id: new_id for old_id, new_id in zip(df_inh.index, df_inh['ID'])}
         # Fix host halo IDs
@@ -235,9 +252,10 @@ class ForwardConstructor(Constructor):
 
 
     def _AddProperty(self, df_inh, df_req, list_prog, snap, z):
+        offset = self._GetOffset(snap)
         if len(df_inh) > 0:
-            self._GeneratePointerSim(df_inh, snap)
-        df_forward = self._GeneratePointerMC(df_inh, df_req, list_prog, snap)
+            self._GeneratePointerSim(df_inh, snap, offset)
+        df_forward = self._GeneratePointerMC(df_inh, df_req, list_prog, snap, offset)
         df_forward = df_inh.append(df_forward)
         return df_forward
 
