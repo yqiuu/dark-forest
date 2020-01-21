@@ -73,7 +73,7 @@ class GridTool:
         return (xx*n_grid + yy)*n_grid + zz
 
 
-    def SampleFromIndex(self, inds, rstate=None):
+    def SampleFromIndex(self, inds):
         """
         Sample random points using 1-D grid indices. Each point is uniformly
         distributed in the corresponding cell.
@@ -82,21 +82,15 @@ class GridTool:
         ----------
         inds : 1-D array
             Input 1-D grid indices.
-        rstate : RandomState instance or None. default to None
-            If RandomState instance, `rstate` is the random number generator.
-            If None, the random number generator is the RandomState instance
-            used by `numpy.random`.
 
         Returns
         -------
         x, y, z : 1-D array
             3-D coordinates.
         """
-        if rstate is None:
-            rstate = np.random.RandomState()
-        #
         n_grid = self.n_grid
         grid_size = self.box_size/n_grid
+        rstate = self.rstate
         n_sample = len(inds)
         grid_x, grid_y, grid_z = self.Index2Grid(inds)
         x = (rstate.rand(n_sample) + grid_x)*grid_size
@@ -115,10 +109,6 @@ class GridTool:
             Input normalised density field.
         n_sample : int
             Number of samples to generate.
-        rstate : RandomState instance or None. default to None
-            If RandomState instance, `rstate` is the random number generator.
-            If None, the random number generator is the RandomState instance
-            used by `numpy.random`.
 
         Returns
         -------
@@ -127,17 +117,18 @@ class GridTool:
         inds : 1-D array
             Corresponding 1-D grid indices.
         """
-        if rstate is None:
-            rstate = np.random.RandomState()
-        #
-        inds = rstate.choice(len(den), n_sample, p=den)
-        x, y, z = self.SampleFromIndex(inds, rstate=rstate)
+        inds = self.rstate.choice(len(den), n_sample, p=den)
+        x, y, z = self.SampleFromIndex(inds)
         return x, y, z, inds
 
 
-    def __init__(self, n_grid, box_size):
+    def __init__(self, n_grid, box_size, rstate=None):
         self._n_grid = n_grid
         self._box_size = box_size
+        if rstate is None:
+            self.rstate = np.random.RandomState()
+        else:
+            self.rstate = rstate
 
 
 class DensityField(ABC):
@@ -179,7 +170,7 @@ class DensityField(ABC):
         return x, y, z, inds
 
 
-    def PopulateHalos(self, m_halo, bins, snap, rstate):
+    def PopulateHalos(self, m_halo, bins, snap):
         emf = self.emf
         z = self.redshifts[snap]
         v_cell = (self.gt_box.box_size/self.gt_box.n_grid*emf.cosmo.h)**3
@@ -197,7 +188,7 @@ class DensityField(ABC):
             den_halo = emf.HaloDensity(delta_dm, v_cell, m_median, z)
             den_halo /= np.sum(den_halo)
             x_h[cond], y_h[cond], z_h[cond], inds[cond] = \
-                self.gt_box.SampleFromField(den_halo, len(sample_sub), rstate)
+                self.gt_box.SampleFromField(den_halo, len(sample_sub))
         return x_h, y_h, z_h, inds
 
 
@@ -230,8 +221,8 @@ class DensityField(ABC):
         return self.Move(x_h, y_h, z_h, vx[inds]*factor, vy[inds]*factor, vz[inds]*factor)
 
 
-    def __init__(self, emf, redshifts, ages, n_grid, box_size):
-        self.gt_box = GridTool(n_grid, box_size)
+    def __init__(self, emf, redshifts, ages, n_grid, box_size, rstate=None):
+        self.gt_box = GridTool(n_grid, box_size, rstate)
         self.emf = emf
         self.redshifts = redshifts
         self.ages = ages

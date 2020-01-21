@@ -10,11 +10,11 @@ import pandas as pd
 class PositionConstructor(Constructor):
     def _PopulateHalos(self, m_halo, snap):
         bins = SmartBins(m_halo, self.n_min, self.d_min, 'log')
-        return self.density_field.PopulateHalos(m_halo, bins, snap, self.rstate)
+        return self.density_field.PopulateHalos(m_halo, bins, snap)
 
 
     def _MoveHalos(self, inds, m_self, m_desc, snap):
-        x_h, y_h, z_h = self.density_field.gt_box.SampleFromIndex(inds, rstate=self.rstate)
+        x_h, y_h, z_h = self.density_field.gt_box.SampleFromIndex(inds)
         return self.density_field.MoveHalos(x_h, y_h, z_h, inds, m_self, m_desc, snap)
 
 
@@ -28,7 +28,6 @@ class PositionConstructor(Constructor):
         col_z = self.col_z
         density_field = self.density_field
         z_fix = 0 if self.comoving else z
-        rstate = self.rstate
         #
         # Sample positions for MC halos
         select_mc = df_req.index < 0
@@ -81,7 +80,7 @@ class PositionConstructor(Constructor):
 
     def __init__(self,
         cntr_target, cntr_source, cols, density_field, n_min, d_min,
-        snap_max, snap_min=0, postfix=None, comoving=True, rstate=None, kwargs_tqdm={}
+        snap_max, snap_min=0, postfix=None, comoving=True, kwargs_tqdm={}
     ):
         super().__init__(
             cntr_target=cntr_target,
@@ -105,7 +104,3 @@ class PositionConstructor(Constructor):
         self.n_min = n_min
         self.d_min = d_min
         self.comoving = comoving
-        if rstate is None:
-            self.rstate = np.random.RandomState()
-        else:
-            self.rstate = rstate
