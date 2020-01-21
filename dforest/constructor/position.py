@@ -1,7 +1,6 @@
 import os
 
 from ..core import SmartBins
-from ..dfield import HaloDensityField
 from .constructor import Constructor
 
 import numpy as np
@@ -15,7 +14,7 @@ class PositionConstructor(Constructor):
 
 
     def _MoveHalos(self, inds, m_self, m_desc, snap):
-        x_h, y_h, z_h = self.density_field.SampleFromIndex(inds, rstate=self.rstate)
+        x_h, y_h, z_h = self.density_field.gt_box.SampleFromIndex(inds, rstate=self.rstate)
         return self.density_field.MoveHalos(x_h, y_h, z_h, inds, m_self, m_desc, snap)
 
 
@@ -28,8 +27,6 @@ class PositionConstructor(Constructor):
         col_y = self.col_y
         col_z = self.col_z
         density_field = self.density_field
-        n_grid = density_field.n_grid
-        box_size = density_field.box_size
         z_fix = 0 if self.comoving else z
         rstate = self.rstate
         #
@@ -66,7 +63,7 @@ class PositionConstructor(Constructor):
             # Compute grid indices for simulation halos
             select_sim = ~select_mc
             df_inh = df_inh.loc[df_req.index[select_sim]]
-            grid_index[select_sim] = density_field.Grid2Index(
+            grid_index[select_sim] = density_field.gt_box.Pos2Index(
                 df_inh[col_x], df_inh[col_y], df_inh[col_z], z_fix=z_fix
             )
             # Put grid indices into the pool

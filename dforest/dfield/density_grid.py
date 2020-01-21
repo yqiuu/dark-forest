@@ -14,7 +14,7 @@ def Index2Grid(inds, n_grid):
     return grid_x, grid_y, grid_z
 
 
-class DensityField:
+class GridTool:
     @property
     def n_grid(self):
         """
@@ -48,7 +48,7 @@ class DensityField:
         return Index2Grid(inds, self.n_grid)
 
 
-    def Grid2Index(self, xx, yy, zz, z_fix=0.):
+    def Pos2Index(self, xx, yy, zz, z_fix=0.):
         """
         Convert 3-D coordinates to 1-D grid indices.
 
@@ -99,10 +99,10 @@ class DensityField:
         grid_size = self.box_size/n_grid
         n_sample = len(inds)
         grid_x, grid_y, grid_z = self.Index2Grid(inds)
-        xx = (rstate.rand(n_sample) + grid_x.astype('i4'))*grid_size
-        yy = (rstate.rand(n_sample) + grid_y.astype('i4'))*grid_size
-        zz = (rstate.rand(n_sample) + grid_z.astype('i4'))*grid_size
-        return xx, yy, zz
+        x = (rstate.rand(n_sample) + grid_x)*grid_size
+        y = (rstate.rand(n_sample) + grid_y)*grid_size
+        z = (rstate.rand(n_sample) + grid_z)*grid_size
+        return x, y, z
 
 
     def SampleFromField(self, den, n_sample, rstate=None):
@@ -135,28 +135,12 @@ class DensityField:
         return x, y, z, inds
 
 
-    def BoundaryCondition(self, a, z_fix=0.):
-        box_size = self.box_size/(1. + z_fix)
-        res = np.copy(a)
-        res[res >= box_size] -= box_size
-        res[res < 0.] += box_size
-        return res
-
-
-    def Move(self, x, y, z, dx, dy, dz):
-        x = self.BoundaryCondition(x + dx)
-        y = self.BoundaryCondition(y + dy)
-        z = self.BoundaryCondition(z + dz)
-        inds = self.Grid2Index(x, y, z)
-        return x, y, z, inds
-
-
     def __init__(self, n_grid, box_size):
         self._n_grid = n_grid
         self._box_size = box_size
 
 
-class HaloDensityField(DensityField, ABC):
+class DensityField(ABC):
     @abstractmethod
     def ReadDensityField(self, snap):
         """
@@ -179,10 +163,26 @@ class HaloDensityField(DensityField, ABC):
         return np.array([0.])
 
 
+    def BoundaryCondition(self, a, z_fix=0.):
+        box_size = self.gt_box.box_size/(1. + z_fix)
+        res = np.copy(a)
+        res[res >= box_size] -= box_size
+        res[res < 0.] += box_size
+        return res
+
+
+    def Move(self, x, y, z, dx, dy, dz):
+        x = self.BoundaryCondition(x + dx)
+        y = self.BoundaryCondition(y + dy)
+        z = self.BoundaryCondition(z + dz)
+        inds = self.gt_box.Pos2Index(x, y, z)
+        return x, y, z, inds
+
+
     def PopulateHalos(self, m_halo, bins, snap, rstate):
         emf = self.emf
         z = self.redshifts[snap]
-        v_cell = (self.box_size/self.n_grid*emf.cosmo.h)**3
+        v_cell = (self.gt_box.box_size/self.gt_box.n_grid*emf.cosmo.h)**3
         delta_dm = self.ReadDensityField(snap)
 
         n_halo = len(m_halo)
@@ -197,7 +197,7 @@ class HaloDensityField(DensityField, ABC):
             den_halo = emf.HaloDensity(delta_dm, v_cell, m_median, z)
             den_halo /= np.sum(den_halo)
             x_h[cond], y_h[cond], z_h[cond], inds[cond] = \
-                self.SampleFromField(den_halo, len(sample_sub), rstate)
+                self.gt_box.SampleFromField(den_halo, len(sample_sub), rstate)
         return x_h, y_h, z_h, inds
 
 
@@ -231,7 +231,7 @@ class HaloDensityField(DensityField, ABC):
 
 
     def __init__(self, emf, redshifts, ages, n_grid, box_size):
-        super().__init__(n_grid, box_size)
+        self.gt_box = GridTool(n_grid, box_size)
         self.emf = emf
         self.redshifts = redshifts
         self.ages = ages
