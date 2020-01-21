@@ -5,14 +5,13 @@ from scipy.interpolate import InterpolatedUnivariateSpline as spl
 from hmf.growth_factor import GrowthFactor
 
 
-def _Index2Grid(inds, n_grid):
-    z = inds%n_grid
-    inds //= n_grid
-    y = inds%n_grid
-    inds //= n_grid
-    x = inds%n_grid
-    return x, y, z
-_Index2Grid = np.frompyfunc(_Index2Grid, 2, 3)
+def Index2Grid(inds, n_grid):
+    grid_z = inds%n_grid
+    inds = inds//n_grid
+    grid_y = inds%n_grid
+    inds = inds//n_grid
+    grid_x = inds%n_grid
+    return grid_x, grid_y, grid_z
 
 
 class DensityField:
@@ -46,7 +45,7 @@ class DensityField:
         x, y, z : 1-D array
             3-D grid indices.
         """
-        return _Index2Grid(inds, self.n_grid)
+        return Index2Grid(inds, self.n_grid)
 
 
     def Grid2Index(self, xx, yy, zz, z_fix=0.):
