@@ -14,6 +14,14 @@ def Index2Grid(inds, n_grid):
     return grid_x, grid_y, grid_z
 
 
+def Pos2Index(x, y, z, n_grid, box_size):
+    bins = np.linspace(0, box_size, n_grid + 1)
+    grid_x = np.digitize(x, bins) - 1
+    grid_y = np.digitize(y, bins) - 1
+    grid_z = np.digitize(z, bins) - 1
+    return (grid_x*n_grid + grid_y)*n_grid + grid_z
+
+
 class GridTool:
     @property
     def n_grid(self):
@@ -65,12 +73,7 @@ class GridTool:
         1-D array
             1-D grid indices.
         """
-        n_grid = self.n_grid
-        bins = np.linspace(0, self.box_size/(1. + z_fix), n_grid + 1)
-        xx = np.digitize(xx, bins) - 1
-        yy = np.digitize(yy, bins) - 1
-        zz = np.digitize(zz, bins) - 1
-        return (xx*n_grid + yy)*n_grid + zz
+        return Pos2Index(xx, yy, zz, self.n_grid, self.box_size/(1. + z_fix))
 
 
     def SampleFromIndex(self, inds):
