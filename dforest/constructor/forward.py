@@ -295,7 +295,7 @@ class ForwardConstructor(Constructor):
             inherit=False,
             forward=False,
             postfix=None,
-            desc_tqdm='Adding forward pointers',
+            message='Adding forward pointers',
             kwargs_tqdm=kwargs_tqdm
         )
         self.kwargs_tqdm = kwargs_tqdm

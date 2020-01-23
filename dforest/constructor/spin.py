@@ -122,7 +122,7 @@ class SpinConstructor(Constructor):
             inherit=True,
             forward=True,
             postfix=postfix,
-            desc_tqdm='Adding spin parameters',
+            message='Adding spin parameters',
             kwargs_tqdm=kwargs_tqdm
         )
         self.pool = {}

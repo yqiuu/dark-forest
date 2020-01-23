@@ -67,7 +67,7 @@ class VirialConstructor(Constructor):
             inherit=False,
             forward=True,
             postfix=postfix,
-            desc_tqdm='Adding virial properties',
+            message='Adding virial properties',
             kwargs_tqdm=kwargs_tqdm
         )
         self.col_m_vir = cols['m_vir']

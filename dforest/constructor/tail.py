@@ -63,7 +63,7 @@ class TailConstructor(Constructor):
             inherit=False,
             forward=True,
             postfix=postfix,
-            desc_tqdm='Adding primary progenitor pointers',
+            message='Adding primary progenitor pointers',
             kwargs_tqdm=kwargs_tqdm
         )
         self.col_tail = cols['tail']

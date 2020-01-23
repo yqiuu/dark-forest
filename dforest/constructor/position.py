@@ -93,7 +93,7 @@ class PositionConstructor(Constructor):
             inherit=True,
             forward=False,
             postfix=postfix,
-            desc_tqdm='Constructing coordinates',
+            message='Constructing coordinates',
             kwargs_tqdm=kwargs_tqdm
         )
         self.col_x = cols['x']

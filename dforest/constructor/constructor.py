@@ -1,6 +1,7 @@
 import os
 from abc import ABC, abstractmethod 
 
+from ..logger import logger
 from ..connector import ColumnLookup
 
 import numpy as np
@@ -30,10 +31,10 @@ class Constructor(ABC):
         snap_max = self.snap_max
         snap_min = self.snap_min
         forward = self.forward
-        desc_tqdm = self.desc_tqdm
+        message = self.message
         kwargs_tqdm = self.kwargs_tqdm
         #
-        kwargs_tqdm.update(desc=desc_tqdm)
+        kwargs_tqdm.update(desc=message)
         if self.forward:
             return trange(snap_min, snap_max + 1, **kwargs_tqdm)
         else:
@@ -159,7 +160,9 @@ class Constructor(ABC):
         read_prog = self.read_prog
         #
         redshifts = cntr_source.redshifts
-        for snap in self._SnapRange():
+        n_snap = self.snap_max - self.snap_min + 1
+        for i_snap, snap in enumerate(self._SnapRange()):
+            logger.info(f"{self.message}: {i_snap+1:5d}/{n_snap}")
             z = redshifts[snap]
             df_req = self._PrepareReqData(snap)
             df_inh = self._PrepareInhData(snap)
@@ -167,11 +170,12 @@ class Constructor(ABC):
             list_prog = self._PrepareProgData(snap)
             df_new = self._AddProperty(df_inh, df_req, list_prog, snap, z)
             self._SaveOutput(df_new, snap)
+            logger.info("-------------------------------------------------")
 
 
     def __init__(self,
         cntr_target, cntr_source, col_inh, col_req, snap_max, snap_min,
-        read_prog, inherit, forward, postfix, desc_tqdm, kwargs_tqdm
+        read_prog, inherit, forward, postfix, message, kwargs_tqdm
     ):  
         self.cntr_target = cntr_target
         self.cntr_source = cntr_source
@@ -183,7 +187,7 @@ class Constructor(ABC):
         self.inherit = inherit
         self.forward = forward
         self.postfix = postfix
-        self.desc_tqdm = desc_tqdm
+        self.message = message
         self.kwargs_tqdm = kwargs_tqdm
         self._CreateColumnName(col_req, snap_min)
 
