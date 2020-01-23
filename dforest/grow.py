@@ -1,6 +1,6 @@
 from .halotree import *
 from .dforest import SaveHeader
-from .logger import CreateLogger
+from .logger import logger
 
 import os
 
@@ -10,7 +10,6 @@ import pandas as pd
 from tables import NoSuchNodeError
 from astropy import units
 
-logger = CreateLogger(__name__)
 
 class DarkSeed:
     def __init__(self, hmf, redshifts, box_size, z_grid=None):

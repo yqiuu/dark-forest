@@ -1,12 +1,9 @@
-from ..logger import CreateLogger
+from ..logger import logger
 from .constructor import Constructor
 
 import numpy as np
 import pandas as pd
 from scipy.stats import gaussian_kde
-
-
-logger = CreateLogger(__name__)
 
 
 class KernelSpinSampler:

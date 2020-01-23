@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 
 from ..utils import Range
 from ..core import EnhancedMassFunction
-from ..logger import CreateLogger
+from ..logger import logger
 from ..halotree import *
 
 from tqdm import tqdm
@@ -20,9 +20,6 @@ __all__ = [
     'ColumnLookup',
     'RemoveKey'
 ]
-
-
-logger = CreateLogger(__name__)
 
 
 class Connector(ABC):

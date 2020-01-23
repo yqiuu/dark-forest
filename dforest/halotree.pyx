@@ -3,15 +3,12 @@ from libc.math cimport sqrt
 
 import struct as binary
 
-from .logger import CreateLogger
+from .logger import logger
 
 import numpy as np
 import h5py
 from scipy.interpolate import InterpolatedUnivariateSpline as spl
 from hmf.growth_factor import GrowthFactor
-
-
-logger = CreateLogger(__name__)
 
 
 cdef extern from "<gsl/gsl_rng.h>":
