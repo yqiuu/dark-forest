@@ -27,18 +27,12 @@ class Constructor(ABC):
 
 
     def _SnapRange(self):
-        # Load local variables
-        snap_max = self.snap_max
-        snap_min = self.snap_min
-        forward = self.forward
-        message = self.message
         kwargs_tqdm = self.kwargs_tqdm
-        #
-        kwargs_tqdm.update(desc=message)
+        kwargs_tqdm.update(desc=self.message)
         if self.forward:
-            return trange(snap_min, snap_max + 1, **kwargs_tqdm)
+            return trange(self.snap_min, self.snap_max + 1, **kwargs_tqdm)
         else:
-            return trange(snap_max, snap_min - 1, -1, **kwargs_tqdm)
+            return trange(self.snap_max, self.snap_min - 1, -1, **kwargs_tqdm)
 
 
     def _PrepareProgData(self, snap):
