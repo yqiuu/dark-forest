@@ -92,18 +92,17 @@ class EnhancedMassFunction(MassFunction):
             nu2=nu2, z=z, delta_halo=delta_halo, omegam_z=cosmo.Om(z),
             delta_c=delta_c, n_eff=n_eff, **hmf_params
         ).fsigma
-        return fsigma*mean_density0*alpha_halo/(m_halo*m_halo)*sigma_halo*sigma_halo/diff_sigma2
+        return mean_density0*alpha_halo/(m_halo*m_halo)*sigma_halo*sigma_halo/diff_sigma2*fsigma
 
 
     def HaloDensity(self, delta, v_cell, m_halo, z):
         mean_density0 = self.mean_density0
         m_max = 10**(self.Mmax + 1)
-
-        delta_lin = -1.35*(1 + delta)**(-2./3.) + .78785*(1 + delta)**-0.58661 \
-            - 1.12431*(1 + delta)**-.5 + 1.68647
-        m_cell = (1 + delta)*mean_density0*v_cell
+        ratio = 1 + delta
+        delta_lin = -1.35*ratio**(-2./3.) + .78785*ratio**-0.58661 - 1.12431*ratio**-.5 + 1.68647
+        m_cell = mean_density0*v_cell*ratio
         den_halo = self.ConditionalMassFunction(delta_lin, m_cell, m_halo, z) \
-            / self.ConditionalMassFunction(0., m_max, m_halo, z) * (1 + delta)
+            / self.ConditionalMassFunction(0., m_max, m_halo, z) * ratio
         return den_halo
 
 
