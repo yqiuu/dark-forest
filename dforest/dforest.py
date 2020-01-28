@@ -30,8 +30,8 @@ def SaveSnapshot(hf, cntr, prog_data, mass_key, cols, snap):
                 hf.create_carray(group_prog, c, obj=df_prog[c].values)
         # Save host data
         group_host = hf.create_group('/Snapshot_%03d'%snap, 'Host', createparents=True)
-        select_host = cntr['HostHaloID'] == cntr.HostID()
-        id_ = cntr['ID'][select_host]
+        select_host = cntr[snap, 'HostHaloID'] == cntr.HostID()
+        id_ = cntr[snap, 'ID'][select_host]
         df_host = pd.DataFrame(id_, index=id_, columns=['ID'])
         df_host['ProgIndex'] = np.full(len(id_), -1, dtype='i8')
         df_host['ProgNumber'] = np.zeros(len(id_), dtype='i8')
@@ -41,9 +41,9 @@ def SaveSnapshot(hf, cntr, prog_data, mass_key, cols, snap):
         hf.create_carray(group_host, 'ProgIndex', obj=df_host['ProgIndex'].values)
         hf.create_carray(group_host, 'ProgNumber', obj=df_host['ProgNumber'].values)
         for k in mass_key:
-            hf.create_carray(group_host, k, obj=cntr[k][select_host]*mass_conversion)
+            hf.create_carray(group_host, k, obj=cntr[snap, k][select_host]*mass_conversion)
         for c in cols:
-            hf.create_carray(group_host, c, obj=cntr[c][select_host])
+            hf.create_carray(group_host, c, obj=cntr[snap, c][select_host])
 
 
 def SaveHeader(hf, cntr):
