@@ -2,7 +2,6 @@ import os
 from abc import ABC, abstractmethod 
 
 from ..logger import logger
-from ..connector import ColumnLookup
 
 import numpy as np
 import pandas as pd
@@ -184,41 +183,3 @@ class Constructor(ABC):
         self.message = message
         self.kwargs_tqdm = kwargs_tqdm
         self._CreateColumnName(col_req, snap_min)
-
-
-class QuickConstructor(Constructor):
-    def _AddProperty(self, df_inh, df_req):
-        df_req = df_req[df_req.index < 0]
-        df_quick = pd.DataFrame(
-            self.transform(df_req.values), index = df_req.index, columns = df_inh.columns
-        )
-        df_quick = df_inh.append(df_quick)
-        return df_quick
-
-
-    def Run(self, snap):
-        # Load local variables
-        handler = self.handler
-        hc_path = self.hc_path
-        hc_prefix = self.hc_prefix
-        col_req = self.col_req
-        #
-        with pd.HDFStore(os.path.join(hc_path, '%s_%03d.hdf5'%(hc_prefix, snap))) as store:
-            try:
-                self.column_lookup
-            except AttributeError:
-                 self.column_lookup = ColumnLookup(store, col_req)
-            df_req = self._PrepareReqData(store)
-            df_inh = self._PrepareInhData(store, df_req.index[df_req.index >= 0])
-            df_new = self._AddProperty(df_inh, df_req)
-        return df_new
-
-
-    def __init__(self, handler, hc_path, hc_prefix, col_inh, col_req, transform):
-        self.handler = handler
-        self.hc_path = hc_path
-        self.hc_prefix = hc_prefix
-        self.col_inh = [col_inh]
-        self.col_req = [col_req]
-        self.transform = transform
-        self.inherit = True
