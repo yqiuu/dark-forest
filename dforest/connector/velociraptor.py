@@ -1,4 +1,5 @@
 import os
+import gc
 
 from ..logger import logger
 from .connector import Connector
@@ -202,6 +203,7 @@ class VELOCIraptorSaver:
             arr = arr.astype(self.data_type[c_target])
             self._Report(f"Saving {c_target}")
             hf_out.create_carray(grp, c_target, obj=arr)
+            gc.collect()
         return len(arr)
 
 
