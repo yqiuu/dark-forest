@@ -1,8 +1,11 @@
-from ..halotree import *
+import os
+
+from ..logger import logger
 from .connector import Connector
 
 import numpy as np
 import pandas as pd
+import psutil
 import h5py
 import tables
 from tqdm import trange
@@ -178,6 +181,11 @@ class VELOCIraptorConnector(Connector):
 
 
 class VELOCIraptorSaver:
+    def _Report(self, message):
+        mem = psutil.Process(os.getpid()).memory_info()[0]/1024**3
+        logger.info(f"{message} ({mem:.2f} GB)")
+
+
     def _SaveHeader(self, hf_out, hf_src, n_snap):
         header = hf_out.create_group('/', 'Header')
         hf_out.set_node_attr(header, 'NSnaps', n_snap)
@@ -191,7 +199,9 @@ class VELOCIraptorSaver:
         for args in list_args:
             c_target = args['c_target']
             arr = np.ravel(self.cntr_ext.Gather(self.cntr_src, snap, **args))
-            hf_out.create_carray(grp, c_target, obj=arr.astype(self.data_type[c_target]))
+            arr = arr.astype(self.data_type[c_target])
+            self._Report(f"Saving {c_target}")
+            hf_out.create_carray(grp, c_target, obj=arr)
         return len(arr)
 
 
@@ -201,6 +211,7 @@ class VELOCIraptorSaver:
         data = self.cntr_ext.Gather(self.cntr_src, snap, 'ID')
         data['LeafType'] = 0
         data.loc[leaf_type['Index'], 'LeafType'] = leaf_type['LeafType']
+        self._Report("Saving reversed properties")
         hf_out.create_carray(grp, 'Index', obj=data.index.values.astype('i8'))
         hf_out.create_carray(grp, 'LeafType', obj=data['LeafType'].values.astype('i4'))
         # Save attributes
@@ -235,10 +246,9 @@ class VELOCIraptorSaver:
         self.args_norm = self._SetArgs(items_norm, False)
         self.snap_max = snap_max
         self.snap_min = snap_min
+        kwargs_tqdm.update(desc="Save properties")
         self.kwargs_tqdm = kwargs_tqdm
-        #
-        data_type = cntr_src.data_type
-        self.data_type = data_type
+        self.data_type = cntr_src.data_type
 
 
     def Run(self):
@@ -246,6 +256,7 @@ class VELOCIraptorSaver:
         with tables.File(self.save_name, 'w') as hf_out:
             self._SaveHeader(hf_out, self.cntr_src.hf, self.snap_max - self.snap_min + 1)
             for snap in trange(self.snap_min, self.snap_max + 1, **self.kwargs_tqdm):
+                logger.info(f"Processing snapshot {snap}")
                 grp = hf_out.create_group('/', 'Snap_%03d'%snap)
                 # Save Reversed properties
                 self._SaveReversed(hf_out, grp, snap, scale_factors[snap])
@@ -253,3 +264,4 @@ class VELOCIraptorSaver:
                 self._SaveColumns(hf_out, grp, snap, self.args_mass)
                 # Save other halo properties
                 self._SaveColumns(hf_out, grp, snap, self.args_norm)
+                logger.info("--------------------------------------------------")
