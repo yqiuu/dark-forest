@@ -144,7 +144,7 @@ def ReadDarkForest(
                 tree.Append(z_root, m_root)
                 tree_arr[i_tree] = tree
                 pool[snap_max].append((i_tree, 0, halo_id))
-        prog_data = cntr.Read('Prog', ['Index', 'Snap', mass_key], 'records')
+        prog_data = cntr.Read(snap, 'Prog', ['Index', 'Snap', mass_key], 'records')
         # Trace progenitors
         current_pool = np.asarray(pool[snap])
         if len(current_pool) == 0:
