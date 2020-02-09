@@ -309,7 +309,6 @@ def Augment(
     n_trail_match = params_ag['n_trail_match']
     n_max_trail = params_ag['n_max_trail']
     # Initialise loop variables
-
     m_cut = m_min_cut
     next_level = 1
     initial_fit = -1.
@@ -337,7 +336,7 @@ def Augment(
             prog = prog[prog[mass_key] >= m_cut]
             host['ProgNumber'] = len(prog)
             m_prog = prog[mass_key]
-        elif n_match == n_trail_match:
+        if n_match == n_trail_match:
             n_match = 0
             eps_match *= (1 + eps_match_0)
             if best_fit != initial_fit:
