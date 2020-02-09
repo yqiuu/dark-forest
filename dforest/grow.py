@@ -313,12 +313,12 @@ def Augment(
     next_level = 1
     initial_fit = -1.
     best_fit = initial_fit
-
     n_cut = 0
     n_match = 0
     n_trail = 0
     # Sort progenitors by mass
     prog[::-1].sort(order = mass_key)
+    prog_0 = prog.copy()
     m_prog = prog[mass_key]
     #
     while True:
@@ -344,6 +344,7 @@ def Augment(
         # Create a new realisation of a simple branch
         if n_trail == n_max_trail:
             m_prog_new = np.array([], dtype = 'f8')
+            prog = prog_0[prog_0[mass_key] >= m_min_cut]
             break
         if use_best:
             m_prog_trail = m_best
