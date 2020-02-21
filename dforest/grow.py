@@ -344,6 +344,7 @@ def Augment(
         if n_trail == n_max_trail:
             m_prog_new = np.array([], dtype='f8')
             prog = prog_0[prog_0[mass_key] >= m_min_cut]
+            host['ProgNumber'] = len(prog)
             break
         # Create a new realisation of a simple branch
         if use_best:
