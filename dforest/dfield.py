@@ -1,3 +1,5 @@
+from .logger import logger
+
 from abc import ABC, abstractmethod
 
 import numpy as np
@@ -204,14 +206,10 @@ class DensityField(ABC):
         m2: array [h^-1 M_solar]
             Mass of the descendant halos.
         """
+        logger.info("Moving halos at snapshot %d"%snap1)
         snap2 = snap1 + 1
         z1 = self.redshifts[snap1]
         z2 = self.redshifts[snap2]
-        t1 = self.ages[snap1]
-        t2 = self.ages[snap2]
-        D1 = self.D[snap1]
-        D2 = self.D[snap2]
-        dDdt = self.dDdt[snap2]
 
         emf = self.emf
         emf.update(z=z1)
@@ -219,16 +217,32 @@ class DensityField(ABC):
         emf.update(z=z2)
         b2 = spl(emf.m, emf.bias)(m2)
 
-        factor = (b1*D1 - b2*D2)/dDdt*(1 + z2)
-        vx, vy, vz = self.ReadVelocityField(snap2)
-        return self.Move(x_h, y_h, z_h, vx[inds]*factor, vy[inds]*factor, vz[inds]*factor)
+        vx2, vy2, vz2 = self.ReadVelocityField(snap2)
+        vx1, vy1, vz1 = self.ReadVelocityField(snap1)
+
+        dx = b1*vx1[inds] - b2*vx2[inds]
+        dy = b1*vy1[inds] - b2*vy2[inds]
+        dz = b1*vz1[inds] - b2*vz2[inds]
+
+        dr = np.sqrt(dx*dx + dy*dy + dz*dz)
+        cond = dr > self.r_max
+        norm = self.r_max/dr[cond]
+        dx[cond] *= norm
+        dy[cond] *= norm
+        dz[cond] *= norm
+
+        dr_16, dr_50, dr_84 = np.percentile(dr, [16, 50, 84])
+        logger.info(f"dr = {dr_50:.2f}/+{dr_84-dr_50:.2f}/-{dr_50-dr_16:.2f}")
+
+        return self.Move(x_h, y_h, z_h, dx, dy, dz)
 
 
-    def __init__(self, emf, redshifts, ages, n_grid, box_size, rstate=None):
+    def __init__(self, emf, redshifts, ages, n_grid, box_size, r_max=3., rstate=None):
         self.gt_box = GridTool(n_grid, box_size, rstate)
         self.emf = emf
         self.redshifts = redshifts
         self.ages = ages
+        self.r_max = 3
         # Compute growth factor
         gf = GrowthFactor(emf.cosmo)
         self.D = [gf.growth_factor(z) for z in redshifts]
