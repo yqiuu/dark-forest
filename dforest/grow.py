@@ -474,7 +474,7 @@ def GrowHalos(
     rstate = CreateRandomState(seed, comm)
     if isinstance(cntr, DarkSeed):
         params_ag = {
-            'm_min_cut': 0., 'm_max_cut': 0., 'eps_cut': 0., 'n_trail_cut': 0,
+            'm_min_cut': 0., 'm_max_cut': np.inf, 'eps_cut': 0., 'n_trail_cut': 0,
             'eps_match':0, 'n_trail_match': 0, 'n_max_trail': 1
         }
     elif params_ag is None:
