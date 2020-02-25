@@ -1,5 +1,6 @@
 import os
 from abc import ABC, abstractmethod
+from copy import deepcopy
 
 from ..core import EnhancedMassFunction
 from ..logger import logger
@@ -121,14 +122,31 @@ class Connector(ABC):
             return np.array(self._ages)
 
 
+    def update_emf_params(self, z_grid=None, **kwargs):
+        self._z_grid = z_grid
+        try:
+            params = self._params
+        except AttributeError:
+            params = {
+                'Mmin': 5,
+                'dlog10m': 0.05,
+                'cosmo_params': self.cosmo_params,
+                'sigma_8': self.sigma_8,
+                'n': self.n_spectral
+            }
+            self._params = params
+        params.update(**kwargs)
+
+
+    def create_emf(self):
+        self.update_emf_params()
+        return EnhancedMassFunction(**self._params)
+
+
     def HaloKit(self, z_grid=None, **kwargs):
-        params = {'Mmin':5, 'dlog10m':0.05}
-        params.update(kwargs)
-        params['cosmo_params'] = self.cosmo_params
-        params['sigma_8'] = self.sigma_8
-        params['n'] = self.n_spectral
-        hmf = EnhancedMassFunction(**params)
-        return HaloKit(hmf, z_grid=z_grid), hmf
+        self.update_emf_params(z_grid, **kwargs)
+        emf = create_emf()
+        return HaloKit(emf, z_grid=z_grid), emf
 
 
     @abstractmethod
@@ -149,3 +167,14 @@ class Connector(ABC):
     @abstractmethod
     def __init__(self, fp):
         pass
+
+
+    def _init_emf(self):
+        self._emf = EnhancedMassFunction(
+            Mmin=5,
+            dlog10m=0.05,
+            cosmo_params=self.cosmo_params,
+            sigma_8=self.sigma_8,
+            n=self.n_spectral
+        )
+        return self._emf
