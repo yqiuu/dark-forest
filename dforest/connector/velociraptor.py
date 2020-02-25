@@ -20,6 +20,32 @@ __all__ = [
 
 
 class VELOCIraptorConnector(Connector):
+    def __init__(self, fname):
+        self.fname = fname
+
+
+    def __enter__(self):
+        self.fp = h5py.File(self.fname, "r")
+        self.hf = tables.File(self.fname, "r")
+        return self
+
+
+    def __exit__(self, *args):
+        self.fp.close()
+        self.hf.close()
+
+
+    def __getitem__(self, key):
+        snap, column = key
+        dataset = self.fp.get('Snap_%03d'%snap)
+        if column == 'DescendantSnap':
+            return np.asarray(dataset['Descendant'])//10**12
+        elif column == 'HostHaloID':
+            return np.asarray(dataset['hostHaloID'])
+        else:
+            return np.asarray(dataset[column])
+
+
     @property
     def little_h(self):
         try:
@@ -156,32 +182,39 @@ class VELOCIraptorConnector(Connector):
         return snap*10**12 + inds + 1
 
 
-    def __getitem__(self, key):
-        snap, column = key
-        dataset = self.fp.get('Snap_%03d'%snap)
-        if column == 'DescendantSnap':
-            return np.asarray(dataset['Descendant'])//10**12
-        elif column == 'HostHaloID':
-            return np.asarray(dataset['hostHaloID'])
-        else:
-            return np.asarray(dataset[column])
-
-
-    def __enter__(self):
-        self.fp = h5py.File(self.fname, "r")
-        self.hf = tables.File(self.fname, "r")
-        return self
-
-
-    def __exit__(self, *args):
-        self.fp.close()
-        self.hf.close()
-
-    def __init__(self, fname):
-        self.fname = fname
-
-
 class VELOCIraptorSaver:
+    def __init__(self,
+        cntr_ext, cntr_src, save_name, items_mass, items_norm,
+        snap_max, snap_min=0, kwargs_tqdm={}
+    ):
+        self.cntr_ext = cntr_ext
+        self.cntr_src = cntr_src
+        self.save_name = save_name
+        self.args_mass = self._SetArgs(items_mass, True)
+        self.args_norm = self._SetArgs(items_norm, False)
+        self.snap_max = snap_max
+        self.snap_min = snap_min
+        kwargs_tqdm.update(desc="Save properties")
+        self.kwargs_tqdm = kwargs_tqdm
+        self.data_type = cntr_src.data_type
+
+
+    def Run(self):
+        scale_factors = 1./(1. + self.cntr_ext.redshifts)
+        with tables.File(self.save_name, 'w') as hf_out:
+            self._SaveHeader(hf_out, self.cntr_src.hf, self.snap_max - self.snap_min + 1)
+            for snap in trange(self.snap_min, self.snap_max + 1, **self.kwargs_tqdm):
+                logger.info(f"Processing snapshot {snap}")
+                grp = hf_out.create_group('/', 'Snap_%03d'%snap)
+                # Save Reversed properties
+                self._SaveReversed(hf_out, grp, snap, scale_factors[snap])
+                # Save halo masses
+                self._SaveColumns(hf_out, grp, snap, self.args_mass)
+                # Save other halo properties
+                self._SaveColumns(hf_out, grp, snap, self.args_norm)
+                logger.info("--------------------------------------------------")
+
+
     def _Report(self, message):
         mem = psutil.Process(os.getpid()).memory_info()[0]/1024**3
         logger.info(f"{message} ({mem:.2f} GB)")
@@ -235,35 +268,3 @@ class VELOCIraptorSaver:
             args['is_mass'] = is_mass
             list_args[i_it] = args
         return list_args
-
-
-    def __init__(self,
-        cntr_ext, cntr_src, save_name, items_mass, items_norm,
-        snap_max, snap_min=0, kwargs_tqdm={}
-    ):
-        self.cntr_ext = cntr_ext
-        self.cntr_src = cntr_src
-        self.save_name = save_name
-        self.args_mass = self._SetArgs(items_mass, True)
-        self.args_norm = self._SetArgs(items_norm, False)
-        self.snap_max = snap_max
-        self.snap_min = snap_min
-        kwargs_tqdm.update(desc="Save properties")
-        self.kwargs_tqdm = kwargs_tqdm
-        self.data_type = cntr_src.data_type
-
-
-    def Run(self):
-        scale_factors = 1./(1. + self.cntr_ext.redshifts)
-        with tables.File(self.save_name, 'w') as hf_out:
-            self._SaveHeader(hf_out, self.cntr_src.hf, self.snap_max - self.snap_min + 1)
-            for snap in trange(self.snap_min, self.snap_max + 1, **self.kwargs_tqdm):
-                logger.info(f"Processing snapshot {snap}")
-                grp = hf_out.create_group('/', 'Snap_%03d'%snap)
-                # Save Reversed properties
-                self._SaveReversed(hf_out, grp, snap, scale_factors[snap])
-                # Save halo masses
-                self._SaveColumns(hf_out, grp, snap, self.args_mass)
-                # Save other halo properties
-                self._SaveColumns(hf_out, grp, snap, self.args_norm)
-                logger.info("--------------------------------------------------")

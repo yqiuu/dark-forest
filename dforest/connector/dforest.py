@@ -14,6 +14,57 @@ __all__ = ['DarkForestConnector']
 
 
 class DarkForestConnector(Connector):
+    def __init__(self, fname, prefix=None, write=False, filters=None):
+        self.prefix = prefix
+        if prefix is None:
+            self.file_names = [fname]
+            self.targets = [fname]
+            self.i_part = 0
+            self.write = write
+            self.filters = filters
+        else:
+            file_names = []
+            for f in os.listdir(fname):
+                if f.startswith(prefix):
+                    file_names.append(os.path.join(fname, f))
+            file_names.sort()
+            self.file_names = file_names
+            if write is False:
+                self.targets = list(file_names)
+                self.i_part = 0
+                self.write = False
+                self.filters = None
+            else:
+                self.targets = [file_names[write]]
+                self.i_part = write
+                self.write = True
+                self.filters = filters
+
+
+    def __enter__(self):
+        if self.write:
+            mode = 'r+'
+            filters = self.filters
+        else:
+            mode = 'r'
+            filters = None
+        files = []
+        for f in self.targets:
+            files.append(tables.File(f, mode, filters=filters))
+        self.files = files
+        self.hf = files[0]
+        return self
+
+
+    def __exit__(self, *args):
+        for f in self.files:
+            f.close()
+
+
+    def __getitem__(self, key):
+        pass
+
+
     @property
     def little_h(self):
         try:
@@ -111,30 +162,6 @@ class DarkForestConnector(Connector):
         except AttributeError:
             self._redshifts = self.hf.get_node('/Header', 'Redshift').read()
             return np.array(self._redshifts)
-
-
-    def _SwitchSnapshot(self, snap):
-        groups = []
-        for f in self.files:
-            groups.append(f.get_node('/Snapshot_%03d'%snap))
-        self.groups = groups
-
-
-    def _FindGroup(self, column, snap):
-        self._SwitchSnapshot(snap)
-        for hf, grp in zip(self.files, self.groups):
-            if column in hf.get_node(grp, 'Host'):
-                grp_name = 'Host'
-                break
-            elif column in hf.get_node(grp, 'MainA'):
-                grp_name = 'MainA'
-                break
-            elif column in hf.get_node(grp, 'MainB'):
-                grp_name = 'MainB'
-                break
-            else:
-                raise ValueError(f"Unstored column '{column}'")
-        return grp_name
 
 
     def Read(self, snap, target, cols=None, rtype='dict', index=None):
@@ -253,52 +280,25 @@ class DarkForestConnector(Connector):
                     pass
 
 
-    def __getitem__(self, key):
-        pass
-
-
-    def __enter__(self):
-        if self.write:
-            mode = 'r+'
-            filters = self.filters
-        else:
-            mode = 'r'
-            filters = None
-        files = []
-        for f in self.targets:
-            files.append(tables.File(f, mode, filters=filters))
-        self.files = files
-        self.hf = files[0]
-        return self
-
-
-    def __exit__(self, *args):
+    def _SwitchSnapshot(self, snap):
+        groups = []
         for f in self.files:
-            f.close()
+            groups.append(f.get_node('/Snapshot_%03d'%snap))
+        self.groups = groups
 
 
-    def __init__(self, fname, prefix=None, write=False, filters=None):
-        self.prefix = prefix
-        if prefix is None:
-            self.file_names = [fname]
-            self.targets = [fname]
-            self.i_part = 0
-            self.write = write
-            self.filters = filters
-        else:
-            file_names = []
-            for f in os.listdir(fname):
-                if f.startswith(prefix):
-                    file_names.append(os.path.join(fname, f))
-            file_names.sort()
-            self.file_names = file_names
-            if write is False:
-                self.targets = list(file_names)
-                self.i_part = 0
-                self.write = False
-                self.filters = None
+    def _FindGroup(self, column, snap):
+        self._SwitchSnapshot(snap)
+        for hf, grp in zip(self.files, self.groups):
+            if column in hf.get_node(grp, 'Host'):
+                grp_name = 'Host'
+                break
+            elif column in hf.get_node(grp, 'MainA'):
+                grp_name = 'MainA'
+                break
+            elif column in hf.get_node(grp, 'MainB'):
+                grp_name = 'MainB'
+                break
             else:
-                self.targets = [file_names[write]]
-                self.i_part = write
-                self.write = True
-                self.filters = filters
+                raise ValueError(f"Unstored column '{column}'")
+        return grp_name

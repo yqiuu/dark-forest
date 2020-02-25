@@ -16,6 +16,26 @@ __all__ = ['Connector']
 
 
 class Connector(ABC):
+    @abstractmethod
+    def __init__(self, fp):
+        pass
+
+
+    @abstractmethod
+    def __enter__(self):
+        pass
+
+
+    @abstractmethod
+    def __exit__(self, *args):
+        pass
+
+
+    @abstractmethod
+    def __getitem__(self, key):
+        pass
+
+
     @property
     @abstractmethod
     def little_h(self):
@@ -145,26 +165,6 @@ class Connector(ABC):
 
     def halo_kit(self):
         return HaloKit(self.create_emf(), self._z_grid)
-
-
-    @abstractmethod
-    def __getitem__(self, key):
-        pass
-
-
-    @abstractmethod
-    def __enter__(self):
-        pass
-
-
-    @abstractmethod
-    def __exit__(self, *args):
-        pass
-
-
-    @abstractmethod
-    def __init__(self, fp):
-        pass
 
 
     def _init_emf(self):
