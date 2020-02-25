@@ -29,12 +29,12 @@ def create_output(cntr, fname, filters, comm, master_rank):
                 # Save redshifts
                 hf.create_carray(header, 'Redshift', obj=cntr.redshifts)
                 # Save attributes
-                hmf = cntr.hmf
-                cosmo = hmf.cosmo
+                emf = cntr.emf
+                cosmo = emf.cosmo
                 hf.set_node_attr(header, 'little_h', cosmo.H0.value*0.01)
                 hf.set_node_attr(header, 'omega_m', cosmo.Om0)
-                hf.set_node_attr(header, 'sigma_8', hmf.sigma_8)
-                hf.set_node_attr(header, 'n_spectral', hmf.n)
+                hf.set_node_attr(header, 'sigma_8', emf.sigma_8)
+                hf.set_node_attr(header, 'n_spectral', emf.n)
                 hf.set_node_attr(header, 'box_size', cntr.box_size)
                 hf.set_node_attr(header, 'mass_unit_to_solarmass', 1e-10)
                 hf.set_node_attr(header, 'length_unit_to_kpc', 1.)
@@ -459,10 +459,11 @@ def augment_chunk(
 
 
 def grow_halos(
-    cntr, fname, mass_key, halo_kit, grow_kit, snap_max, snap_min=0, params_ag=None,
+    cntr, fname, mass_key, grow_kit, snap_max, snap_min=0, params_ag=None,
     root_halos=None, inds_sub=None, seed=20070831, n_base=5000, filters=None,
     comm=None, master_rank=0
 ):
+    halo_kit = cntr.halo_kit()
     redshifts = cntr.redshifts
     ages = cntr.ages
     rstate = create_random_state(seed, comm)
@@ -545,14 +546,16 @@ def create_partitions(cntr, mass_key, snap, n_par, by_forest_id=True):
 
 
 class DarkSeed:
-    def __init__(self, hmf, redshifts, box_size, z_grid=None):
-        self.hmf = hmf
-        self.halo_kit = HaloKit(hmf, z_grid=z_grid)
+    def __init__(self, emf, redshifts, box_size, z_grid=None):
+        self.emf = emf
+        self.z_grid = z_grid
         self.redshifts = redshifts
-        self.ages = hmf.cosmo.age(redshifts).to(units.megayear).value
+        self.ages = emf.cosmo.age(redshifts).to(units.megayear).value
         self.box_size = box_size
 
 
+    def halo_kit(self):
+        return HaloKit(self.emf, z_grid=self.z_grid)
 # Footnotes
 # [1] IDs and leaf types will be overwritten when saving the data depending
 #     on the given saving mode.

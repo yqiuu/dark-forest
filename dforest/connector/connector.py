@@ -138,15 +138,13 @@ class Connector(ABC):
         params.update(**kwargs)
 
 
-    def create_emf(self):
+    def emf(self):
         self.update_emf_params()
         return EnhancedMassFunction(**self._params)
 
 
-    def HaloKit(self, z_grid=None, **kwargs):
-        self.update_emf_params(z_grid, **kwargs)
-        emf = create_emf()
-        return HaloKit(emf, z_grid=z_grid), emf
+    def halo_kit(self):
+        return HaloKit(self.create_emf(), self._z_grid)
 
 
     @abstractmethod
