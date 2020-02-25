@@ -11,13 +11,7 @@ from tables import NoSuchNodeError
 from astropy import units
 
 
-class DarkSeed:
-    def __init__(self, hmf, redshifts, box_size, z_grid=None):
-        self.hmf = hmf
-        self.halo_kit = HaloKit(hmf, z_grid=z_grid)
-        self.redshifts = redshifts
-        self.ages = hmf.cosmo.age(redshifts).to(units.megayear).value
-        self.box_size = box_size
+__all__ = ['grow_halos', 'create_partitions', 'DarkSeed']
 
 
 def create_random_state(seed, comm):
@@ -548,6 +542,15 @@ def create_partitions(cntr, mass_key, snap, n_par, by_forest_id=True):
         for i_par in range(n_par):
             parts[i_par] = inds_sorted[i_par::n_par]
         return parts
+
+
+class DarkSeed:
+    def __init__(self, hmf, redshifts, box_size, z_grid=None):
+        self.hmf = hmf
+        self.halo_kit = HaloKit(hmf, z_grid=z_grid)
+        self.redshifts = redshifts
+        self.ages = hmf.cosmo.age(redshifts).to(units.megayear).value
+        self.box_size = box_size
 
 
 # Footnotes
