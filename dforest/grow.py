@@ -20,14 +20,14 @@ class DarkSeed:
         self.box_size = box_size
 
 
-def CreateRandomState(seed, comm):
+def create_random_state(seed, comm):
     if comm is None:
         return RandomStateGSL(seed)
     else:
         return RandomStateGSL(seed + comm.Get_rank())
 
 
-def CreateOutput(cntr, fname, filters, comm, master_rank):
+def create_output(cntr, fname, filters, comm, master_rank):
     if comm is None or comm.Get_rank() == master_rank:
         if isinstance(cntr, DarkSeed):
             with tables.File(fname, 'w', filters=filters) as hf:
@@ -51,7 +51,7 @@ def CreateOutput(cntr, fname, filters, comm, master_rank):
                 SaveHeader(hf, cntr)
 
 
-def InitRootHalos(cntr, mass_key, snap_max, root_halos):
+def init_root_halos(cntr, mass_key, snap_max, root_halos):
     dtype_host = [
         ('Index', 'i8'), ('ProgIndex', 'i4'), ('ProgNumber', 'i4'),
         ('LeafType', 'i4'), (mass_key, 'f8')
@@ -61,14 +61,14 @@ def InitRootHalos(cntr, mass_key, snap_max, root_halos):
     else:
         n_new = len(root_halos)
         next_host_data = np.zeros(n_new, dtype=dtype_host)
-        next_host_data['Index'] = NewID(n_new, snap_max, 0) #[1]
+        next_host_data['Index'] = create_new_id(n_new, snap_max, 0) #[1]
         next_host_data['ProgIndex'] = np.full(n_new, -1, dtype='i4')
         next_host_data['LeafType'] = np.full(n_new, 2, dtype='i4')
         next_host_data[mass_key] = root_halos
     return next_host_data
 
 
-def ReadHaloData(cntr, mass_key, snap, snap_max, inds_sub, comm, master_rank):
+def read_data(cntr, mass_key, snap, snap_max, inds_sub, comm, master_rank):
     if comm is None or comm.Get_rank() == master_rank:
         if isinstance(cntr, DarkSeed):
             return None, None
@@ -92,7 +92,7 @@ def ReadHaloData(cntr, mass_key, snap, snap_max, inds_sub, comm, master_rank):
         return None, None
 
 
-def ScatterData(
+def scatter_data(
     host_data_raw, prog_data_raw, next_host_data, pool_data,
     mass_key, m_cut, filters, comm, master_rank
 ):
@@ -182,7 +182,7 @@ def ScatterData(
         return host_chunk, prog_chunk
 
 
-def GatherData(
+def gather_data(
     host_chunk, new_prog_chunk, next_host_chunk, pool_chunk, stats_chunk, comm, master_rank
 ):
     if comm is None:
@@ -221,7 +221,7 @@ def GatherData(
         return None, None, None, None, None
 
 
-def SaveData(
+def save_data(
     cntr, fname, host_data, prog_data, stats_data, snap, snap_min, filters, comm, master_rank
 ):
     if comm is None or comm.Get_rank() == master_rank:
@@ -242,7 +242,7 @@ def SaveData(
                     hf.create_carray(group_last, 'ProgIndex', obj=prog_index)
                     prog_number = np.full(n_prog_data, 0, dtype=host_data.dtype['ProgNumber'])
                     hf.create_carray(group_last, 'ProgNumber', obj=prog_number)
-                    leaf_type = ProgLeafType(host_data, prog_data)
+                    leaf_type = get_leaf_type(host_data, prog_data)
                     hf.create_carray(group_last, 'LeafType', obj=leaf_type)
                     for c in prog_data.dtype.names:
                         if c != 'Snap':
@@ -259,7 +259,7 @@ def SaveData(
                         hf.create_carray(group_host, c, obj=stats_data[c])
 
 
-def ProgLeafType(host_data, prog_data):
+def get_leaf_type(host_data, prog_data):
     cond = host_data['ProgNumber'] > 0
     halo_id = host_data['Index'][cond]
     prog_index = host_data['ProgIndex'][cond]
@@ -276,7 +276,7 @@ def ProgLeafType(host_data, prog_data):
     return leaf_type_prog
 
 
-def NewID(n_halo, snap, offset):
+def create_new_id(n_halo, snap, offset):
     new_id = 1 + snap*10**12 + offset + np.arange(n_halo)
     return -new_id
 
@@ -293,7 +293,7 @@ def InterploateMass(m_prog, s_prog, m_root, t_root, t_target, ages):
         m_prog[ind_primary] = m_intp
 
 
-def Augment(
+def augment_simple_branch(
     host, prog, mass_key, m_root, z_root, z_target,
     halo_kit, grow_kit, params_ag, rstate, n_base
 ):
@@ -381,7 +381,7 @@ def Augment(
     return prog, m_prog_new, m_cut, eps_match, n_trail
 
 
-def AugmentChunk(
+def augment_chunk(
     host_chunk, prog_chunk, pool_list_chunk, mass_key, snap,
     z_root, t_root, z_target, t_target, redshifts, ages,
     halo_kit, grow_kit, m_cut, params_ag, rstate, n_base, comm,
@@ -418,7 +418,7 @@ def AugmentChunk(
             host['ProgNumber'] = len(prog)
         m_prog = np.copy(prog[mass_key])
         InterploateMass(m_prog, prog['Snap'], m_root, t_root, t_target, ages)
-        prog, m_unres, m_cut_fix, eps_match_fix, n_trail = Augment(
+        prog, m_unres, m_cut_fix, eps_match_fix, n_trail = augment_simple_branch(
             host, prog, mass_key, m_root, z_root, z_target,
             halo_kit, grow_kit, params_ag, rstate, n_base
         )
@@ -427,7 +427,7 @@ def AugmentChunk(
         n_unres = len(m_unres)
         if n_unres > 0:
             # Generate new halo IDs
-            new_id = NewID(n_unres, snap - 1, n_new_halo) #[1]
+            new_id = create_new_id(n_unres, snap - 1, n_new_halo) #[1]
             n_new_halo += n_unres
             host['ProgNumber'] += n_unres
             # Process new progenitor data
@@ -464,14 +464,14 @@ def AugmentChunk(
     return new_prog_chunk, next_host_chunk, stats_chunk
 
 
-def GrowHalos(
+def grow_halos(
     cntr, fname, mass_key, halo_kit, grow_kit, snap_max, snap_min=0, params_ag=None,
     root_halos=None, inds_sub=None, seed=20070831, n_base=5000, filters=None,
     comm=None, master_rank=0
 ):
     redshifts = cntr.redshifts
     ages = cntr.ages
-    rstate = CreateRandomState(seed, comm)
+    rstate = create_random_state(seed, comm)
     if isinstance(cntr, DarkSeed):
         params_ag = {
             'm_min_cut': 0., 'm_max_cut': np.inf, 'eps_cut': 0., 'n_trail_cut': 0,
@@ -482,9 +482,9 @@ def GrowHalos(
     #
     m_cut = params_ag['m_min_cut']
     #
-    CreateOutput(cntr, fname, filters, comm, master_rank)
+    create_output(cntr, fname, filters, comm, master_rank)
     # Initialise new halos
-    next_host_data = InitRootHalos(cntr, mass_key, snap_max, root_halos)
+    next_host_data = init_root_halos(cntr, mass_key, snap_max, root_halos)
     #
     pool_data, pool_list_chunk = None, [[] for i in range(snap_max + 1)]
     #
@@ -492,25 +492,25 @@ def GrowHalos(
         if comm is None or comm.Get_rank() == master_rank:
             logger.info("Processing snapshot %d"%snap)
 
-        host_data_raw, prog_data_raw = ReadHaloData(
+        host_data_raw, prog_data_raw = read_data(
             cntr, mass_key, snap, snap_max, inds_sub, comm, master_rank
         )
-        host_chunk, prog_chunk = ScatterData(
+        host_chunk, prog_chunk = scatter_data(
             host_data_raw, prog_data_raw, next_host_data, pool_data,
             mass_key, m_cut, {}, comm, master_rank
         )
         z_root, t_root = redshifts[snap], ages[snap]
         z_target, t_target = redshifts[snap - 1], ages[snap - 1]
-        new_prog_chunk, next_host_chunk, stats_chunk = AugmentChunk(
+        new_prog_chunk, next_host_chunk, stats_chunk = augment_chunk(
             host_chunk, prog_chunk, pool_list_chunk, mass_key, snap,
             z_root, t_root, z_target, t_target, redshifts, ages,
             halo_kit, grow_kit, m_cut, params_ag, rstate, n_base, comm
         )
-        host_data, prog_data, next_host_data, pool_data, stats_data = GatherData(
+        host_data, prog_data, next_host_data, pool_data, stats_data = gather_data(
             host_chunk, new_prog_chunk, next_host_chunk,
             pool_list_chunk[snap - 1], stats_chunk, comm, master_rank
         )
-        SaveData(
+        save_data(
             cntr, fname, host_data, prog_data, stats_data,
             snap, snap_min,filters, comm, master_rank
         )
@@ -519,7 +519,7 @@ def GrowHalos(
             logger.info("Finishing snapshot %d\n"%snap)
 
 
-def CreatePartitions(cntr, mass_key, snap, n_par, by_forest_id=True):
+def create_partitions(cntr, mass_key, snap, n_par, by_forest_id=True):
     if by_forest_id:
         data = cntr.Read(snap, 'Host', cols=[mass_key, 'ForestID'])
         m_halo = data[mass_key]
