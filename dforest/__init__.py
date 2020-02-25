@@ -6,5 +6,3 @@ from .connector import *
 from .constructor import *
 from .dfield import *
 from .grow import *
-
-#from .auxiliary import *
