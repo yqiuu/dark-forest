@@ -21,6 +21,20 @@ def _FileName(cntr_target, i_part=None):
 
 
 class ForwardRebuilder:
+    def __init__(self, cntr_target, cntr_source, snap_max, snap_min=0, kwargs_tqdm={}):
+        self.cntr_target = cntr_target
+        self.cntr_source = cntr_source
+        self.snap_max = snap_max
+        self.snap_min = snap_min
+        self.kwargs_tqdm = kwargs_tqdm
+
+
+    def Run(self):
+        with tables.File(_FileName(self.cntr_target), 'w') as hf:
+            snap_jump = self._Rebuild(hf)
+            hf.set_node_attr('/', 'snap_jump', snap_jump)
+
+
     def _PrepareSourceData(self, snap):
         cntr_source = self.cntr_source
         df_source = pd.DataFrame(index=cntr_source[snap, 'ID'])
@@ -136,21 +150,37 @@ class ForwardRebuilder:
         return snap_jump
 
 
-    def Run(self):
-        with tables.File(_FileName(self.cntr_target), 'w') as hf:
-            snap_jump = self._Rebuild(hf)
-            hf.set_node_attr('/', 'snap_jump', snap_jump)
-
-
-    def __init__(self, cntr_target, cntr_source, snap_max, snap_min=0, kwargs_tqdm={}):
-        self.cntr_target = cntr_target
-        self.cntr_source = cntr_source
-        self.snap_max = snap_max
-        self.snap_min = snap_min
-        self.kwargs_tqdm = kwargs_tqdm
-
-
 class ForwardConstructor(Constructor):
+    def __init__(self, cntr_target, cntr_source, snap_max, snap_min=0, kwargs_tqdm={}):
+        super().__init__(
+            cntr_target=cntr_target,
+            cntr_source=cntr_source,
+            col_inh=[],
+            col_req=[],
+            snap_max=snap_max,
+            snap_min=snap_min,
+            read_prog=['Index'],
+            inherit=False,
+            forward=False,
+            postfix=None,
+            message='Adding forward pointers',
+            kwargs_tqdm=kwargs_tqdm
+        )
+        self.kwargs_tqdm = kwargs_tqdm
+        self.pool_sim = [{} for snap in range(snap_max + 1)]
+        self.df_forward_next = None
+        self.forest_id_max = cntr_source.max_forest_id(snap_max)
+        #
+        self.test_mode = False
+
+
+    def Run(self):
+        with tables.File(_FileName(self.cntr_target), 'r') as hf_fix:
+            self.snap_jump = hf_fix.get_node_attr('/', 'snap_jump')
+            self.hf_fix = hf_fix
+            super().Run()
+
+
     def _GetOffset(self, snap):
         cntr_target = self.cntr_target
         offset = 0
@@ -274,33 +304,3 @@ class ForwardConstructor(Constructor):
         hf.create_carray(grp_a, 'Index', obj=inds)
         grp_b = hf.create_group(f'/Snapshot_{snap:03d}', 'MainB')
         hf.create_carray(grp_b, 'Index', obj=inds[inds < 0])
-
-
-    def Run(self):
-        with tables.File(_FileName(self.cntr_target), 'r') as hf_fix:
-            self.snap_jump = hf_fix.get_node_attr('/', 'snap_jump')
-            self.hf_fix = hf_fix
-            super().Run()
-
-
-    def __init__(self, cntr_target, cntr_source, snap_max, snap_min=0, kwargs_tqdm={}):
-        super().__init__(
-            cntr_target=cntr_target,
-            cntr_source=cntr_source,
-            col_inh=[],
-            col_req=[],
-            snap_max=snap_max,
-            snap_min=snap_min,
-            read_prog=['Index'],
-            inherit=False,
-            forward=False,
-            postfix=None,
-            message='Adding forward pointers',
-            kwargs_tqdm=kwargs_tqdm
-        )
-        self.kwargs_tqdm = kwargs_tqdm
-        self.pool_sim = [{} for snap in range(snap_max + 1)]
-        self.df_forward_next = None
-        self.forest_id_max = cntr_source.max_forest_id(snap_max)
-        #
-        self.test_mode = False

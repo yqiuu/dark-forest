@@ -8,6 +8,34 @@ import pandas as pd
 
 
 class PositionConstructor(Constructor):
+    def __init__(self,
+        cntr_target, cntr_source, cols, density_field, n_min, d_min,
+        snap_max, snap_min=0, postfix=None, comoving=True, kwargs_tqdm={}
+    ):
+        super().__init__(
+            cntr_target=cntr_target,
+            cntr_source=cntr_source,
+            col_inh=[cols['x'], cols['y'], cols['z']],
+            col_req=['ProgIndex', 'ProgNumber', cols['m_vir']],
+            snap_max=snap_max,
+            snap_min=snap_min,
+            read_prog=['Index'],
+            inherit=True,
+            forward=False,
+            postfix=postfix,
+            message='Constructing coordinates',
+            kwargs_tqdm=kwargs_tqdm
+        )
+        self.col_x = cols['x']
+        self.col_y = cols['y']
+        self.col_z = cols['z']
+        self.col_m_vir = cols['m_vir']
+        self.density_field = density_field
+        self.n_min = n_min
+        self.d_min = d_min
+        self.comoving = comoving
+
+
     def _PopulateHalos(self, m_halo, snap):
         bins = smart_bins(m_halo, self.n_min, self.d_min, 'log')
         return self.density_field.PopulateHalos(m_halo, bins, snap)
@@ -76,31 +104,3 @@ class PositionConstructor(Constructor):
                         pool[p_id] = (g_idx, m_desc)
             self.pool = pool
         return df_pos
-
-
-    def __init__(self,
-        cntr_target, cntr_source, cols, density_field, n_min, d_min,
-        snap_max, snap_min=0, postfix=None, comoving=True, kwargs_tqdm={}
-    ):
-        super().__init__(
-            cntr_target=cntr_target,
-            cntr_source=cntr_source,
-            col_inh=[cols['x'], cols['y'], cols['z']],
-            col_req=['ProgIndex', 'ProgNumber', cols['m_vir']],
-            snap_max=snap_max,
-            snap_min=snap_min,
-            read_prog=['Index'],
-            inherit=True,
-            forward=False,
-            postfix=postfix,
-            message='Constructing coordinates',
-            kwargs_tqdm=kwargs_tqdm
-        )
-        self.col_x = cols['x']
-        self.col_y = cols['y']
-        self.col_z = cols['z']
-        self.col_m_vir = cols['m_vir']
-        self.density_field = density_field
-        self.n_min = n_min
-        self.d_min = d_min
-        self.comoving = comoving

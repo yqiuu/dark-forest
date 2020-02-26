@@ -10,6 +10,46 @@ from tqdm import trange
 
 
 class Constructor(ABC):
+    def __init__(self,
+        cntr_target, cntr_source, col_inh, col_req, snap_max, snap_min,
+        read_prog, inherit, forward, postfix, message, kwargs_tqdm
+    ):
+        self.cntr_target = cntr_target
+        self.cntr_source = cntr_source
+        self.col_inh = list(col_inh)
+        self.col_req = list(col_req)
+        self.snap_max = snap_max
+        self.snap_min = snap_min
+        self.read_prog = read_prog
+        self.inherit = inherit
+        self.forward = forward
+        self.postfix = postfix
+        self.message = message
+        self.kwargs_tqdm = kwargs_tqdm
+        self._CreateColumnName(col_req, snap_min)
+
+
+    def Run(self):
+        # Load local variables
+        cntr_target = self.cntr_target
+        cntr_source = self.cntr_source
+        inherit = self.inherit
+        read_prog = self.read_prog
+        #
+        redshifts = cntr_source.redshifts
+        n_snap = self.snap_max - self.snap_min + 1
+        for i_snap, snap in enumerate(self._SnapRange()):
+            logger.info(f"{self.message}: {i_snap+1:5d}/{n_snap}")
+            z = redshifts[snap]
+            df_req = self._PrepareReqData(snap)
+            df_inh = self._PrepareInhData(snap)
+            df_inh.index = df_inh.index.astype(df_req.index.dtype)
+            list_prog = self._PrepareProgData(snap)
+            df_new = self._AddProperty(df_inh, df_req, list_prog, snap, z)
+            self._SaveOutput(df_new, snap)
+            logger.info("-------------------------------------------------")
+
+
     def _CreateColumnName(self, col_req, snap_min):
         node_host = [
             node.name for node in self.cntr_target.hf.iter_nodes('/Snapshot_%03d/Host'%snap_min)
@@ -143,43 +183,3 @@ class Constructor(ABC):
                 hf.create_carray(group, col_save, obj=df_new[col].values)
         else:
             raise ValueError("Indices mismatch.")
-
-
-    def Run(self):
-        # Load local variables
-        cntr_target = self.cntr_target
-        cntr_source = self.cntr_source
-        inherit = self.inherit
-        read_prog = self.read_prog
-        #
-        redshifts = cntr_source.redshifts
-        n_snap = self.snap_max - self.snap_min + 1
-        for i_snap, snap in enumerate(self._SnapRange()):
-            logger.info(f"{self.message}: {i_snap+1:5d}/{n_snap}")
-            z = redshifts[snap]
-            df_req = self._PrepareReqData(snap)
-            df_inh = self._PrepareInhData(snap)
-            df_inh.index = df_inh.index.astype(df_req.index.dtype)
-            list_prog = self._PrepareProgData(snap)
-            df_new = self._AddProperty(df_inh, df_req, list_prog, snap, z)
-            self._SaveOutput(df_new, snap)
-            logger.info("-------------------------------------------------")
-
-
-    def __init__(self,
-        cntr_target, cntr_source, col_inh, col_req, snap_max, snap_min,
-        read_prog, inherit, forward, postfix, message, kwargs_tqdm
-    ):  
-        self.cntr_target = cntr_target
-        self.cntr_source = cntr_source
-        self.col_inh = list(col_inh)
-        self.col_req = list(col_req)
-        self.snap_max = snap_max
-        self.snap_min = snap_min
-        self.read_prog = read_prog
-        self.inherit = inherit
-        self.forward = forward
-        self.postfix = postfix
-        self.message = message
-        self.kwargs_tqdm = kwargs_tqdm
-        self._CreateColumnName(col_req, snap_min)

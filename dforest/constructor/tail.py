@@ -5,6 +5,26 @@ import pandas as pd
 
 
 class TailConstructor(Constructor):
+    def __init__(self,
+        cntr_target, cntr_source, cols, snap_max, snap_min=0, postfix=None, kwargs_tqdm={}
+    ):
+        super().__init__(
+            cntr_target=cntr_target,
+            cntr_source=cntr_source,
+            col_inh=[cols['tail']],
+            col_req=['ProgIndex', 'ProgNumber'],
+            snap_min=snap_min,
+            snap_max=snap_max,
+            read_prog=['Index', cols['m_main']],
+            inherit=False,
+            forward=True,
+            postfix=postfix,
+            message='Adding primary progenitor pointers',
+            kwargs_tqdm=kwargs_tqdm
+        )
+        self.col_tail = cols['tail']
+
+
     def _AddProperty(self, df_inh, df_req, list_prog, snap, z):
         col_tail = self.col_tail
         #
@@ -47,23 +67,3 @@ class TailConstructor(Constructor):
         df_inh.index.name = df_tail.index.name
         df_tail = df_inh.append(df_tail[~select_sim])
         return df_tail    
-
-
-    def __init__(self,
-        cntr_target, cntr_source, cols, snap_max, snap_min=0, postfix=None, kwargs_tqdm={}
-    ):
-        super().__init__(
-            cntr_target=cntr_target,
-            cntr_source=cntr_source,
-            col_inh=[cols['tail']],
-            col_req=['ProgIndex', 'ProgNumber'],
-            snap_min=snap_min,
-            snap_max=snap_max,
-            read_prog=['Index', cols['m_main']],
-            inherit=False,
-            forward=True,
-            postfix=postfix,
-            message='Adding primary progenitor pointers',
-            kwargs_tqdm=kwargs_tqdm
-        )
-        self.col_tail = cols['tail']

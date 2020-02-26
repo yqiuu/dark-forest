@@ -8,6 +8,37 @@ from astropy.cosmology import FlatLambdaCDM
 
 
 class VirialConstructor(Constructor):
+    def __init__(self,
+        cntr_target, cntr_source, cols, snap_max, snap_min=0,
+        postfix=None, delta_collapse=200., mode='crit', kwargs_tqdm={}
+    ):
+        super().__init__(
+            cntr_target=cntr_target,
+            cntr_source=cntr_source,
+            col_inh=[cols['m_vir'], cols['r_vir']],
+            col_req=[cols['m_main']],
+            snap_max=snap_max,
+            snap_min=snap_min,
+            read_prog=[],
+            inherit=False,
+            forward=True,
+            postfix=postfix,
+            message='Adding virial properties',
+            kwargs_tqdm=kwargs_tqdm
+        )
+        self.col_m_vir = cols['m_vir']
+        self.col_r_vir = cols['r_vir']
+        self.col_v_vir = cols['v_vir']
+        self.delta_collapse = delta_collapse
+        self.mode = mode
+        self.cosmo = FlatLambdaCDM(**cntr_source.cosmo_params)
+        self.mass_conversion = cntr_source.mass_conversion
+        self.density_unit = cntr_source.mass_unit/cntr_source.radius_unit**3
+        self.grav_const = const.G.to(
+            cntr_source.radius_unit/cntr_source.mass_unit*cntr_source.velocity_unit**2
+        ).value
+
+
     def DeltaVir(self, z):
         x = self.cosmo.Om(z) - 1
         return 18.*np.pi*np.pi + 82.*x - 39.*x*x
@@ -50,34 +81,3 @@ class VirialConstructor(Constructor):
         df_inh.drop(columns = self.col_m_vir, inplace = True)
         df_vir = df_inh.append(df_vir)
         return df_vir
-
-
-    def __init__(self,
-        cntr_target, cntr_source, cols, snap_max, snap_min=0,
-        postfix=None, delta_collapse=200., mode='crit', kwargs_tqdm={}
-    ):
-        super().__init__(
-            cntr_target=cntr_target,
-            cntr_source=cntr_source,
-            col_inh=[cols['m_vir'], cols['r_vir']],
-            col_req=[cols['m_main']],
-            snap_max=snap_max,
-            snap_min=snap_min,
-            read_prog=[],
-            inherit=False,
-            forward=True,
-            postfix=postfix,
-            message='Adding virial properties',
-            kwargs_tqdm=kwargs_tqdm
-        )
-        self.col_m_vir = cols['m_vir']
-        self.col_r_vir = cols['r_vir']
-        self.col_v_vir = cols['v_vir']
-        self.delta_collapse = delta_collapse
-        self.mode = mode
-        self.cosmo = FlatLambdaCDM(**cntr_source.cosmo_params)
-        self.mass_conversion = cntr_source.mass_conversion
-        self.density_unit = cntr_source.mass_unit/cntr_source.radius_unit**3
-        self.grav_const = const.G.to(
-            cntr_source.radius_unit/cntr_source.mass_unit*cntr_source.velocity_unit**2
-        ).value
