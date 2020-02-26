@@ -190,7 +190,7 @@ class DensityField(ABC):
             cond = (m_halo >= l) & (m_halo < u)
             sample_sub = m_halo[cond]
             m_median = np.median(sample_sub)
-            den_halo = emf.HaloDensity(delta_dm, v_cell, m_median, z)
+            den_halo = emf.halo_density(delta_dm, v_cell, m_median, z)
             den_halo /= np.sum(den_halo)
             x_h[cond], y_h[cond], z_h[cond], inds[cond] = \
                 self.gt_box.SampleFromField(den_halo, len(sample_sub))

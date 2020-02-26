@@ -1,6 +1,6 @@
 import os
 
-from ..core import SmartBins
+from ..core import smart_bins
 from .constructor import Constructor
 
 import numpy as np
@@ -9,7 +9,7 @@ import pandas as pd
 
 class PositionConstructor(Constructor):
     def _PopulateHalos(self, m_halo, snap):
-        bins = SmartBins(m_halo, self.n_min, self.d_min, 'log')
+        bins = smart_bins(m_halo, self.n_min, self.d_min, 'log')
         return self.density_field.PopulateHalos(m_halo, bins, snap)
 
 

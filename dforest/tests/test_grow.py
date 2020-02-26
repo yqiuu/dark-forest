@@ -51,7 +51,7 @@ def QuickPlainGrowth(fname, m_res, box_size, hmf_model='PS'):
     rstate = np.random.RandomState(seed)
     emf = dforest.EnhancedMassFunction(Mmin=np.log10(m_res) - .5, Mmax=15.5, hmf_model=hmf_model)
     volume = box_size**3
-    root_halos = emf.SampleMassFunction(m_res, 10**15, volume, rstate)
+    root_halos = emf.sample_mass_func(m_res, 10**15, volume, rstate)
     dark_seed = dforest.DarkSeed(emf, redshifts, box_size, z_grid=np.linspace(0, 50, 1000))
     grow_kit = dforest.GrowKit(m_res=m_res, G0=0.57, gamma1=0.38, gamma2=-0.01, eps1=0.1, eps2=0.1)
 

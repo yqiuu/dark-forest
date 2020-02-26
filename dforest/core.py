@@ -10,107 +10,13 @@ from hmf.hmf import MassFunction
 
 
 __all__ = [
-    'EnhancedMassFunction',
-    'SampleMassFunction',
-    'SmartBins'
+    'sample_mass_func',
+    'smart_bins',
+    'EnhancedMassFunction'
 ]
 
 
-class EnhancedMassFunction(MassFunction):
-    @cached_quantity
-    def bias(self):
-        """
-        Halo bias using the fitting formula of Tinker et al. 2010.
-        """
-        nu = np.sqrt(self.nu)
-        delta_c = self.delta_c
-        y = log10(self.delta_h)
-        exp_factor = exp(-(4./y)**4)
-        A = 1. + .24*y*exp_factor
-        a = .44*y - 0.88
-        B = .183
-        b = 1.5
-        C = .019 + .107*y + .19*exp_factor
-        c = 2.4
-        return 1 - A*nu**a/(nu**a + delta_c**a) + B*nu**b + C*nu**c
-
-
-    def ProgenitorMassFunction(self, m_prog, z_prog, m_root, z_root, frac=True):
-        #
-        delta_c = self.delta_c
-        m = self.m
-        sigma = self.sigma
-        alpha = -self._dlnsdlnm
-        #
-        spl_sigmasq = spl(m, sigma*sigma)
-        sigmasq_m = spl_sigmasq(m_prog)
-        sigmasq_root = spl_sigmasq(m_root)
-        diff_sigmasq = sigmasq_m - sigmasq_root
-        alpha_m = spl(m, alpha)(m_prog)
-        #
-        gf = GrowthFactor(self.cosmo)
-        diff_delta = delta_c/gf.growth_factor(z_prog) - delta_c/gf.growth_factor(z_root)
-        #
-        f_exp = np.exp(-.5*diff_delta*diff_delta/diff_sigmasq)
-        pmf = sqrt(2./np.pi)*diff_delta*sigmasq_m*diff_sigmasq**-1.5*f_exp*alpha_m
-        if frac:
-            return pmf
-        else:
-            return m_root/m_prog*pmf
-
-
-    def ConditionalMassFunction(self, delta_lin, m_cell, m_halo, z):
-        z0 = self.z
-        cosmo = self.cosmo
-        n_eff = self.n_eff
-        mass = self.m
-        mean_density0 = self.mean_density0
-        delta_c = self.delta_c
-        delta_halo = self.delta_halo
-        hmf_model = self.hmf_model
-        hmf_params = self.hmf_params
-        self.update(z=0.)
-        sigma = self.sigma
-        alpha = -self._dlnsdlnm
-        self.update(z=z0)
-        #
-        spl_sigma = spl(mass, sigma, ext=1)
-        sigma_halo = spl_sigma(m_halo)
-        sigma_cell = spl_sigma(m_cell)
-        gf = GrowthFactor(cosmo).growth_factor(z)
-        spl_alpha = spl(mass, alpha, ext=1)
-        alpha_halo = spl_alpha(m_halo)
-        #
-        diff_delta = (delta_c - delta_lin)/gf
-        diff_sigma2 = np.ravel(sigma_halo*sigma_halo - sigma_cell*sigma_cell)
-        cond = diff_sigma2 > 0
-        diff_sigma2[~cond] = 1.
-        nu2 = diff_delta*diff_delta/diff_sigma2
-        nu2 = nu2[cond]
-        fsigma = np.zeros(len(diff_sigma2))
-        fsigma[cond] = hmf_model(
-            nu2=nu2, z=z, delta_halo=delta_halo, omegam_z=cosmo.Om(z),
-            delta_c=delta_c, n_eff=n_eff, **hmf_params
-        ).fsigma
-        return mean_density0*alpha_halo/(m_halo*m_halo)*sigma_halo*sigma_halo/diff_sigma2*fsigma
-
-
-    def HaloDensity(self, delta, v_cell, m_halo, z):
-        mean_density0 = self.mean_density0
-        m_max = 10**(self.Mmax + 1)
-        ratio = 1 + delta
-        delta_lin = -1.35*ratio**(-2./3.) + .78785*ratio**-0.58661 - 1.12431*ratio**-.5 + 1.68647
-        m_cell = mean_density0*v_cell*ratio
-        den_halo = self.ConditionalMassFunction(delta_lin, m_cell, m_halo, z) \
-            / self.ConditionalMassFunction(0., m_max, m_halo, z) * ratio
-        return den_halo
-
-
-    def SampleMassFunction(self, m_min, m_max, volume, rstate=None):
-        return SampleMassFunction(self.dndm, self.m, m_min, m_max, volume, rstate)
-
-
-def SampleMassFunction(dndm, m_hmf, m_min, m_max, volume, rstate=None):
+def sample_mass_func(dndm, m_hmf, m_min, m_max, volume, rstate=None):
     """
     Draw samples from the halo mass function in a given volume.
 
@@ -142,7 +48,7 @@ def SampleMassFunction(dndm, m_hmf, m_min, m_max, volume, rstate=None):
     return cdf_spl(rstate.rand(n_sample))
 
 
-def SmartBins(data, n_min, d_min, scale='linear'):
+def smart_bins(data, n_min, d_min, scale='linear'):
     """
     Generate bin edges given the minimum number of points in each bin
     and the minimum bin width.
@@ -190,3 +96,97 @@ def SmartBins(data, n_min, d_min, scale='linear'):
         b_curr = b_next
     bins.reverse()
     return np.asarray(bins)
+
+
+class EnhancedMassFunction(MassFunction):
+    @cached_quantity
+    def bias(self):
+        """
+        Halo bias using the fitting formula of Tinker et al. 2010.
+        """
+        nu = np.sqrt(self.nu)
+        delta_c = self.delta_c
+        y = log10(self.delta_h)
+        exp_factor = exp(-(4./y)**4)
+        A = 1. + .24*y*exp_factor
+        a = .44*y - 0.88
+        B = .183
+        b = 1.5
+        C = .019 + .107*y + .19*exp_factor
+        c = 2.4
+        return 1 - A*nu**a/(nu**a + delta_c**a) + B*nu**b + C*nu**c
+
+
+    def prog_mass_func(self, m_prog, z_prog, m_root, z_root, frac=True):
+        #
+        delta_c = self.delta_c
+        m = self.m
+        sigma = self.sigma
+        alpha = -self._dlnsdlnm
+        #
+        spl_sigmasq = spl(m, sigma*sigma)
+        sigmasq_m = spl_sigmasq(m_prog)
+        sigmasq_root = spl_sigmasq(m_root)
+        diff_sigmasq = sigmasq_m - sigmasq_root
+        alpha_m = spl(m, alpha)(m_prog)
+        #
+        gf = GrowthFactor(self.cosmo)
+        diff_delta = delta_c/gf.growth_factor(z_prog) - delta_c/gf.growth_factor(z_root)
+        #
+        f_exp = np.exp(-.5*diff_delta*diff_delta/diff_sigmasq)
+        pmf = sqrt(2./np.pi)*diff_delta*sigmasq_m*diff_sigmasq**-1.5*f_exp*alpha_m
+        if frac:
+            return pmf
+        else:
+            return m_root/m_prog*pmf
+
+
+    def conditional_mass_func(self, delta_lin, m_cell, m_halo, z):
+        z0 = self.z
+        cosmo = self.cosmo
+        n_eff = self.n_eff
+        mass = self.m
+        mean_density0 = self.mean_density0
+        delta_c = self.delta_c
+        delta_halo = self.delta_halo
+        hmf_model = self.hmf_model
+        hmf_params = self.hmf_params
+        self.update(z=0.)
+        sigma = self.sigma
+        alpha = -self._dlnsdlnm
+        self.update(z=z0)
+        #
+        spl_sigma = spl(mass, sigma, ext=1)
+        sigma_halo = spl_sigma(m_halo)
+        sigma_cell = spl_sigma(m_cell)
+        gf = GrowthFactor(cosmo).growth_factor(z)
+        spl_alpha = spl(mass, alpha, ext=1)
+        alpha_halo = spl_alpha(m_halo)
+        #
+        diff_delta = (delta_c - delta_lin)/gf
+        diff_sigma2 = np.ravel(sigma_halo*sigma_halo - sigma_cell*sigma_cell)
+        cond = diff_sigma2 > 0
+        diff_sigma2[~cond] = 1.
+        nu2 = diff_delta*diff_delta/diff_sigma2
+        nu2 = nu2[cond]
+        fsigma = np.zeros(len(diff_sigma2))
+        fsigma[cond] = hmf_model(
+            nu2=nu2, z=z, delta_halo=delta_halo, omegam_z=cosmo.Om(z),
+            delta_c=delta_c, n_eff=n_eff, **hmf_params
+        ).fsigma
+        return mean_density0*alpha_halo/(m_halo*m_halo)*sigma_halo*sigma_halo/diff_sigma2*fsigma
+
+
+    def halo_density(self, delta, v_cell, m_halo, z):
+        mean_density0 = self.mean_density0
+        m_max = 10**(self.Mmax + 1)
+        ratio = 1 + delta
+        delta_lin = -1.35*ratio**(-2./3.) + .78785*ratio**-0.58661 - 1.12431*ratio**-.5 + 1.68647
+        m_cell = mean_density0*v_cell*ratio
+        den_halo = self.conditional_mass_func(delta_lin, m_cell, m_halo, z) \
+            / self.conditional_mass_func(0., m_max, m_halo, z) * ratio
+        return den_halo
+
+
+    def sample_mass_func(self, m_min, m_max, volume, rstate=None):
+        return sample_mass_func(self.dndm, self.m, m_min, m_max, volume, rstate)
