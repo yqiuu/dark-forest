@@ -36,17 +36,17 @@ class PositionConstructor(Constructor):
         self.comoving = comoving
 
 
-    def _PopulateHalos(self, m_halo, snap):
+    def _populate_halos(self, m_halo, snap):
         bins = smart_bins(m_halo, self.n_min, self.d_min, 'log')
         return self.density_field.PopulateHalos(m_halo, bins, snap)
 
 
-    def _MoveHalos(self, inds, m_self, m_desc, snap):
+    def _move_halos(self, inds, m_self, m_desc, snap):
         x_h, y_h, z_h = self.density_field.gt_box.SampleFromIndex(inds)
         return self.density_field.MoveHalos(x_h, y_h, z_h, inds, m_self, m_desc, snap)
 
 
-    def _AddProperty(self, df_inh, df_req, list_prog, snap, z):
+    def _add_property(self, df_inh, df_req, list_prog, snap, z):
         # Load local variables
         snap_max = self.snap_max
         snap_min = self.snap_min
@@ -63,7 +63,7 @@ class PositionConstructor(Constructor):
         m_mc = df_req.loc[select_mc, col_m_vir].values
         if snap == snap_max:
             if len(m_mc) > 0:
-                x_h, y_h, z_h, grid_index[select_mc] = self._PopulateHalos(m_mc, snap)
+                x_h, y_h, z_h, grid_index[select_mc] = self._populate_halos(m_mc, snap)
         else:
             df_pool = pd.DataFrame.from_dict(
                 self.pool, orient='index', columns=['GridIndex', 'MassDesc']
@@ -71,7 +71,7 @@ class PositionConstructor(Constructor):
             df_pool_mc = df_pool.loc[df_req.index[select_mc]]
             grid_index_mc = df_pool_mc['GridIndex'].values
             m_desc_mc = df_pool_mc['MassDesc'].values
-            x_h, y_h, z_h, grid_index_mc = self._MoveHalos(grid_index_mc, m_mc, m_desc_mc, snap)
+            x_h, y_h, z_h, grid_index_mc = self._move_halos(grid_index_mc, m_mc, m_desc_mc, snap)
             grid_index[select_mc] = grid_index_mc
         #
         df_pos = pd.DataFrame(index=df_req.index[select_mc], columns=[col_x, col_y, col_z])

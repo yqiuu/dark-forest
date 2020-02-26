@@ -6,7 +6,7 @@ import pandas as pd
 from scipy.stats import gaussian_kde
 
 
-def RandomUnitSphere(n_sample, rstate):
+def random_unit_sphere(n_sample, rstate):
     phi = rstate.uniform(0, 2*np.pi, n_sample)
     theta = np.arccos(rstate.uniform(-1, 1, n_sample))
     vector = np.zeros([3, n_sample])
@@ -17,7 +17,7 @@ def RandomUnitSphere(n_sample, rstate):
 
 
 class KernelSpinSampler:
-    def Draw(self, n_halo, z):
+    def draw(self, n_halo, z):
         cntr = self.cntr
         snap_target = max(self.snap_fit, np.argmin(abs(self.redshifts - z)))
         while True:
@@ -84,7 +84,7 @@ class SpinConstructor(Constructor):
         self.mass_conversion = cntr_source.mass_conversion
 
 
-    def _InheritSpin(self, prog):
+    def _inherit_spin(self, prog):
         pool = self.pool
         m_max = -1.
         spin = np.nan
@@ -96,7 +96,7 @@ class SpinConstructor(Constructor):
         return spin
 
 
-    def _AddProperty(self, df_inh, df_req, list_prog, snap, z):
+    def _add_property(self, df_inh, df_req, list_prog, snap, z):
         # Load local variables
         pool = self.pool
         snap_min = self.snap_min
@@ -116,18 +116,18 @@ class SpinConstructor(Constructor):
             prog_pointer = df_req_mc[['ProgIndex', 'ProgNumber']].values
             cond = prog_pointer[:, -1] > 0
             spin[cond] = [
-                self._InheritSpin(list_prog[idx:idx + num]) for idx, num in prog_pointer[cond]
+                self._inherit_spin(list_prog[idx:idx + num]) for idx, num in prog_pointer[cond]
             ]
             cond = ~cond
         else:
             cond = np.full(len(spin), True)
         # Draw random spin parameters
-        spin[cond] = spin_sampler.Draw(sum(cond), z)
+        spin[cond] = spin_sampler.draw(sum(cond), z)
         # Compute angular momenta
         L = np.sqrt(2.)/mass_conversion*np.asarray(
             df_req_mc[col_m_vir]*df_req_mc[col_r_vir]*df_req_mc[col_v_vir]*spin
         )
-        L = RandomUnitSphere(len(df_req_mc), rstate)*L
+        L = random_unit_sphere(len(df_req_mc), rstate)*L
         #
         df_spin = pd.DataFrame(
             np.vstack([spin, L]).T, index = df_req_mc.index, columns = df_inh.columns

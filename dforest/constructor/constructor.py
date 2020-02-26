@@ -26,10 +26,10 @@ class Constructor(ABC):
         self.postfix = postfix
         self.message = message
         self.kwargs_tqdm = kwargs_tqdm
-        self._CreateColumnName(col_req, snap_min)
+        self._set_column_names(col_req, snap_min)
 
 
-    def Run(self):
+    def run(self):
         # Load local variables
         cntr_target = self.cntr_target
         cntr_source = self.cntr_source
@@ -38,19 +38,19 @@ class Constructor(ABC):
         #
         redshifts = cntr_source.redshifts
         n_snap = self.snap_max - self.snap_min + 1
-        for i_snap, snap in enumerate(self._SnapRange()):
+        for i_snap, snap in enumerate(self._range()):
             logger.info(f"{self.message}: {i_snap+1:5d}/{n_snap}")
             z = redshifts[snap]
-            df_req = self._PrepareReqData(snap)
-            df_inh = self._PrepareInhData(snap)
+            df_req = self._prepare_req_data(snap)
+            df_inh = self._prepare_inh_data(snap)
             df_inh.index = df_inh.index.astype(df_req.index.dtype)
-            list_prog = self._PrepareProgData(snap)
-            df_new = self._AddProperty(df_inh, df_req, list_prog, snap, z)
-            self._SaveOutput(df_new, snap)
+            list_prog = self._prepare_prog_data(snap)
+            df_new = self._add_property(df_inh, df_req, list_prog, snap, z)
+            self._save_output(df_new, snap)
             logger.info("-------------------------------------------------")
 
 
-    def _CreateColumnName(self, col_req, snap_min):
+    def _set_column_names(self, col_req, snap_min):
         node_host = [
             node.name for node in self.cntr_target.hf.iter_nodes('/Snapshot_%03d/Host'%snap_min)
         ]
@@ -65,7 +65,7 @@ class Constructor(ABC):
         self.col_main = col_main
 
 
-    def _SnapRange(self):
+    def _range(self):
         kwargs_tqdm = self.kwargs_tqdm
         kwargs_tqdm.update(desc=self.message)
         if self.forward:
@@ -74,7 +74,7 @@ class Constructor(ABC):
             return trange(self.snap_max, self.snap_min - 1, -1, **kwargs_tqdm)
 
 
-    def _PrepareProgData(self, snap):
+    def _prepare_prog_data(self, snap):
         cntr_target = self.cntr_target
         read_prog = self.read_prog
         if len(read_prog) > 0:
@@ -91,7 +91,7 @@ class Constructor(ABC):
             return None
 
 
-    def _PrepareReqData(self, snap):
+    def _prepare_req_data(self, snap):
         # Load local variables
         cntr_target = self.cntr_target
         col_host = self.col_host
@@ -106,7 +106,7 @@ class Constructor(ABC):
         return df_req
 
 
-    def _PrepareInhData(self, snap):
+    def _prepare_inh_data(self, snap):
         # Load local variables
         cntr_target = self.cntr_target
         cntr_source = self.cntr_source
@@ -122,13 +122,13 @@ class Constructor(ABC):
         try:
             halo_id_fix = cntr_target.read_cols(snap, 'MainA', ['Index'])['Index']
         except NoSuchNodeError:
-            raise Exception("Run FowardRebuilder before adding any other properties") from None
+            raise Exception("run FowardRebuilder before adding any other properties") from None
         df_sim = df_sim.loc[halo_id_fix[halo_id_fix > 0]]
         return df_sim
 
 
     @abstractmethod
-    def _AddProperty(self, df_inh, df_req, list_prog, snap, z):
+    def _add_property(self, df_inh, df_req, list_prog, snap, z):
         """
         Parameters
         ----------
@@ -164,7 +164,7 @@ class Constructor(ABC):
         return df_new
 
 
-    def _SaveOutput(self, df_new, snap):
+    def _save_output(self, df_new, snap):
         hf = self.cntr_target.hf
         postfix = '' if self.postfix is None else f'_{self.postfix}'
         name = 'MainB' if self.inherit else 'MainA'

@@ -39,12 +39,12 @@ class VirialConstructor(Constructor):
         ).value
 
 
-    def DeltaVir(self, z):
+    def delta_vir(self, z):
         x = self.cosmo.Om(z) - 1
         return 18.*np.pi*np.pi + 82.*x - 39.*x*x
 
     
-    def _AddProperty(self, df_inh, df_req, list_prog, snap, z):
+    def _add_property(self, df_inh, df_req, list_prog, snap, z):
         # Load local variables
         col_m_vir = self.col_m_vir
         col_r_vir = self.col_r_vir
@@ -58,7 +58,7 @@ class VirialConstructor(Constructor):
         # Choose halo density
         rho_crit = cosmo.critical_density(z).to(density_unit).value
         if mode == 'vir':
-            rho_halo = self.DeltaVir(z)*rho_crit
+            rho_halo = self.delta_vir(z)*rho_crit
         elif mode == 'crit':
             rho_halo = delta_collapse*rho_crit
         elif mode == 'mean':

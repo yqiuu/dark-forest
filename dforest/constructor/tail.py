@@ -25,7 +25,7 @@ class TailConstructor(Constructor):
         self.col_tail = cols['tail']
 
 
-    def _AddProperty(self, df_inh, df_req, list_prog, snap, z):
+    def _add_property(self, df_inh, df_req, list_prog, snap, z):
         col_tail = self.col_tail
         #
         if list_prog is None:
