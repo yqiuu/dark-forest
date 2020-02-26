@@ -7,6 +7,9 @@ from astropy import constants as const
 from astropy.cosmology import FlatLambdaCDM
 
 
+__all__ = ['VirialConstructor']
+
+
 class VirialConstructor(Constructor):
     def __init__(self,
         cntr_target, cntr_source, cols, snap_max, snap_min=0,

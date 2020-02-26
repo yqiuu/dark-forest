@@ -6,6 +6,12 @@ import pandas as pd
 from scipy.stats import gaussian_kde
 
 
+__all__ = [
+    'KernelSpinSampler',
+    'SpinConstructor'
+]
+
+
 def random_unit_sphere(n_sample, rstate):
     phi = rstate.uniform(0, 2*np.pi, n_sample)
     theta = np.arccos(rstate.uniform(-1, 1, n_sample))

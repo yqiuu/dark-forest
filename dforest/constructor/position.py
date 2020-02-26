@@ -7,6 +7,9 @@ import numpy as np
 import pandas as pd
 
 
+__all__ = ['PositionConstructor']
+
+
 class PositionConstructor(Constructor):
     def __init__(self,
         cntr_target, cntr_source, cols, density_field, n_min, d_min,

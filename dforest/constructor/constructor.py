@@ -9,6 +9,9 @@ from tables import NoSuchNodeError
 from tqdm import trange
 
 
+__all__ = ['Constructor']
+
+
 class Constructor(ABC):
     def __init__(self,
         cntr_target, cntr_source, col_inh, col_req, snap_max, snap_min,
