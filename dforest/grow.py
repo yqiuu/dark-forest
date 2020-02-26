@@ -11,7 +11,11 @@ from tables import NoSuchNodeError
 from astropy import units
 
 
-__all__ = ['grow_halos', 'create_partitions', 'DarkSeed']
+__all__ = [
+    'grow_halos',
+    'create_partitions',
+    'DarkSeed'
+]
 
 
 def create_random_state(seed, comm):
