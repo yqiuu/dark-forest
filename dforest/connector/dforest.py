@@ -1,6 +1,6 @@
 import os
 
-from ..halotree import HaloMergeTree
+from .._dtree import HaloMergeTree
 from .connector import Connector
 
 import tables

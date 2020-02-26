@@ -1,5 +1,5 @@
 #include<math.h>
-#include"halotree.h"
+#include"dtree.h"
 
 #define SQRT2 sqrt(2.)
 #define SQRT2OPI sqrt(2./M_PI)

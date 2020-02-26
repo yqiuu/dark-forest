@@ -1,4 +1,4 @@
-#include"halotree.h"
+#include"dtree.h"
 #include <gsl/gsl_integration.h>
 
 #define N_WORKSPACE 100

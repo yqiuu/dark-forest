@@ -1,4 +1,4 @@
-#include"halotree.h"
+#include"dtree.h"
 
 
 int NodeVector_Append(NodeVector *vector, double trace, double mass) {

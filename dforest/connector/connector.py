@@ -4,7 +4,7 @@ from copy import deepcopy
 
 from ..core import EnhancedMassFunction
 from ..logger import logger
-from ..halotree import *
+from .._dtree import *
 
 import numpy as np
 import pandas as pd

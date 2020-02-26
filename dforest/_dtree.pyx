@@ -25,7 +25,7 @@ cdef extern from "<gsl/gsl_rng.h>":
     void gsl_rng_free(gsl_rng *r)
 
 
-cdef extern from "clib/halotree.h":
+cdef extern from "dtree/dtree.h":
     ctypedef struct HaloRelation:
         pass
 

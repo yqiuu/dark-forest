@@ -1,4 +1,4 @@
-from .halotree import *
+from ._dtree import *
 from .connector.dforest import save_header
 from .logger import logger
 
