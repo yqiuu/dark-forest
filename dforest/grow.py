@@ -1,5 +1,5 @@
 from .halotree import *
-from .dforest import SaveHeader
+from .connector.dforest import save_header
 from .logger import logger
 
 import os
@@ -42,7 +42,7 @@ def create_output(cntr, fname, filters, comm, master_rank):
                 hf.set_node_attr(header, 'm_particle', 0.)
         else:
             with tables.File(fname, 'w', filters=filters) as hf:
-                SaveHeader(hf, cntr)
+                save_header(hf, cntr)
 
 
 def init_root_halos(cntr, mass_key, snap_max, root_halos):
