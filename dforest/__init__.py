@@ -1,6 +1,5 @@
 from .logger import logger
 from .core import *
-from .dforest import *
 from .halotree import *
 from .connector import *
 from .constructor import *
