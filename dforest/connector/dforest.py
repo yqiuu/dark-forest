@@ -190,12 +190,17 @@ class DarkForestConnector(Connector):
         -------
             Required data.
         """
-        self._SwitchSnapshot(snap)
-
         n_file = len(self.files)
+        if target == 'Prog' and n_file > 1:
+            ## No offsets are applied to ProgIndex in host data and Index in
+            ## progenitor data. Therefore, it is not meaningfull to read
+            ## progenitor data from multiple files.
+            raise IOError("Cannot read progentior data from multiple files")
+        # Read data
         data_all = [None]*n_file
         offset = [0]*(n_file + 1)
         n_tot = 0
+        self._SwitchSnapshot(snap)
         for i_f, (hf, grp) in enumerate(zip(self.files, self.groups)):
             if target in grp:
                 grp = hf.get_node(grp, target)
@@ -216,7 +221,7 @@ class DarkForestConnector(Connector):
             if len(data) > 0:
                 n_tot += len(data[c])
             offset[i_f + 1] = n_tot
-
+        # Merge data
         data_out = {}
         for c in cols:
             offset_inds = 0
