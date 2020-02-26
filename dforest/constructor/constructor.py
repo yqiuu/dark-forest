@@ -39,7 +39,7 @@ class Constructor(ABC):
         read_prog = self.read_prog
         if len(read_prog) > 0:
             try:
-                rec_prog = cntr_target.Read(snap, 'Prog', read_prog, 'records')
+                rec_prog = cntr_target.read_cols(snap, 'Prog', read_prog, 'records')
             except OSError:
                 return None
             if len(read_prog) == 1:
@@ -57,9 +57,9 @@ class Constructor(ABC):
         col_host = self.col_host
         col_main = self.col_main
         #
-        df_host = cntr_target.Read(snap, 'Host', col_host, 'pandas', 'Index')
+        df_host = cntr_target.read_cols(snap, 'Host', col_host, 'pandas', 'Index')
         if len(col_main) > 0:
-            df_main = cntr_target.Read(snap, 'MainA', col_main, 'pandas', 'Index')
+            df_main = cntr_target.read_cols(snap, 'MainA', col_main, 'pandas', 'Index')
             df_req = pd.concat([df_host, df_main], axis=1, join='inner')
         else:
             df_req = df_host
@@ -80,7 +80,7 @@ class Constructor(ABC):
             except KeyError:
                 pass
         try:
-            halo_id_fix = cntr_target.Read(snap, 'MainA', ['Index'])['Index']
+            halo_id_fix = cntr_target.read_cols(snap, 'MainA', ['Index'])['Index']
         except NoSuchNodeError:
             raise Exception("Run FowardRebuilder before adding any other properties") from None
         df_sim = df_sim.loc[halo_id_fix[halo_id_fix > 0]]
@@ -130,7 +130,7 @@ class Constructor(ABC):
         name = 'MainB' if self.inherit else 'MainA'
         group = hf.get_node(f'/Snapshot_{snap:03d}', name)
         try:
-            inds = self.cntr_target.Read(snap, name, ['Index'])['Index']
+            inds = self.cntr_target.read_cols(snap, name, ['Index'])['Index']
         except NoSuchNodeError:
             inds = None
         if inds is None or np.array_equal(inds, df_new.index):

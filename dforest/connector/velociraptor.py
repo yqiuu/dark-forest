@@ -164,21 +164,21 @@ class VELOCIraptorConnector(Connector):
             return np.array(self._redshifts)
 
 
-    def HostID(self, n = 1):
-        if n == 1:
-            return -1
-        else:
-            return np.full(n, -1, dtype = self.data_type['hostHaloID'])
-
-
-    def MaxForestID(self, snap_max):
+    def max_forest_id(self, snap_max):
         forest_id_max = max(self[0, 'ForestID']) # Assume that the snapshot starts at zero
         for snap in range(1, snap_max + 1):
             forest_id_max = max(forest_id_max, *self[snap, 'ForestID'])
         return forest_id_max
 
 
-    def NewID(self, snap, inds):
+    def host_id(self, n=1):
+        if n == 1:
+            return -1
+        else:
+            return np.full(n, -1, dtype = self.data_type['hostHaloID'])
+
+
+    def new_id(self, snap, inds):
         return snap*10**12 + inds + 1
 
 
@@ -190,8 +190,8 @@ class VELOCIraptorSaver:
         self.cntr_ext = cntr_ext
         self.cntr_src = cntr_src
         self.save_name = save_name
-        self.args_mass = self._SetArgs(items_mass, True)
-        self.args_norm = self._SetArgs(items_norm, False)
+        self.args_mass = self._set_args(items_mass, True)
+        self.args_norm = self._set_args(items_norm, False)
         self.snap_max = snap_max
         self.snap_min = snap_min
         kwargs_tqdm.update(desc="Save properties")
@@ -199,28 +199,28 @@ class VELOCIraptorSaver:
         self.data_type = cntr_src.data_type
 
 
-    def Run(self):
+    def run(self):
         scale_factors = 1./(1. + self.cntr_ext.redshifts)
         with tables.File(self.save_name, 'w') as hf_out:
-            self._SaveHeader(hf_out, self.cntr_src.hf, self.snap_max - self.snap_min + 1)
+            self._save_header(hf_out, self.cntr_src.hf, self.snap_max - self.snap_min + 1)
             for snap in trange(self.snap_min, self.snap_max + 1, **self.kwargs_tqdm):
                 logger.info(f"Processing snapshot {snap}")
                 grp = hf_out.create_group('/', 'Snap_%03d'%snap)
                 # Save Reversed properties
-                self._SaveReversed(hf_out, grp, snap, scale_factors[snap])
+                self._save_reversed(hf_out, grp, snap, scale_factors[snap])
                 # Save halo masses
-                self._SaveColumns(hf_out, grp, snap, self.args_mass)
+                self._save_cols(hf_out, grp, snap, self.args_mass)
                 # Save other halo properties
-                self._SaveColumns(hf_out, grp, snap, self.args_norm)
+                self._save_cols(hf_out, grp, snap, self.args_norm)
                 logger.info("--------------------------------------------------")
 
 
-    def _Report(self, message):
+    def _report(self, message):
         mem = psutil.Process(os.getpid()).memory_info()[0]/1024**3
         logger.info(f"{message} ({mem:.2f} GB)")
 
 
-    def _SaveHeader(self, hf_out, hf_src, n_snap):
+    def _save_header(self, hf_out, hf_src, n_snap):
         header = hf_out.create_group('/', 'Header')
         hf_out.set_node_attr(header, 'NSnaps', n_snap)
         for grp_src in hf_src.iter_nodes('/Header'):
@@ -229,24 +229,24 @@ class VELOCIraptorSaver:
                 hf_out.set_node_attr(grp_out, name, hf_src.get_node_attr(grp_src, name))
 
 
-    def _SaveColumns(self, hf_out, grp, snap, list_args):
+    def _save_cols(self, hf_out, grp, snap, list_args):
         for args in list_args:
             c_target = args['c_target']
-            arr = np.ravel(self.cntr_ext.Gather(self.cntr_src, snap, **args))
+            arr = np.ravel(self.cntr_ext.gather(self.cntr_src, snap, **args))
             arr = arr.astype(self.data_type[c_target])
-            self._Report(f"Saving {c_target}")
+            self._report(f"Saving {c_target}")
             hf_out.create_carray(grp, c_target, obj=arr)
             gc.collect()
         return len(arr)
 
 
-    def _SaveReversed(self, hf_out, grp, snap, a):
+    def _save_reversed(self, hf_out, grp, snap, a):
         # Save Index and LeafType
-        leaf_type = self.cntr_ext.Read(snap, 'Host', ['Index', 'LeafType'])
-        data = self.cntr_ext.Gather(self.cntr_src, snap, 'ID')
+        leaf_type = self.cntr_ext.read_cols(snap, 'Host', ['Index', 'LeafType'])
+        data = self.cntr_ext.gather(self.cntr_src, snap, 'ID')
         data['LeafType'] = 0
         data.loc[leaf_type['Index'], 'LeafType'] = leaf_type['LeafType']
-        self._Report("Saving reversed properties")
+        self._report("Saving reversed properties")
         hf_out.create_carray(grp, 'Index', obj=data.index.values.astype('i8'))
         hf_out.create_carray(grp, 'LeafType', obj=data['LeafType'].values.astype('i4'))
         # Save attributes
@@ -255,7 +255,7 @@ class VELOCIraptorSaver:
         hf_out.set_node_attr(grp, 'scalefactor', a)
  
 
-    def _SetArgs(self, items, is_mass):
+    def _set_args(self, items, is_mass):
         list_args = [None]*len(items)
         for i_it, it in enumerate(items):
             args = {}

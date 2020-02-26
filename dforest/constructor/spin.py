@@ -12,7 +12,7 @@ class KernelSpinSampler:
         snap_target = max(self.snap_fit, np.argmin(abs(self.redshifts - z)))
         while True:
             spin_sample = cntr[snap_target, 'lambda_B'][
-                (cntr[snap_target, 'HostHaloID'] == cntr.HostID()) \
+                (cntr[snap_target, 'HostHaloID'] == cntr.host_id()) \
                 & (cntr[snap_target, self.mass_key] > self.m_cut)
             ]
             if len(spin_sample) > self.n_min:

@@ -168,7 +168,7 @@ class DarkForestConnector(Connector):
             return np.array(self._redshifts)
 
 
-    def Read(self, snap, target, cols=None, rtype='dict', index=None):
+    def read_cols(self, snap, target, cols=None, rtype='dict', index=None):
         """
         Read data.
 
@@ -200,7 +200,7 @@ class DarkForestConnector(Connector):
         data_all = [None]*n_file
         offset = [0]*(n_file + 1)
         n_tot = 0
-        self._SwitchSnapshot(snap)
+        self._switch_snapshot(snap)
         for i_f, (hf, grp) in enumerate(zip(self.files, self.groups)):
             if target in grp:
                 grp = hf.get_node(grp, target)
@@ -253,7 +253,7 @@ class DarkForestConnector(Connector):
         #
         redshifts = self.redshifts
         # Select host halos
-        host_data = self.Read(
+        host_data = self.read_cols(
             snap_max, 'Host', ['ProgIndex', 'ProgNumber', mass_key], 'pandas', 'Index'
         )
         if m_range is not None:
@@ -268,7 +268,7 @@ class DarkForestConnector(Connector):
             z = redshifts[snap - 1]
             # Read data
             if snap != snap_max:
-                host_data = self.Read(
+                host_data = self.read_cols(
                     snap, 'Host', ['ProgIndex', 'ProgNumber', mass_key], 'pandas', 'Index'
                 )
             else:
@@ -284,7 +284,7 @@ class DarkForestConnector(Connector):
                     tree.Append(z_root, m_root)
                     tree_arr[i_tree] = tree
                     pool[snap_max].append((i_tree, 0, halo_id))
-            prog_data = self.Read(snap, 'Prog', ['Index', 'Snap', mass_key], 'records')
+            prog_data = self.read_cols(snap, 'Prog', ['Index', 'Snap', mass_key], 'records')
             # Trace progenitors
             current_pool = np.asarray(pool[snap])
             if len(current_pool) == 0:
@@ -312,17 +312,17 @@ class DarkForestConnector(Connector):
         return tree_arr
 
 
-    def Gather(self,cntr_src, snap, c_target, c_rep=None, is_mass=False, transform=None):
+    def gather(self,cntr_src, snap, c_target, c_rep=None, is_mass=False, transform=None):
         if c_rep is None:
             c_rep = c_target
 
-        inds = self.Read(snap, 'MainA', ['Index'])['Index']
+        inds = self.read_cols(snap, 'MainA', ['Index'])['Index']
         inds_sim = inds[inds > 0]
         inds_mc = inds[inds < 0]
         df_ret = pd.DataFrame(index=inds)
-        grp_name = self._FindGroup(c_rep, snap)
+        grp_name = self._find_group(c_rep, snap)
         if grp_name == 'MainA':
-            df_ret[c_target] = self.Read(snap, 'MainA', [c_rep])[c_rep]
+            df_ret[c_target] = self.read_cols(snap, 'MainA', [c_rep])[c_rep]
         else:
             # Combine simulation data
             df_src = pd.DataFrame(
@@ -331,7 +331,7 @@ class DarkForestConnector(Connector):
             df_ret[c_target] = np.zeros(len(df_ret), dtype=df_src.dtypes[c_target])
             df_ret.loc[inds_sim, c_target] = df_src.loc[inds_sim, c_target]
             # Combine extended data
-            df_ext = self.Read(snap, grp_name, [c_rep], 'pandas', 'Index')
+            df_ext = self.read_cols(snap, grp_name, [c_rep], 'pandas', 'Index')
             arr = df_ext.loc[inds_mc, c_rep].values
             if is_mass:
                 arr /= self.mass_conversion
@@ -343,7 +343,7 @@ class DarkForestConnector(Connector):
         return df_ret
 
 
-    def Remove(self, name, kwargs_tqdm={}):
+    def remove(self, name, kwargs_tqdm={}):
         kwargs_tqdm.update(desc="Removing '%s'"%name)
         for i_snap in trange(self.n_snap, **kwargs_tqdm):
             for f in self.files:
@@ -353,15 +353,15 @@ class DarkForestConnector(Connector):
                     pass
 
 
-    def _SwitchSnapshot(self, snap):
+    def _switch_snapshot(self, snap):
         groups = []
         for f in self.files:
             groups.append(f.get_node('/Snapshot_%03d'%snap))
         self.groups = groups
 
 
-    def _FindGroup(self, column, snap):
-        self._SwitchSnapshot(snap)
+    def _find_group(self, column, snap):
+        self._switch_snapshot(snap)
         for hf, grp in zip(self.files, self.groups):
             if column in hf.get_node(grp, 'Host'):
                 grp_name = 'Host'
@@ -467,7 +467,7 @@ class DarkForestSaver:
                 hf.create_carray(group_prog, c, obj=df_prog[c].values)
         # Save host data
         group_host = hf.create_group('/Snapshot_%03d'%snap, 'Host', createparents=True)
-        select_host = cntr[snap, 'HostHaloID'] == cntr.HostID()
+        select_host = cntr[snap, 'HostHaloID'] == cntr.host_id()
         id_ = cntr[snap, 'ID'][select_host]
         df_host = pd.DataFrame(id_, index=id_, columns=['ID'])
         df_host['ProgIndex'] = np.full(len(id_), -1, dtype='i8')

@@ -32,12 +32,12 @@ class ForwardRebuilder:
 
 
     def _PutTopHalo(self, pool_sub, df_source, snap):
-        halo_id_surv = self.cntr_target.Read(snap, 'Host', ['Index'])['Index']
+        halo_id_surv = self.cntr_target.read_cols(snap, 'Host', ['Index'])['Index']
         halo_id_surv = halo_id_surv[halo_id_surv > 0]
 
         halo_id = df_source.index.values
         host_id = df_source['HostHaloID'].values.copy()
-        select_host = host_id == self.cntr_source.HostID()
+        select_host = host_id == self.cntr_source.host_id()
         host_id[select_host] = halo_id[select_host]
         select_top = np.in1d(halo_id, pool_sub.keys(), invert=True)
         for h_id, surv in zip(halo_id[select_top], np.in1d(host_id[select_top], halo_id_surv)):
@@ -62,7 +62,7 @@ class ForwardRebuilder:
 
 
     def _FixSubhaloDescendant(self, pool, df_source):
-        df_sub = df_source[df_source['HostHaloID'] != self.cntr_source.HostID()]
+        df_sub = df_source[df_source['HostHaloID'] != self.cntr_source.host_id()]
         if len(df_sub > 0):
             halo_id = df_sub.index.values
             desc_snap = df_sub['DescendantSnap'].values
@@ -83,7 +83,7 @@ class ForwardRebuilder:
         df_save = df_source[df_source['Survive']]
         grp = hf.create_group('/', f'Snapshot_{snap:03d}')
         n_halo = len(np.union1d(
-            self.cntr_target.Read(snap, 'Host', ['Index'])['Index'], df_save.index.values
+            self.cntr_target.read_cols(snap, 'Host', ['Index'])['Index'], df_save.index.values
         ))
         hf.set_node_attr(grp, 'n_halo', n_halo)
         if len(df_save) > 0:
@@ -164,7 +164,7 @@ class ForwardConstructor(Constructor):
 
 
     def _PrepareReqData(self, snap):
-        return self.cntr_target.Read(snap, 'Host', ['ProgIndex', 'ProgNumber'], 'pandas', 'Index')
+        return self.cntr_target.read_cols(snap, 'Host', ['ProgIndex', 'ProgNumber'], 'pandas', 'Index')
 
 
     def _PrepareInhData(self, snap):
@@ -188,10 +188,10 @@ class ForwardConstructor(Constructor):
         df_forward_mc = pd.DataFrame(index=df_req.index[select_mc_halo])
         n_halo_mc = len(df_forward_mc)
         n_halo_sim = len(df_inh)
-        df_forward_mc['ID'] = cntr_source.NewID(
+        df_forward_mc['ID'] = cntr_source.new_id(
             snap, np.arange(offset + n_halo_sim, offset + n_halo_sim + n_halo_mc)
         )
-        df_forward_mc['HostHaloID'] = cntr_source.HostID(n_halo_mc)
+        df_forward_mc['HostHaloID'] = cntr_source.host_id(n_halo_mc)
         if snap == snap_max:
             df_forward_mc['DescendantSnap'] = snap
             df_forward_mc['Descendant'] = df_forward_mc['ID'] # [1]
@@ -232,11 +232,11 @@ class ForwardConstructor(Constructor):
         snap_max = self.snap_max
         snap_jump = self.snap_jump
         #
-        df_inh.insert(0, 'ID', cntr_source.NewID(snap, np.arange(offset, offset + len(df_inh))))
+        df_inh.insert(0, 'ID', cntr_source.new_id(snap, np.arange(offset, offset + len(df_inh))))
         #
         pool_sim[snap] = {old_id: new_id for old_id, new_id in zip(df_inh.index, df_inh['ID'])}
         # Fix host halo IDs
-        select_sub_halo = df_inh['HostHaloID'] != cntr_source.HostID()
+        select_sub_halo = df_inh['HostHaloID'] != cntr_source.host_id()
         halo_id_sub = df_inh.loc[df_inh.loc[select_sub_halo, 'HostHaloID'], 'ID'].values
         df_inh.loc[select_sub_halo, 'HostHaloID'] = halo_id_sub
         # Generate new Descendant for simulations halos
@@ -301,6 +301,6 @@ class ForwardConstructor(Constructor):
         self.kwargs_tqdm = kwargs_tqdm
         self.pool_sim = [{} for snap in range(snap_max + 1)]
         self.df_forward_next = None
-        self.forest_id_max = cntr_source.MaxForestID(snap_max)
+        self.forest_id_max = cntr_source.max_forest_id(snap_max)
         #
         self.test_mode = False

@@ -22,8 +22,8 @@ def CompareDarkForest(dfor1, dfor2):
     n_snap = len(dfor1.redshifts)
     for i_snap in range(n_snap):
         # Compare host data
-        host1 = dfor1.Read(i_snap, 'Host')
-        host2 = dfor2.Read(i_snap, 'Host')
+        host1 = dfor1.read_cols(i_snap, 'Host')
+        host2 = dfor2.read_cols(i_snap, 'Host')
         assert_array_equal(host1.keys(), host2.keys())
         for k in host1.keys():
             if np.array_equal(np.round(host1[k]), host1[k]):
@@ -32,8 +32,8 @@ def CompareDarkForest(dfor1, dfor2):
                 assert_allclose(host1[k], host2[k])
         # Compare progenitor data
         if i_snap > 0:
-            prog1 = dfor1.Read(i_snap, 'Prog')
-            prog2 = dfor2.Read(i_snap, 'Prog')
+            prog1 = dfor1.read_cols(i_snap, 'Prog')
+            prog2 = dfor2.read_cols(i_snap, 'Prog')
             assert_array_equal(prog1.keys(), prog2.keys())
             for k in prog1.keys():
                 if np.array_equal(np.round(prog1[k]), prog1[k]):
