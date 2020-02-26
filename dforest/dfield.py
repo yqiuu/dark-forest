@@ -1,13 +1,21 @@
-from .logger import logger
-
 from abc import ABC, abstractmethod
+
+from .logger import logger
 
 import numpy as np
 from scipy.interpolate import InterpolatedUnivariateSpline as spl
 from hmf.growth_factor import GrowthFactor
 
 
-def Index2Grid(inds, n_grid):
+__all__ = [
+    'index_to_grid',
+    'pos_to_index',
+    'GridTool',
+    'DensityField'
+]
+
+
+def index_to_grid(inds, n_grid):
     grid_z = inds%n_grid
     inds = inds//n_grid
     grid_y = inds%n_grid
@@ -16,7 +24,7 @@ def Index2Grid(inds, n_grid):
     return grid_x, grid_y, grid_z
 
 
-def Pos2Index(x, y, z, n_grid, box_size):
+def pos_to_index(x, y, z, n_grid, box_size):
     bins = np.linspace(0, box_size, n_grid + 1)
     grid_x = np.digitize(x, bins) - 1
     grid_y = np.digitize(y, bins) - 1
@@ -25,6 +33,15 @@ def Pos2Index(x, y, z, n_grid, box_size):
 
 
 class GridTool:
+    def __init__(self, n_grid, box_size, rstate=None):
+        self._n_grid = n_grid
+        self._box_size = box_size
+        if rstate is None:
+            self.rstate = np.random.RandomState()
+        else:
+            self.rstate = rstate
+
+
     @property
     def n_grid(self):
         """
@@ -41,7 +58,7 @@ class GridTool:
         return self._box_size
 
 
-    def Index2Grid(self, inds):
+    def index_to_grid(self, inds):
         """
         Convert 1-D grid indices to 3-D grid indices.
 
@@ -55,10 +72,10 @@ class GridTool:
         x, y, z : 1-D array
             3-D grid indices.
         """
-        return Index2Grid(inds, self.n_grid)
+        return index_to_grid(inds, self.n_grid)
 
 
-    def Pos2Index(self, xx, yy, zz, z_fix=0.):
+    def pos_to_index(self, xx, yy, zz, z_fix=0.):
         """
         Convert 3-D coordinates to 1-D grid indices.
 
@@ -75,10 +92,10 @@ class GridTool:
         1-D array
             1-D grid indices.
         """
-        return Pos2Index(xx, yy, zz, self.n_grid, self.box_size/(1. + z_fix))
+        return pos_to_index(xx, yy, zz, self.n_grid, self.box_size/(1. + z_fix))
 
 
-    def SampleFromIndex(self, inds):
+    def sample_from_inds(self, inds):
         """
         Sample random points using 1-D grid indices. Each point is uniformly
         distributed in the corresponding cell.
@@ -97,14 +114,14 @@ class GridTool:
         grid_size = self.box_size/n_grid
         rstate = self.rstate
         n_sample = len(inds)
-        grid_x, grid_y, grid_z = self.Index2Grid(inds)
+        grid_x, grid_y, grid_z = self.index_to_grid(inds)
         x = (rstate.rand(n_sample) + grid_x)*grid_size
         y = (rstate.rand(n_sample) + grid_y)*grid_size
         z = (rstate.rand(n_sample) + grid_z)*grid_size
         return x, y, z
 
 
-    def SampleFromField(self, den, n_sample, rstate=None):
+    def sample_from_field(self, den, n_sample, rstate=None):
         """
         Sample random points according to a given density field.
 
@@ -123,22 +140,25 @@ class GridTool:
             Corresponding 1-D grid indices.
         """
         inds = self.rstate.choice(len(den), n_sample, p=den)
-        x, y, z = self.SampleFromIndex(inds)
+        x, y, z = self.sample_from_inds(inds)
         return x, y, z, inds
 
 
-    def __init__(self, n_grid, box_size, rstate=None):
-        self._n_grid = n_grid
-        self._box_size = box_size
-        if rstate is None:
-            self.rstate = np.random.RandomState()
-        else:
-            self.rstate = rstate
-
-
 class DensityField(ABC):
+    def __init__(self, emf, redshifts, ages, n_grid, box_size, r_max=3., rstate=None):
+        self.gt_box = GridTool(n_grid, box_size, rstate)
+        self.emf = emf
+        self.redshifts = redshifts
+        self.ages = ages
+        self.r_max = 3
+        # Compute growth factor
+        gf = GrowthFactor(emf.cosmo)
+        self.D = [gf.growth_factor(z) for z in redshifts]
+        self.dDdt = spl(ages, self.D).derivative()(ages)
+
+
     @abstractmethod
-    def ReadDensityField(self, snap):
+    def read_density_field(self, snap):
         """
         Returns
         -------
@@ -149,7 +169,7 @@ class DensityField(ABC):
 
 
     @abstractmethod
-    def ReadVelocityField(self, snap):
+    def read_transform_field(self, snap):
         """
         Returns
         -------
@@ -159,7 +179,7 @@ class DensityField(ABC):
         return np.array([0.])
 
 
-    def BoundaryCondition(self, a, z_fix=0.):
+    def check_bounds(self, a, z_fix=0.):
         box_size = self.gt_box.box_size/(1. + z_fix)
         res = np.copy(a)
         res[res >= box_size] -= box_size
@@ -167,19 +187,19 @@ class DensityField(ABC):
         return res
 
 
-    def Move(self, x, y, z, dx, dy, dz):
-        x = self.BoundaryCondition(x + dx)
-        y = self.BoundaryCondition(y + dy)
-        z = self.BoundaryCondition(z + dz)
-        inds = self.gt_box.Pos2Index(x, y, z)
+    def move(self, x, y, z, dx, dy, dz):
+        x = self.check_bounds(x + dx)
+        y = self.check_bounds(y + dy)
+        z = self.check_bounds(z + dz)
+        inds = self.gt_box.pos_to_index(x, y, z)
         return x, y, z, inds
 
 
-    def PopulateHalos(self, m_halo, bins, snap):
+    def populate_halos(self, m_halo, bins, snap):
         emf = self.emf
         z = self.redshifts[snap]
         v_cell = (self.gt_box.box_size/self.gt_box.n_grid*emf.cosmo.h)**3
-        delta_dm = self.ReadDensityField(snap)
+        delta_dm = self.read_density_field(snap)
 
         n_halo = len(m_halo)
         x_h = np.zeros(n_halo, dtype='f8')
@@ -193,11 +213,11 @@ class DensityField(ABC):
             den_halo = emf.halo_density(delta_dm, v_cell, m_median, z)
             den_halo /= np.sum(den_halo)
             x_h[cond], y_h[cond], z_h[cond], inds[cond] = \
-                self.gt_box.SampleFromField(den_halo, len(sample_sub))
+                self.gt_box.sample_from_field(den_halo, len(sample_sub))
         return x_h, y_h, z_h, inds
 
 
-    def MoveHalos(self, x_h, y_h, z_h, inds, m1, m2, snap1):
+    def move_halos(self, x_h, y_h, z_h, inds, m1, m2, snap1):
         """
         Parameters
         ----------
@@ -217,8 +237,8 @@ class DensityField(ABC):
         emf.update(z=z2)
         b2 = spl(emf.m, emf.bias)(m2)
 
-        vx2, vy2, vz2 = self.ReadVelocityField(snap2)
-        vx1, vy1, vz1 = self.ReadVelocityField(snap1)
+        vx2, vy2, vz2 = self.read_transform_field(snap2)
+        vx1, vy1, vz1 = self.read_transform_field(snap1)
 
         dx = b1*vx1[inds] - b2*vx2[inds]
         dy = b1*vy1[inds] - b2*vy2[inds]
@@ -234,16 +254,4 @@ class DensityField(ABC):
         dr_16, dr_50, dr_84 = np.percentile(dr, [16, 50, 84])
         logger.info(f"dr = {dr_50:.2f}/+{dr_84-dr_50:.2f}/-{dr_50-dr_16:.2f}")
 
-        return self.Move(x_h, y_h, z_h, dx, dy, dz)
-
-
-    def __init__(self, emf, redshifts, ages, n_grid, box_size, r_max=3., rstate=None):
-        self.gt_box = GridTool(n_grid, box_size, rstate)
-        self.emf = emf
-        self.redshifts = redshifts
-        self.ages = ages
-        self.r_max = 3
-        # Compute growth factor
-        gf = GrowthFactor(emf.cosmo)
-        self.D = [gf.growth_factor(z) for z in redshifts]
-        self.dDdt = spl(ages, self.D).derivative()(ages)
+        return self.move(x_h, y_h, z_h, dx, dy, dz)

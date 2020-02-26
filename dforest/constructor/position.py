@@ -41,12 +41,12 @@ class PositionConstructor(Constructor):
 
     def _populate_halos(self, m_halo, snap):
         bins = smart_bins(m_halo, self.n_min, self.d_min, 'log')
-        return self.density_field.PopulateHalos(m_halo, bins, snap)
+        return self.density_field.populate_halos(m_halo, bins, snap)
 
 
     def _move_halos(self, inds, m_self, m_desc, snap):
-        x_h, y_h, z_h = self.density_field.gt_box.SampleFromIndex(inds)
-        return self.density_field.MoveHalos(x_h, y_h, z_h, inds, m_self, m_desc, snap)
+        x_h, y_h, z_h = self.density_field.gt_box.sample_from_inds(inds)
+        return self.density_field.move_halos(x_h, y_h, z_h, inds, m_self, m_desc, snap)
 
 
     def _add_property(self, df_inh, df_req, list_prog, snap, z):
@@ -85,15 +85,15 @@ class PositionConstructor(Constructor):
             if z_fix != 0.:
                 df_pos[[col_x, col_y, col_z]] /= (1. + z_fix)
         # Apply boundary condition to simulation halos
-        df_inh[col_x] = density_field.BoundaryCondition(df_inh[col_x], z_fix)
-        df_inh[col_y] = density_field.BoundaryCondition(df_inh[col_y], z_fix)
-        df_inh[col_z] = density_field.BoundaryCondition(df_inh[col_z], z_fix)
+        df_inh[col_x] = density_field.check_bounds(df_inh[col_x], z_fix)
+        df_inh[col_y] = density_field.check_bounds(df_inh[col_y], z_fix)
+        df_inh[col_z] = density_field.check_bounds(df_inh[col_z], z_fix)
         #
         if snap > snap_min:
             # Compute grid indices for simulation halos
             select_sim = ~select_mc
             df_inh = df_inh.loc[df_req.index[select_sim]]
-            grid_index[select_sim] = density_field.gt_box.Pos2Index(
+            grid_index[select_sim] = density_field.gt_box.pos_to_index(
                 df_inh[col_x], df_inh[col_y], df_inh[col_z], z_fix=z_fix
             )
             # Put grid indices into the pool
