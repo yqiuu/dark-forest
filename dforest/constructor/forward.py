@@ -71,7 +71,8 @@ class ForwardRebuilder:
 
 
     def _walk_forward(self, pool, df_source):
-        for desc_snap, desc_id, surv in df_source[['DescendantSnap', 'Descendant', 'Survive']].values:
+        for desc_snap, desc_id, surv in \
+            df_source[['DescendantSnap', 'Descendant', 'Survive']].values:
             pool[desc_snap][desc_id] = surv
 
 
@@ -101,11 +102,21 @@ class ForwardRebuilder:
         ))
         hf.set_node_attr(grp, 'n_halo', n_halo)
         if len(df_save) > 0:
-            hf.create_carray(grp, 'Index', obj=df_save.index.values.astype('i8'))
-            hf.create_carray(grp, 'HostHaloID', obj=df_save['HostHaloID'].values.astype('i8'))
-            hf.create_carray(grp, 'DescendantSnap', obj=df_save['DescendantSnap'].values.astype('i4'))
-            hf.create_carray(grp, 'Descendant', obj=df_save['Descendant'].values.astype('i8'))
-            hf.create_carray(grp, 'ForestID', obj=df_save['ForestID'].values.astype('i8'))
+            hf.create_carray(
+                grp, 'Index', obj=df_save.index.values.astype('i8')
+            )
+            hf.create_carray(
+                grp, 'HostHaloID', obj=df_save['HostHaloID'].values.astype('i8')
+            )
+            hf.create_carray(
+                grp, 'DescendantSnap', obj=df_save['DescendantSnap'].values.astype('i4')
+            )
+            hf.create_carray(
+                grp, 'Descendant', obj=df_save['Descendant'].values.astype('i8')
+            )
+            hf.create_carray(
+                grp, 'ForestID', obj=df_save['ForestID'].values.astype('i8')
+            )
 
 
     def _rebuild(self, hf):
@@ -194,7 +205,9 @@ class ForwardConstructor(Constructor):
 
 
     def _prepare_req_data(self, snap):
-        return self.cntr_target.read_cols(snap, 'Host', ['ProgIndex', 'ProgNumber'], 'pandas', 'Index')
+        return self.cntr_target.read_cols(
+            snap, 'Host', ['ProgIndex', 'ProgNumber'], 'pandas', 'Index'
+        )
 
 
     def _prepare_inh_data(self, snap):
