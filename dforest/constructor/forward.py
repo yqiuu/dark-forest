@@ -1,5 +1,7 @@
 import os
+import gc
 
+from ..logger import logger, dividing_line, memory_usage
 from .constructor import Constructor
 
 import numpy as np
@@ -93,7 +95,9 @@ class ForwardRebuilder:
                     if not pool[desc_snap][desc_id]
             ]
             host_id = df_source.loc[halo_id_sub, 'HostHaloID'].values
-            if len(host_id) > 0:
+            n_redirect = len(host_id)
+            if n_redirect > 0:
+                logger.info(f"Redirecting {n_redirect} subhalos")
                 df_source.loc[halo_id_sub, 'DescendantSnap'] \
                     = df_source.loc[host_id, 'DescendantSnap'].values
                 df_source.loc[halo_id_sub, 'Descendant'] \
@@ -139,6 +143,7 @@ class ForwardRebuilder:
         snap_target = [None]*n_snap
         kwargs_tqdm.update(desc="Rebuilding original trees")
         for snap in trange(snap_min, n_snap, **kwargs_tqdm):
+            logger.info(f"Processing snapshot {snap}/{n_snap} ({memory_usage()})")
             pool_sub = pool[snap]
             df_source = self._prepare_source_data(snap)
             self._put_top_halos(pool_sub, df_source, snap)
@@ -163,6 +168,8 @@ class ForwardRebuilder:
                             pool[snap_c] = None
             if snap == snap_max:
                 self._save_output(hf, df_source, snap)
+            gc.collect()
+            logger.info(dividing_line())
         snap_jump = max(snap_t - snap for snap_t, snap in zip(snap_target, range(n_snap)))
         return snap_jump
 

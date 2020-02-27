@@ -1,7 +1,8 @@
 import os
+import gc
 from abc import ABC, abstractmethod 
 
-from ..logger import logger
+from ..logger import logger, dividing_line, memory_usage
 
 import numpy as np
 import pandas as pd
@@ -42,7 +43,7 @@ class Constructor(ABC):
         redshifts = cntr_source.redshifts
         n_snap = self.snap_max - self.snap_min + 1
         for i_snap, snap in enumerate(self._range()):
-            logger.info(f"{self.message}: {i_snap+1:5d}/{n_snap}")
+            logger.info(f"{self.message}: {i_snap+1}/{n_snap} ({memory_usage()})")
             z = redshifts[snap]
             df_req = self._prepare_req_data(snap)
             df_inh = self._prepare_inh_data(snap)
@@ -50,7 +51,8 @@ class Constructor(ABC):
             list_prog = self._prepare_prog_data(snap)
             df_new = self._add_property(df_inh, df_req, list_prog, snap, z)
             self._save_output(df_new, snap)
-            logger.info("-------------------------------------------------")
+            gc.collect()
+            logger.info(dividing_line())
 
 
     def _set_column_names(self, col_req, snap_min):
