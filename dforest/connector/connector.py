@@ -164,7 +164,7 @@ class Connector(ABC):
 
 
     def halo_kit(self):
-        return HaloKit(self.create_emf(), self._z_grid)
+        return HaloKit(self.emf(), self._z_grid)
 
 
     def _init_emf(self):
