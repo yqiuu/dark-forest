@@ -1,6 +1,6 @@
 from ._dtree import *
 from .connector.dforest import save_header
-from .logger import logger
+from .logger import logger, dividing_line
 
 import os
 
@@ -515,7 +515,7 @@ def grow_halos(
         )
 
         if comm is None or comm.Get_rank() == master_rank:
-            logger.info("Finishing snapshot %d\n"%snap)
+            logger.info(dividing_line())
 
 
 def create_partitions(cntr, mass_key, snap, n_par, by_forest_id=True):

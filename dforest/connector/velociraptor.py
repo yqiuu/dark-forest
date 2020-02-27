@@ -214,8 +214,7 @@ class VELOCIraptorSaver:
 
 
     def _report(self, message):
-        mem = memory_usage()
-        logger.info(f"{message} ({mem})")
+        logger.info(f"{message} ({memory_usage()})")
 
 
     def _save_header(self, hf_out, hf_src, n_snap):
