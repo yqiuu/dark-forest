@@ -1,12 +1,10 @@
-import os
 import gc
 
-from ..logger import logger
+from ..logger import logger, dividing_line, memory_usage
 from .connector import Connector
 
 import numpy as np
 import pandas as pd
-import psutil
 import h5py
 import tables
 from tqdm import trange
@@ -212,12 +210,12 @@ class VELOCIraptorSaver:
                 self._save_cols(hf_out, grp, snap, self.args_mass)
                 # Save other halo properties
                 self._save_cols(hf_out, grp, snap, self.args_norm)
-                logger.info("--------------------------------------------------")
+                logger.info(dividing_line())
 
 
     def _report(self, message):
-        mem = psutil.Process(os.getpid()).memory_info()[0]/1024**3
-        logger.info(f"{message} ({mem:.2f} GB)")
+        mem = memory_usage()
+        logger.info(f"{message} ({mem})")
 
 
     def _save_header(self, hf_out, hf_src, n_snap):
