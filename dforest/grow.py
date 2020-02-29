@@ -349,10 +349,10 @@ def augment_simple_branch(
             m_prog_trail = m_best
             n_prog_trail = n_best
         else:
-            tree = Tree_Parkinson08(
+            tree = tree_split(
                 halo_kit, grow_kit, m_root, z_root, z_target, rstate=rstate, n_base=n_base,
             )
-            m_prog_trail = tree.Halos(next_level)['mass']
+            m_prog_trail = tree.halos(next_level)['mass']
             n_prog_trail = len(m_prog_trail)
             n_trail += 1
         # Check matching condition

@@ -280,8 +280,8 @@ class DarkForestConnector(Connector):
                 pool = [[] for i_snap in range(snap_max + 1)]
                 for i_tree, (halo_id, m_root) in enumerate(zip(halo_id_arr, m_root_arr)):
                     tree = HaloMergeTree(method = 'empty', n_base = 10**4)
-                    tree.SetRedshifts(redshifts)
-                    tree.Append(z_root, m_root)
+                    tree.redshifts = redshifts
+                    tree.append(z_root, m_root)
                     tree_arr[i_tree] = tree
                     pool[snap_max].append((i_tree, 0, halo_id))
             prog_data = self.read_cols(snap, 'Prog', ['Index', 'Snap', mass_key], 'records')
@@ -299,13 +299,13 @@ class DarkForestConnector(Connector):
                     halo_id = prog['Index']
                     halo_snap = prog['Snap']
                     mass = prog[mass_key]
-                    idx_node_new = tree.Append(z, mass)
+                    idx_node_new = tree.append(z, mass)
                     if i_prog == 0:
                         # Append first progenitor
-                        tree.LinkTailIndex(idx_node_host, idx_node_new)
+                        tree.link_tail_index(idx_node_host, idx_node_new)
                     else:
                         # Append next progenitor
-                        tree.LinkNextIndex(idx_node_prev, idx_node_new)
+                        tree.link_next_index(idx_node_prev, idx_node_new)
                     pool[halo_snap].append((i_tree, idx_node_new, halo_id))
                     idx_node_prev = idx_node_new
             pool[snap] = None

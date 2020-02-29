@@ -11,6 +11,16 @@ from scipy.interpolate import InterpolatedUnivariateSpline as spl
 from hmf.growth_factor import GrowthFactor
 
 
+__all__ = [
+    'RandomStateGSL',
+    'GrowKit',
+    'HaloKit',
+    'HaloMergeTree',
+    'tree_split',
+    'estimate_conditonal_mass_func'
+]
+
+
 cdef extern from "<gsl/gsl_rng.h>":
     ctypedef struct gsl_rng:
         pass
@@ -108,7 +118,7 @@ cdef class GrowKit:
         SplitKit_Free(&self.split)
 
 
-def RebuildHaloKit(*rebuild_args):
+def rebuild_halo_kit(*rebuild_args):
     return HaloKit(None, rebuild_args = rebuild_args)
 
 
@@ -119,10 +129,6 @@ cdef class HaloKit:
 
         public double m_min
         public double m_max
-
-
-    def __reduce__(self):
-        return (RebuildHaloKit, self.rebuild_args)
 
 
     def __cinit__(self, hmf, z_grid=None, save=None, rebuild_args=None):
@@ -176,10 +182,31 @@ cdef class HaloKit:
         HaloRelation_Free(&self.hr)
 
 
+    def __reduce__(self):
+        return (rebuild_halo_kit, self.rebuild_args)
+
+
 cdef class HaloMergeTree:
     cdef:
         NodeVector tree
         object z_arr
+
+
+    def __cinit__(self, method='split', **params):
+        self.z_arr = None
+        if method == 'split':
+            self._init_split(
+                params['halo_kit'], params['grow_kit'], params['m_root'], params['z_root'],
+                params['z_target'], params['m_res'], params['rstate'], params['n_base']
+            )
+        elif method == 'empty':
+            self._init_empty(params['n_base'])
+        else:
+            raise ValueError("Method %s is not understood"%method)
+
+
+    def __dealloc__(self):
+        NodeVector_Free(&self.tree)
 
 
     property m_root:
@@ -189,67 +216,15 @@ cdef class HaloMergeTree:
 
     property redshifts:
         def __get__(self):
-            return np.array(self.z_arr)
+            return np.copy(self.z_arr)
+        def __set__(self, z_arr):
+            if self.z_arr is None:
+                self.z_arr = np.sort(z_arr)
+            else:
+                logger.warning("redshifts can only be set once")
 
 
-    cdef _CheckMassRange(self, HaloKit halo_kit, m_root, m_res):
-        if m_root <= halo_kit.m_min or m_root >= halo_kit.m_max:
-            raise ValueError("m_root beyond mass interpolation range")
-        if m_res <= halo_kit.m_min or m_res >= halo_kit.m_max:
-            raise ValueError("m_res beyond mass interpolation range")
-
-
-    cdef _ConvertRedshift(self, double z_root, double[::1] z_target):
-        z_arr = np.append(z_root, z_target)
-        self.SetRedshifts(z_arr)
-        node_arr = np.asarray(<Node[:self.tree.n_node]>self.tree.data)
-        for i_delta, delta in enumerate(np.unique(node_arr['trace'])):
-            trace = node_arr['trace']
-            trace[trace == delta] = z_arr[i_delta]
-
-
-    cdef _InitEmpty(self, int n_base):
-        self.tree = NodeVector_Init(n_base)
-
-
-    cdef _InitParkinson08(self,
-        HaloKit halo_kit, GrowKit grow_kit, double m_root, double z_root, double[::1] z_target,
-        double m_res, RandomStateGSL rstate, int n_base
-    ):
-        self._CheckMassRange(halo_kit, m_root, m_res)
-        # Create the tree
-        self.tree = MergeTree_Grow(
-            m_root, z_root, &z_target[0], z_target.shape[0], &halo_kit.hr, &grow_kit.split,
-            rstate.rstate, n_base
-        )
-        # Convert delta to redshift
-        self._ConvertRedshift(z_root, z_target)
-    
-
-    cdef NodeVector* Pointer(self):
-        return &self.tree
-
-
-    cpdef int Append(self, z, mass):
-        return NodeVector_Append(&self.tree, z, mass)
-
-
-    cpdef void LinkTailIndex(self, idx, idx_tail):
-        self.tree.data[idx].idx_tail = idx_tail
-
-
-    cpdef void LinkNextIndex(self, idx, idx_next):
-        self.tree.data[idx].idx_next = idx_next
-
-
-    def SetRedshifts(self, z_arr):
-        if self.z_arr is None:
-            self.z_arr = np.sort(z_arr)
-        else:
-            logger.warning("Redshifts cannot be set once again")
-
-
-    def GetLevel(self, z, tol = 0.01):
+    def levels(self, z, tol=0.01):
         level = np.argmin(abs(self.redshifts - z))
         z_level = self.redshifts[level]
         if abs(z_level - z) > tol:
@@ -257,12 +232,7 @@ cdef class HaloMergeTree:
         return level
 
 
-    def MassTransfer(self, transfer_func):
-        node_arr = np.asarray(<Node[:self.tree.n_node]>self.tree.data)
-        node_arr['mass'] = transfer_func(node_arr['mass'])
-
-
-    def Halos(self, level = -1):
+    def halos(self, level=-1):
         # Create a copy of all nodes with modified attribute name
         dtype = [('z', 'f8'), ('mass', 'f8'), ('idx_tail', 'i4'), ('idx_next', 'i4')]
         node_arr = np.asarray(<Node[:self.tree.n_node]>self.tree.data).astype(dtype)
@@ -272,39 +242,63 @@ cdef class HaloMergeTree:
             return node_arr[node_arr['z'] == self.redshifts[level]]
 
 
-    def __cinit__(self, method = 'Parkinson08', **params):
-        self.z_arr = None
-        if method == 'Parkinson08':
-            self._InitParkinson08(
-                params['halo_kit'], params['grow_kit'], params['m_root'], params['z_root'],
-                params['z_target'], params['m_res'], params['rstate'], params['n_base']
-            )
-        elif method == 'empty':
-            self._InitEmpty(params['n_base'])
-        else:
-            raise ValueError("Method %s is not understood"%method)
+    cdef _check_mass_range(self, HaloKit halo_kit, m_root, m_res):
+        if m_root <= halo_kit.m_min or m_root >= halo_kit.m_max:
+            raise ValueError("m_root beyond mass interpolation range")
+        if m_res <= halo_kit.m_min or m_res >= halo_kit.m_max:
+            raise ValueError("m_res beyond mass interpolation range")
 
 
-    def __dealloc__(self):
-        NodeVector_Free(&self.tree)
+    cpdef int append(self, z, mass):
+        return NodeVector_Append(&self.tree, z, mass)
 
 
-def Tree_Parkinson08(halo_kit, grow_kit, m_root, z_root, z_target, rstate=None, n_base=100000):
+    cpdef void link_tail_index(self, idx, idx_tail):
+        self.tree.data[idx].idx_tail = idx_tail
+
+
+    cpdef void link_next_index(self, idx, idx_next):
+        self.tree.data[idx].idx_next = idx_next
+
+
+    cdef _convert_redshifts(self, double z_root, double[::1] z_target):
+        z_arr = np.append(z_root, z_target)
+        self.redshifts = z_arr
+        node_arr = np.asarray(<Node[:self.tree.n_node]>self.tree.data)
+        for i_delta, delta in enumerate(np.unique(node_arr['trace'])):
+            trace = node_arr['trace']
+            trace[trace == delta] = z_arr[i_delta]
+
+
+    cdef _init_empty(self, int n_base):
+        self.tree = NodeVector_Init(n_base)
+
+
+    cdef _init_split(self,
+        HaloKit halo_kit, GrowKit grow_kit, double m_root, double z_root, double[::1] z_target,
+        double m_res, RandomStateGSL rstate, int n_base
+    ):
+        self._check_mass_range(halo_kit, m_root, m_res)
+        # Create the tree
+        self.tree = MergeTree_Grow(
+            m_root, z_root, &z_target[0], z_target.shape[0], &halo_kit.hr, &grow_kit.split,
+            rstate.rstate, n_base
+        )
+        # Convert delta to redshift
+        self._convert_redshifts(z_root, z_target)
+
+
+def tree_split(halo_kit, grow_kit, m_root, z_root, z_target, rstate=None, n_base=100000):
     z_target = np.ravel(z_target).astype('f8')
     if rstate is None:
         rstate = RandomStateGSL(209204)
     return HaloMergeTree(
-        method='Parkinson08', halo_kit=halo_kit, grow_kit=grow_kit, m_root=m_root, z_root=z_root,
+        method='split', halo_kit=halo_kit, grow_kit=grow_kit, m_root=m_root, z_root=z_root,
         z_target=z_target, m_res=grow_kit.m_res, rstate=rstate, n_base=n_base
     )
 
 
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-#                                                                               #
-# Functions to analyse trees                                                    #
-#                                                                               #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-def EstimateConditionalMassFunction(tree, level, frac_bins = None, mean = True):
+def estimate_conditonal_mass_func(tree, level, frac_bins=None, mean=True):
     tree = np.ravel(tree)
     level = np.ravel(level)
     # Set fraction bins
@@ -319,34 +313,10 @@ def EstimateConditionalMassFunction(tree, level, frac_bins = None, mean = True):
         m_root = tree_single.m_root
         mass_bins = frac_bins*m_root
         for i_level, level_single in enumerate(level):
-            m_prog = tree_single.Halos(level_single)['mass']
+            m_prog = tree_single.halos(level_single)['mass']
             for i_bin, (l, u) in enumerate(zip(mass_bins[:-1], mass_bins[1:])):
                 cmf[i_tree, i_level, i_bin] = np.sum(m_prog[(m_prog > l) & (m_prog < u)])/m_root
     #
     if mean:
         cmf = cmf.mean(axis = 0)
     return frac_mid, cmf/dlnfrac
-
-
-cdef object _TrackMassAssemblyHistory(Node* node, int n_time):
-    cdef:
-        double[::1] mah = np.zeros(n_time)
-        int i_time
-        int idx = 0
-
-    for i_time in range(n_time):
-        mah[i_time] = node[idx].mass
-        idx = node[idx].idx_tail
-
-    return np.asarray(mah)
-
-
-def EstimateMassAssemblyHistory(tree):
-    tree = np.ravel(tree)
-    mah = np.empty(len(tree), dtype = object)
-    for i_tree, tree_single in enumerate(tree):
-        mah[i_tree] = _TrackMassAssemblyHistory(
-            (<HaloMergeTree>tree_single).Pointer().data, len(tree_single.redshifts)
-        )/tree_single.m_root
-    return mah
-
