@@ -1,6 +1,6 @@
 from ._dtree import *
 from .connector.dforest import save_header
-from .logger import logger, dividing_line
+from .logger import logger, dividing_line, memory_usage
 
 import os
 
@@ -489,7 +489,7 @@ def grow_halos(
     #
     for snap in range(snap_max, snap_min, -1):
         if comm is None or comm.Get_rank() == master_rank:
-            logger.info("Processing snapshot %d"%snap)
+            logger.info(f"Processing snapshot {snap} ({memory_usage()})")
 
         host_data_raw, prog_data_raw = read_data(
             cntr, mass_key, snap, snap_max, inds_sub, comm, master_rank
