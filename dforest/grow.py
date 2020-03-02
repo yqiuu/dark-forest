@@ -279,7 +279,7 @@ def create_new_id(n_halo, snap, offset):
     return -new_id
 
 
-def InterploateMass(m_prog, s_prog, m_root, t_root, t_target, ages):
+def interpolate_mass(m_prog, s_prog, m_root, t_root, t_target, ages):
     """
     Interploate the mass of the most massive progenitor with time. (inplace)
     """
@@ -415,7 +415,7 @@ def augment_chunk(
             # Fix host data
             host['ProgNumber'] = len(prog)
         m_prog = np.copy(prog[mass_key])
-        InterploateMass(m_prog, prog['Snap'], m_root, t_root, t_target, ages)
+        interpolate_mass(m_prog, prog['Snap'], m_root, t_root, t_target, ages)
         prog, m_unres, m_cut_fix, eps_match_fix, n_trail = augment_simple_branch(
             host, prog, mass_key, m_root, z_root, z_target,
             halo_kit, grow_kit, params_ag, rstate, n_base
