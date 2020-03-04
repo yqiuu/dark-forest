@@ -17,7 +17,7 @@ __all__ = [
     'HaloKit',
     'HaloMergeTree',
     'tree_split',
-    'estimate_conditonal_mass_func'
+    'estimate_conditional_mass_func'
 ]
 
 
@@ -298,7 +298,7 @@ def tree_split(halo_kit, grow_kit, m_root, z_root, z_target, rstate=None, n_base
     )
 
 
-def estimate_conditonal_mass_func(tree, level, frac_bins=None, mean=True):
+def estimate_conditional_mass_func(tree, level, frac_bins=None, mean=True):
     tree = np.ravel(tree)
     level = np.ravel(level)
     # Set fraction bins
