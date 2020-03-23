@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 from astropy import units as u
 from astropy.cosmology import FlatLambdaCDM
+from astropy.constants import G
 
 
 __all__ = ['Connector']
@@ -142,6 +143,15 @@ class Connector(ABC):
             return np.array(self._ages)
 
 
+    @property
+    def G(self):
+        """Gravitational constant.
+
+        The unit is determined by the given length mass and velocity units.
+        """
+        return G.to(self.radius_unit/self.mass_unit*self.velocity_unit**2).value
+
+
     def update_emf_params(self, z_grid=None, **kwargs):
         self._z_grid = z_grid
         try:
@@ -165,6 +175,22 @@ class Connector(ABC):
 
     def halo_kit(self):
         return HaloKit(self.emf(), self._z_grid)
+
+
+    def rho_halo(self, z, mode='crit', delta_h=200.):
+        density_unit = self.mass_unit/self.radius_unit**3
+        cosmo = FlatLambdaCDM(**self.cosmo_params)
+        rho_crit = cosmo.critical_density(z).to(density_unit).value
+        if mode == 'vir':
+            x = self.cosmo.Om(z) - 1
+            rho_halo = (18.*np.pi*np.pi + 82.*x - 39.*x*x)*rho_crit
+        elif mode == 'crit':
+            rho_halo = delta_h*rho_crit
+        elif mode == 'mean':
+            rho_halo = delta_h*cosmo.Om(z)*rho_crit
+        else:
+            raise ValueError("Choose mode from 'vir', 'crit' and 'mean'")
+        return rho_halo
 
 
     def _init_emf(self):
