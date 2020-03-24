@@ -292,13 +292,13 @@ def interpolate_mass(m_prog, s_prog, m_root, t_root, t_target, ages):
 
 
 def augment_simple_branch(
-    host, prog, mass_key, m_root, z_root, z_target,
-    halo_kit, grow_kit, params_ag, rstate, n_base
+    host, prog, mass_key, m_root, z_root, z_target, halo_kit, grow_kit, params_ag, rstate,
 ):
     """
     Given a pruned branch, generate Monte Carlo tree to find a match.
     """
     # Load algorithm parameters
+    n_base = 5000
     m_min_cut = params_ag['m_min_cut']
     m_max_cut = params_ag['m_max_cut']
     eps_cut = params_ag['eps_cut']
@@ -382,7 +382,7 @@ def augment_simple_branch(
 def augment_chunk(
     host_chunk, prog_chunk, pool_list_chunk, mass_key, snap,
     z_root, t_root, z_target, t_target, redshifts, ages,
-    halo_kit, grow_kit, m_cut, params_ag, rstate, n_base, comm,
+    halo_kit, grow_kit, m_cut, params_ag, rstate, comm,
 ):
     #
     dtype_host = host_chunk.dtype
@@ -418,7 +418,7 @@ def augment_chunk(
         interpolate_mass(m_prog, prog['Snap'], m_root, t_root, t_target, ages)
         prog, m_unres, m_cut_fix, eps_match_fix, n_trail = augment_simple_branch(
             host, prog, mass_key, m_root, z_root, z_target,
-            halo_kit, grow_kit, params_ag, rstate, n_base
+            halo_kit, grow_kit, params_ag, rstate,
         )
         stats_chunk[i_chunk] = m_cut_fix, eps_match_fix, n_trail
         # Create new progenitor and next host data
@@ -464,8 +464,7 @@ def augment_chunk(
 
 def grow_halos(
     cntr, fname, mass_key, grow_kit, snap_max, snap_min=0, params_ag=None,
-    root_halos=None, inds_sub=None, seed=20070831, n_base=5000, filters=None,
-    comm=None, master_rank=0
+    root_halos=None, inds_sub=None, seed=20070831, filters=None, comm=None, master_rank=0
 ):
     halo_kit = cntr.halo_kit()
     redshifts = cntr.redshifts
@@ -503,7 +502,7 @@ def grow_halos(
         new_prog_chunk, next_host_chunk, stats_chunk = augment_chunk(
             host_chunk, prog_chunk, pool_list_chunk, mass_key, snap,
             z_root, t_root, z_target, t_target, redshifts, ages,
-            halo_kit, grow_kit, m_cut, params_ag, rstate, n_base, comm
+            halo_kit, grow_kit, m_cut, params_ag, rstate, comm
         )
         host_data, prog_data, next_host_data, pool_data, stats_data = gather_data(
             host_chunk, new_prog_chunk, next_host_chunk,
