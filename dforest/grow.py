@@ -466,6 +466,43 @@ def grow_halos(
     cntr, fname, mass_key, grow_kit, snap_max, snap_min=0, params_ag=None,
     root_halos=None, inds_sub=None, seed=20070831, filters=None, comm=None, master_rank=0
 ):
+    """Primary function to grow halos.
+
+    This function can be used to extend halo merger trees of N-body
+    simulations or to grow a sample Monte Carlo merger trees.
+
+    Parameters
+    ----------
+    cntr : Connector or DarkSeed instance
+        Object specifies the cosmology and the timesteps. It also gives access
+        to the N-body simulation data if applicable.
+    fname : str
+        Path of the output file.
+    mass_key : str
+        Label for the halo mass.
+    grow_kit : GrowKit instance
+        Object specifies the parameters to grow a single Monte Carlo halo
+        trees.
+    snap_max: int
+        Maximum snapshot.
+    snap_min: int, optional
+        Minimum snapshot.
+    params_ag : dict
+        Parameters of the augmentation algorithm.
+    root_halos : 1-D array
+        Masses of additional halos to be augmented to the N-body simulation.
+    inds_sub : 1-D array
+        Indices to select a subsample of the N-body halos.
+    seed : int
+        Seed to generate random numbers.
+    filters : tables.Filters
+        Compression filters given by the PyTables package.
+    comm : MPI communicator
+        Use mpi4py to access a MPI communicator. If ``None``, the code is not
+        parallelized.
+    master_rank : int
+        Index of the master rank.
+    """
     halo_kit = cntr.halo_kit()
     redshifts = cntr.redshifts
     ages = cntr.ages
