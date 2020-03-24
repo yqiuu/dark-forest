@@ -58,12 +58,12 @@ class KernelSpinSampler:
 
 class SpinConstructor(Constructor):
     def __init__(self,
-        cntr_target, cntr_source, cols, spin_sampler, snap_max, snap_min=0,
+        cntr_ext, cntr_src, cols, spin_sampler, snap_max, snap_min=0,
         postfix=None, primary_spin=False, rstate=None, kwargs_tqdm={}
     ):
         super().__init__(
-            cntr_target=cntr_target,
-            cntr_source=cntr_source,
+            cntr_ext=cntr_ext,
+            cntr_src=cntr_src,
             col_inh=[cols['spin'], cols['L_x'], cols['L_y'], cols['L_z']],
             col_req=['ProgIndex', 'ProgNumber', cols['m_vir'], cols['r_vir'], cols['v_vir']],
             snap_min=snap_min,
@@ -87,7 +87,7 @@ class SpinConstructor(Constructor):
             self.rstate = np.random.RandomState()
         else:
             self.rstate = rstate
-        self.mass_conversion = cntr_source.mass_conversion
+        self.mass_conversion = cntr_src.mass_conversion
 
 
     def _inherit_spin(self, prog):

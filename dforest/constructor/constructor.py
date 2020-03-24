@@ -15,11 +15,11 @@ __all__ = ['Constructor']
 
 class Constructor(ABC):
     def __init__(self,
-        cntr_target, cntr_source, col_inh, col_req, snap_max, snap_min,
+        cntr_ext, cntr_src, col_inh, col_req, snap_max, snap_min,
         read_prog, inherit, forward, postfix, message, kwargs_tqdm
     ):
-        self.cntr_target = cntr_target
-        self.cntr_source = cntr_source
+        self.cntr_ext = cntr_ext
+        self.cntr_src = cntr_src
         self.col_inh = list(col_inh)
         self.col_req = list(col_req)
         self.snap_max = snap_max
@@ -35,12 +35,12 @@ class Constructor(ABC):
 
     def run(self):
         # Load local variables
-        cntr_target = self.cntr_target
-        cntr_source = self.cntr_source
+        cntr_ext = self.cntr_ext
+        cntr_src = self.cntr_src
         inherit = self.inherit
         read_prog = self.read_prog
         #
-        redshifts = cntr_source.redshifts
+        redshifts = cntr_src.redshifts
         n_snap = self.snap_max - self.snap_min + 1
         for i_snap, snap in enumerate(self._range()):
             logger.info(f"{self.message}: {i_snap+1}/{n_snap} ({memory_usage()})")
@@ -57,7 +57,7 @@ class Constructor(ABC):
 
     def _set_column_names(self, col_req, snap_min):
         node_host = [
-            node.name for node in self.cntr_target.hf.iter_nodes('/Snapshot_%03d/Host'%snap_min)
+            node.name for node in self.cntr_ext.hf.iter_nodes('/Snapshot_%03d/Host'%snap_min)
         ]
         col_host = []
         col_main = []
@@ -80,11 +80,11 @@ class Constructor(ABC):
 
 
     def _prepare_prog_data(self, snap):
-        cntr_target = self.cntr_target
+        cntr_ext = self.cntr_ext
         read_prog = self.read_prog
         if len(read_prog) > 0:
             try:
-                rec_prog = cntr_target.read_cols(snap, 'Prog', read_prog, 'records')
+                rec_prog = cntr_ext.read_cols(snap, 'Prog', read_prog, 'records')
             except OSError:
                 return None
             if len(read_prog) == 1:
@@ -98,13 +98,13 @@ class Constructor(ABC):
 
     def _prepare_req_data(self, snap):
         # Load local variables
-        cntr_target = self.cntr_target
+        cntr_ext = self.cntr_ext
         col_host = self.col_host
         col_main = self.col_main
         #
-        df_host = cntr_target.read_cols(snap, 'Host', col_host, 'pandas', 'Index')
+        df_host = cntr_ext.read_cols(snap, 'Host', col_host, 'pandas', 'Index')
         if len(col_main) > 0:
-            df_main = cntr_target.read_cols(snap, 'MainA', col_main, 'pandas', 'Index')
+            df_main = cntr_ext.read_cols(snap, 'MainA', col_main, 'pandas', 'Index')
             df_req = pd.concat([df_host, df_main], axis=1, join='inner')
         else:
             df_req = df_host
@@ -113,19 +113,19 @@ class Constructor(ABC):
 
     def _prepare_inh_data(self, snap):
         # Load local variables
-        cntr_target = self.cntr_target
-        cntr_source = self.cntr_source
+        cntr_ext = self.cntr_ext
+        cntr_src = self.cntr_src
         col_inh = self.col_inh
         # 
-        halo_id_sim = cntr_source[snap, 'ID']
+        halo_id_sim = cntr_src[snap, 'ID']
         df_sim = pd.DataFrame(index=halo_id_sim)
         for col in col_inh:
             try:
-                df_sim[col] = cntr_source[snap, col]
+                df_sim[col] = cntr_src[snap, col]
             except KeyError:
                 pass
         try:
-            halo_id_fix = cntr_target.read_cols(snap, 'MainA', ['Index'])['Index']
+            halo_id_fix = cntr_ext.read_cols(snap, 'MainA', ['Index'])['Index']
         except IOError:
             raise Exception("run FowardRebuilder before adding any other properties") from None
         df_sim = df_sim.loc[halo_id_fix[halo_id_fix > 0]]
@@ -170,12 +170,12 @@ class Constructor(ABC):
 
 
     def _save_output(self, df_new, snap):
-        hf = self.cntr_target.hf
+        hf = self.cntr_ext.hf
         postfix = '' if self.postfix is None else f'_{self.postfix}'
         name = 'MainB' if self.inherit else 'MainA'
         group = hf.get_node(f'/Snapshot_{snap:03d}', name)
         try:
-            inds = self.cntr_target.read_cols(snap, name, ['Index'])['Index']
+            inds = self.cntr_ext.read_cols(snap, name, ['Index'])['Index']
         except NoSuchNodeError:
             inds = None
         if inds is None or np.array_equal(inds, df_new.index):
