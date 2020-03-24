@@ -126,7 +126,7 @@ class Constructor(ABC):
                 pass
         try:
             halo_id_fix = cntr_target.read_cols(snap, 'MainA', ['Index'])['Index']
-        except NoSuchNodeError:
+        except IOError:
             raise Exception("run FowardRebuilder before adding any other properties") from None
         df_sim = df_sim.loc[halo_id_fix[halo_id_fix > 0]]
         return df_sim
