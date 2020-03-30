@@ -75,13 +75,7 @@ class Constructor(ABC):
 
     def run(self):
         """Run the constructor."""
-        # Load local variables
-        cntr_ext = self.cntr_ext
-        cntr_src = self.cntr_src
-        inherit = self.inherit
-        read_prog = self.read_prog
-        #
-        redshifts = cntr_src.redshifts
+        redshifts = self.cntr_src.redshifts
         n_snap = self.snap_max - self.snap_min + 1
         for i_snap, snap in enumerate(self._range()):
             logger.info(f"{self.message}: {i_snap+1}/{n_snap} ({memory_usage()})")
@@ -138,14 +132,9 @@ class Constructor(ABC):
 
 
     def _prepare_req_data(self, snap):
-        # Load local variables
-        cntr_ext = self.cntr_ext
-        col_host = self.col_host
-        col_main = self.col_main
-        #
-        df_host = cntr_ext.read_cols(snap, 'Host', col_host, 'pandas', 'Index')
-        if len(col_main) > 0:
-            df_main = cntr_ext.read_cols(snap, 'MainA', col_main, 'pandas', 'Index')
+        df_host = self.cntr_ext.read_cols(snap, 'Host', self.col_host, 'pandas', 'Index')
+        if len(self.col_main) > 0:
+            df_main = self.cntr_ext.read_cols(snap, 'MainA', self.col_main, 'pandas', 'Index')
             df_req = pd.concat([df_host, df_main], axis=1, join='inner')
         else:
             df_req = df_host
@@ -153,20 +142,15 @@ class Constructor(ABC):
 
 
     def _prepare_inh_data(self, snap):
-        # Load local variables
-        cntr_ext = self.cntr_ext
-        cntr_src = self.cntr_src
-        col_inh = self.col_inh
-        # 
-        halo_id_sim = cntr_src[snap, 'ID']
+        halo_id_sim = self.cntr_src[snap, 'ID']
         df_sim = pd.DataFrame(index=halo_id_sim)
-        for col in col_inh:
+        for col in self.col_inh:
             try:
-                df_sim[col] = cntr_src[snap, col]
+                df_sim[col] = self.cntr_src[snap, col]
             except KeyError:
                 pass
         try:
-            halo_id_fix = cntr_ext.read_cols(snap, 'MainA', ['Index'])['Index']
+            halo_id_fix = self.cntr_ext.read_cols(snap, 'MainA', ['Index'])['Index']
         except IOError:
             raise Exception("run FowardRebuilder before adding any other properties") from None
         df_sim = df_sim.loc[halo_id_fix[halo_id_fix > 0]]
@@ -204,16 +188,7 @@ class Constructor(ABC):
             The indices of the DataFrame should match those in `MainA` or
             'MainB'.
         """
-
-        # Load local variables
-        col_inh = self.col_inh
-        #
-        halo_id_mc = df_req.index[df_req.index < 0]
-        df_new = pd.DataFrame(
-            np.zeros([len(halo_id_mc), len(col_inh)]), index=halo_id_mc, columns=col_inh
-        )
-        df_new = df_inh.append(df_new)
-        return df_new
+        return pd.DataFrame()
 
 
     def _save_output(self, df_new, snap):
