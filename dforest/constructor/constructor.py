@@ -14,6 +14,46 @@ __all__ = ['Constructor']
 
 
 class Constructor(ABC):
+    """Abstract class to add a new halo property.
+
+    Overwrite ``_add_property`` method to enable the class. This method should
+    return a ``pandas.DataFrame`` object and the data will be saved in the
+    file specified by ``cntr_ext``. There are two groups to save the data,
+    i.e. 'MainA' and 'MainB'. The former contains all halos (including
+    subhalos) that are not exculded from the origal trees (specified by
+    ``cntr_src``) and all MC halos, while the latter only has MC halos. If
+    the new columns overwrites the original halo properties, save them in
+    `MainA`; otherwise they should be saved in 'MainB'. The code will check
+    the consistency of the data using the indices of the DataFrame. The
+    indices in 'MainA' and 'MainB' are pre-determined by
+    ``ForwardConstructor``.
+
+    Parameters
+    ----------
+    cntr_ext : Connector instance
+        Connector to the extended trees.
+    cntr_src : Connector instance
+        Connector to the original trees.
+    col_inh : list
+        Column names of inherited data.
+    col_req : list
+        Column names of request data.
+    snap_max : int
+        Maximum snapshot
+    snap_min : int
+        Minimum snapshot
+    read_prog : list
+        Column names of progenitor data. Use empty list if no properties is
+        needed.
+    inherit : bool
+        If True, save data in 'MainB', else save data in 'MainA'.
+    postfix : str
+        Add '_{postfix}' to the column names of the data to save.
+    message : str
+        Message to describe the progress bar.
+    kwargs_tqdm : dict
+        Keyword arguments for tqdm.
+    """
     def __init__(self,
         cntr_ext, cntr_src, col_inh, col_req, snap_max, snap_min,
         read_prog, inherit, forward, postfix, message, kwargs_tqdm
@@ -34,6 +74,7 @@ class Constructor(ABC):
 
 
     def run(self):
+        """Run the constructor."""
         # Load local variables
         cntr_ext = self.cntr_ext
         cntr_src = self.cntr_src
@@ -138,24 +179,30 @@ class Constructor(ABC):
         Parameters
         ----------
         df_inh: pandas.DataFrame:
-            Requested data read from the handler.
-            Column:
+            Halo data from the original trees.
+            Columns:
                 Specified by `col_inh`.
-            Index:
-                Halo ID of all simulation host halos stored in the halo
-                connector and all sub halos read from the handler.
+            Indices:
+                All halos (including subhalos) that are not exclude from the
+                original trees.
         df_req: pandas.DataFrame
-            Requested data read from the halo connector.
-            Column:
+            Halo data read from the extended trees.
+            Columns:
                 Specified by `col_req`.
-            Index:
-                The same with those stored in the halo connector.
+            Indices:
+                All MC halos.
         list_prog: list
-            Progenitor data read from the halo connector.
+            Progenitor data from the extended trees
         snap: int
-            Snapshot number that the data should be read at.
+            Snapshot number to read the data.
         z: float
             Redshift of the given snapshot.
+
+        Returns
+        -------
+        pandas.DataFrame
+            The indices of the DataFrame should match those in `MainA` or
+            'MainB'.
         """
 
         # Load local variables
