@@ -358,24 +358,23 @@ def augment_simple_branch(
         # Check matching condition
         n_prog = len(m_prog)
         m_prog_new = m_prog_trail[n_prog:]
-        if len(m_prog_new) == 0 or m_prog_new[0] < m_max_cut:
-            if n_prog_trail >= n_prog:
-                fit_arr = abs(m_prog_trail[:n_prog]/m_prog - 1.)
-                if all(fit_arr < eps_match):
-                    if all(m_prog_new < m_cut):
-                        break
-                    else:
-                        n_cut += 1
+        if n_prog_trail >= n_prog:
+            fit_arr = abs(m_prog_trail[:n_prog]/m_prog - 1.)
+            if all(fit_arr < eps_match):
+                if all(m_prog_new < m_cut):
+                    break
                 else:
-                    # Save the best fit
-                    fit = np.sum(fit_arr);
-                    if fit < best_fit or best_fit == initial_fit:
-                        best_fit = fit
-                        m_best = m_prog_trail
-                        n_best = n_prog_trail
-                    n_match += 1
+                    n_cut += 1
             else:
-                n_cut += 1
+                # Save the best fit
+                fit = np.sum(fit_arr);
+                if fit < best_fit or best_fit == initial_fit:
+                    best_fit = fit
+                    m_best = m_prog_trail
+                    n_best = n_prog_trail
+                n_match += 1
+        else:
+            n_cut += 1
     return prog, m_prog_new, m_cut, eps_match, n_trail
 
 
