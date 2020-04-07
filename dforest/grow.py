@@ -317,6 +317,7 @@ def augment_simple_branch(
     # Sort progenitors by mass
     prog[::-1].sort(order = mass_key)
     prog_0 = prog.copy()
+    n_prog_0 = len(prog_0)
     m_prog = prog[mass_key]
     #
     while True:
@@ -325,7 +326,7 @@ def augment_simple_branch(
         if n_cut == n_trail_cut:
             n_cut = 0
             best_fit = initial_fit
-            if len(m_prog) > 0:
+            if n_prog_0 > 0:
                 m_cut *= (1 + eps_cut)
                 m_cut = min(m_cut, m_max_cut, max(m_prog))
             else:
