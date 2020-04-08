@@ -150,7 +150,7 @@ class DensityField(ABC):
         self.emf = emf
         self.redshifts = redshifts
         self.ages = ages
-        self.r_max = 3
+        self.r_max = r_max
         # Compute growth factor
         gf = GrowthFactor(emf.cosmo)
         self.D = [gf.growth_factor(z) for z in redshifts]
