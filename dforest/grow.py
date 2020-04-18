@@ -425,7 +425,7 @@ def augment_chunk(
         n_unres = len(m_unres)
         if n_unres > 0:
             # Generate new halo IDs
-            new_id = create_new_id(n_unres, snap - 1, n_new_halo) #[1]
+            new_id = create_new_id(n_unres, snap - 1, n_new_halo)
             n_new_halo += n_unres
             host['ProgNumber'] += n_unres
             # Process new progenitor data
@@ -440,7 +440,7 @@ def augment_chunk(
             next_host = np.full(n_unres, -1, dtype = dtype_host)
             next_host['Index'] = new_id
             next_host['ProgNumber'] = 0
-            next_host['LeafType'] = 2 if host['LeafType'] == 2 else 1 #[1]
+            next_host['LeafType'] = 2 if host['LeafType'] == 2 else 1
             next_host[mass_key] = m_unres
             next_host_chunk[i_chunk] = next_host
         else:
@@ -596,6 +596,3 @@ class DarkSeed:
 
     def halo_kit(self):
         return HaloKit(self.emf, z_grid=self.z_grid)
-# Footnotes
-# [1] IDs and leaf types will be overwritten when saving the data depending
-#     on the given saving mode.
