@@ -81,7 +81,7 @@ class GridTool:
 
         Parameters
         ----------
-        x, y, z : 1-D array
+        xx, yy, zz : 1-D array
             Input 3-D coordinates.
         z_fix : float, optional
             Divide the box size by 1 + z_fix. Use this when coordinates are
