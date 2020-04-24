@@ -1,6 +1,6 @@
 # project specific
 .nfs*
-*/_dtree.c
+*/_dtree.cpp
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
