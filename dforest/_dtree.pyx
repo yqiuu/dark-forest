@@ -18,6 +18,7 @@ __all__ = [
     'GrowKit',
     'HaloKit',
     'HaloMergeTree',
+    'TreeBinarySplit',
     'tree_split',
     'estimate_conditional_mass_func'
 ]
@@ -48,6 +49,82 @@ cdef class RandomStateGSL:
 
     def __dealloc__(self):
         gsl_rng_free(self.rstate)
+
+
+cdef class MergeTree:
+    """Container of a single tree. Data are stored in a c++ vector."""
+    cdef vector[Leaf] data
+
+
+    cdef void from_vector(self, vector[Leaf]&& d):
+        self.data = d
+
+
+    def __init__(self, n_base=kInitialSize):
+        self.data.reserve(n_base)
+
+
+    cpdef void append(self, mass, level):
+        self.data.push_back(Leaf(mass, level, -1, -1))
+
+
+    cpdef void link_tail_index(self, idx, idx_tail):
+        self.data[idx].idx_tail = idx_tail
+
+
+    cpdef void link_next_index(self, idx, idx_next):
+        self.data[idx].idx_next = idx_next
+
+
+    def leaf(self, level=-1):
+        data = np.asarray(<c_Leaf[:self.data.size()]>(<c_Leaf*>&self.data[0]))
+        m_halo = np.copy(data['mass'])
+        if level == -1:
+            return m_halo
+        else:
+            return m_halo[data['level'] == level]
+
+
+    def tree(self):
+        return np.copy(<c_Leaf[:self.data.size()]>(<c_Leaf*>&self.data[0]))
+
+
+cdef class TreeBinarySplit:
+    """Wrapper class to generator merger tree by binary splits."""
+    cdef KitSplit* kit_sp
+    cdef BinarySplit* planter
+
+
+    def __cinit__(self,
+        HaloKit kit_halo,
+        RandomStateGSL rstate=None,
+        double G0=0.57,
+        double gamma1=0.38,
+        double gamma2=-0.01,
+        double m_res=1e8,
+        double eps1=.1,
+        double eps2=.1
+    ):
+        if rstate is None:
+            rstate = RandomStateGSL(20070831)
+        self.kit_sp = new KitSplit(G0, gamma1, gamma2, m_res, eps1, eps2)
+        self.planter = new BinarySplit(
+            kit_halo.hr, self.kit_sp, rstate.rstate
+        )
+
+
+    def __dealloc__(self):
+        del self.kit_sp
+        del self.planter
+
+
+    def grow(self, m_root, z_root, z_target):
+        cdef double[::] mv = np.asarray(z_target)
+        cdef vector[double] vec
+        vec.assign(&mv[0], &mv[0] + mv.shape[0])
+        tree = MergeTree()
+        tree.from_vector(self.planter.grow(m_root, z_root, vec))
+        return tree
 
 
 cdef class GrowKit:
