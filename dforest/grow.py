@@ -18,13 +18,6 @@ __all__ = [
 ]
 
 
-def create_random_state(seed, comm):
-    if comm is None:
-        return RandomStateGSL(seed)
-    else:
-        return RandomStateGSL(seed + comm.Get_rank())
-
-
 def create_output(cntr, fname, filters, comm, master_rank):
     if comm is None or comm.Get_rank() == master_rank:
         if isinstance(cntr, DarkSeed):
@@ -292,7 +285,7 @@ def interpolate_mass(m_prog, s_prog, m_root, t_root, t_target, ages):
 
 
 def augment_simple_branch(
-    host, prog, mass_key, m_root, z_root, z_target, halo_kit, grow_kit, params_ag, rstate,
+    planter, host, prog, mass_key, m_root, z_root, z_target, params_ag,
 ):
     """
     Given a pruned branch, generate Monte Carlo tree to find a match.
@@ -350,10 +343,8 @@ def augment_simple_branch(
             m_prog_trail = m_best
             n_prog_trail = n_best
         else:
-            tree = tree_split(
-                halo_kit, grow_kit, m_root, z_root, z_target, rstate=rstate, n_base=n_base,
-            )
-            m_prog_trail = tree.halos(next_level)['mass']
+            tree = planter.grow(m_root, z_root, z_target)
+            m_prog_trail = tree.leaf(next_level)
             n_prog_trail = len(m_prog_trail)
             n_trail += 1
         # Check matching condition
@@ -380,9 +371,9 @@ def augment_simple_branch(
 
 
 def augment_chunk(
-    host_chunk, prog_chunk, pool_list_chunk, mass_key, snap,
-    z_root, t_root, z_target, t_target, redshifts, ages,
-    halo_kit, grow_kit, m_cut, params_ag, rstate, comm,
+    planter, host_chunk, prog_chunk, pool_list_chunk,
+    mass_key, snap, z_root, t_root, z_target, t_target,
+    redshifts, ages, m_cut, params_ag, comm,
 ):
     #
     dtype_host = host_chunk.dtype
@@ -416,10 +407,11 @@ def augment_chunk(
             host['ProgNumber'] = len(prog)
         m_prog = np.copy(prog[mass_key])
         interpolate_mass(m_prog, prog['Snap'], m_root, t_root, t_target, ages)
-        prog, m_unres, m_cut_fix, eps_match_fix, n_trail = augment_simple_branch(
-            host, prog, mass_key, m_root, z_root, z_target,
-            halo_kit, grow_kit, params_ag, rstate,
-        )
+        prog, m_unres, m_cut_fix, eps_match_fix, n_trail \
+            = augment_simple_branch(
+                planter, host, prog, mass_key,
+                m_root, z_root, z_target, params_ag,
+            )
         stats_chunk[i_chunk] = m_cut_fix, eps_match_fix, n_trail
         # Create new progenitor and next host data
         n_unres = len(m_unres)
@@ -463,8 +455,8 @@ def augment_chunk(
 
 
 def grow_halos(
-    cntr, fname, mass_key, grow_kit, snap_max, snap_min=0, params_ag=None,
-    root_halos=None, inds_sub=None, seed=20070831, filters=None, comm=None, master_rank=0
+    cntr, planter, fname, mass_key, snap_max, snap_min=0, params_ag=None,
+    root_halos=None, inds_sub=None, filters=None, comm=None, master_rank=0
 ):
     """Primary function to grow halos.
 
@@ -503,14 +495,13 @@ def grow_halos(
     master_rank : int
         Index of the master rank.
     """
-    halo_kit = cntr.halo_kit()
     redshifts = cntr.redshifts
     ages = cntr.ages
-    rstate = create_random_state(seed, comm)
     if isinstance(cntr, DarkSeed):
         params_ag = {
-            'm_min_cut': 0., 'm_max_cut': np.inf, 'eps_cut': 0., 'n_trail_cut': 0,
-            'eps_match':0, 'n_trail_match': 0, 'n_max_trail': 1
+            'm_min_cut': 0., 'm_max_cut': np.inf, 'eps_cut': 0.,
+            'n_trail_cut': 0, 'eps_match':0, 'n_trail_match': 0,
+            'n_max_trail': 1
         }
     elif params_ag is None:
         raise ValueError("When augmenting trees, params_ag should not be None.")
@@ -537,9 +528,9 @@ def grow_halos(
         z_root, t_root = redshifts[snap], ages[snap]
         z_target, t_target = redshifts[snap - 1], ages[snap - 1]
         new_prog_chunk, next_host_chunk, stats_chunk = augment_chunk(
-            host_chunk, prog_chunk, pool_list_chunk, mass_key, snap,
-            z_root, t_root, z_target, t_target, redshifts, ages,
-            halo_kit, grow_kit, m_cut, params_ag, rstate, comm
+            planter, host_chunk, prog_chunk, pool_list_chunk,
+            mass_key, snap, z_root, t_root, z_target, t_target,
+            redshifts, ages, m_cut, params_ag, comm
         )
         host_data, prog_data, next_host_data, pool_data, stats_data = gather_data(
             host_chunk, new_prog_chunk, next_host_chunk,
