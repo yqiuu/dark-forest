@@ -31,6 +31,12 @@ cdef struct c_Leaf:
     int idx_next
 
 
+cdef gsl_rng* gsl_rng_init(unsigned long int seed):
+    cdef gsl_rng* rstate = gsl_rng_alloc(gsl_rng_mt19937)
+    gsl_rng_set(rstate, seed)
+    return rstate
+
+
 cdef class RandomStateGSL:
     """
     Wrapper of the GSL random number generator.
@@ -91,35 +97,38 @@ cdef class MergeTree:
 
 cdef class TreeBinarySplit:
     """Wrapper class to generator merger tree by binary splits."""
+    cdef HaloKit halo_kit
+    cdef gsl_rng* rstate
     cdef KitSplit* kit_sp
     cdef BinarySplit* planter
 
 
     def __cinit__(self,
-        HaloKit kit_halo,
-        RandomStateGSL rstate=None,
+        object core,
         double G0=0.57,
         double gamma1=0.38,
         double gamma2=-0.01,
         double m_res=1e8,
         double eps1=.1,
-        double eps2=.1
+        double eps2=.1,
+        unsigned long int seed=0
     ):
-        if rstate is None:
-            rstate = RandomStateGSL(20070831)
+        self.halo_kit = core if isinstance(core, HaloKit) else core.halo_kit()
+        self.rstate = gsl_rng_init(seed)
         self.kit_sp = new KitSplit(G0, gamma1, gamma2, m_res, eps1, eps2)
         self.planter = new BinarySplit(
-            kit_halo.hr, self.kit_sp, rstate.rstate
+            self.halo_kit.hr, self.kit_sp, self.rstate
         )
 
 
     def __dealloc__(self):
+        gsl_rng_free(self.rstate)
         del self.kit_sp
         del self.planter
 
 
     def grow(self, m_root, z_root, z_target):
-        cdef double[::] mv = np.asarray(z_target)
+        cdef double[::] mv = np.asarray(z_target, dtype=np.double).flatten()
         cdef vector[double] vec
         vec.assign(&mv[0], &mv[0] + mv.shape[0])
         tree = MergeTree()
