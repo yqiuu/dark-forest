@@ -1,6 +1,6 @@
 import os
 
-from .._dtree import MergeTree
+from .._dtree import MergerTree
 from .connector import Connector
 
 import tables
@@ -284,7 +284,7 @@ class DarkForestConnector(Connector):
                 pool = [[] for i_snap in range(snap_max + 1)]
                 for i_tree, (halo_id, m_root) \
                     in enumerate(zip(halo_id_arr, m_root_arr)):
-                    tree = MergeTree(n_base=10**4)
+                    tree = MergerTree(n_base=10**4)
                     tree.append(m_root, 0)
                     tree_arr[i_tree] = tree
                     pool[snap_max].append((i_tree, 0, halo_id))
