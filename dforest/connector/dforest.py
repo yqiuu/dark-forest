@@ -1,6 +1,6 @@
 import os
 
-from .._dtree import HaloMergeTree
+from .._dtree import MergeTree
 from .connector import Connector
 
 import tables
@@ -113,7 +113,7 @@ class DarkForestConnector(Connector):
             self._box_size = self.hf.get_node_attr('/Header', 'box_size')
             return self._box_size
 
-    
+
     @property
     def mass_unit(self):
         try:
@@ -248,13 +248,16 @@ class DarkForestConnector(Connector):
             raise ValueError(f"Unkown rtype: '{rtype}'")
 
 
-    def read_trees(self, mass_key, snap_max, snap_min=0, m_range=None, kwargs_tqdm={}):
+    def read_trees(self,
+        mass_key, snap_max, snap_min=0, m_range=None, kwargs_tqdm={}
+    ):
         kwargs_tqdm.update(desc='Reading dark forest')
         #
         redshifts = self.redshifts
         # Select host halos
         host_data = self.read_cols(
-            snap_max, 'Host', ['ProgIndex', 'ProgNumber', mass_key], 'pandas', 'Index'
+            snap_max, 'Host', ['ProgIndex', 'ProgNumber', mass_key],
+            'pandas', 'Index'
         )
         if m_range is not None:
             m_min, m_max = m_range
@@ -265,11 +268,12 @@ class DarkForestConnector(Connector):
         n_host = np.count_nonzero(cond)
         #
         for snap in trange(snap_max, snap_min, -1, **kwargs_tqdm):
-            z = redshifts[snap - 1]
+            level = snap_max - snap + 1
             # Read data
             if snap != snap_max:
                 host_data = self.read_cols(
-                    snap, 'Host', ['ProgIndex', 'ProgNumber', mass_key], 'pandas', 'Index'
+                    snap, 'Host', ['ProgIndex', 'ProgNumber', mass_key],
+                    'pandas', 'Index'
                 )
             else:
                 # Initialise root halos and the pool to read progenitors
@@ -278,33 +282,36 @@ class DarkForestConnector(Connector):
                 m_root_arr = host_data.loc[halo_id_arr, mass_key]
                 tree_arr = np.empty(n_host, dtype = object)
                 pool = [[] for i_snap in range(snap_max + 1)]
-                for i_tree, (halo_id, m_root) in enumerate(zip(halo_id_arr, m_root_arr)):
-                    tree = HaloMergeTree(method = 'empty', n_base = 10**4)
-                    tree.redshifts = redshifts
-                    tree.append(z_root, m_root)
+                for i_tree, (halo_id, m_root) \
+                    in enumerate(zip(halo_id_arr, m_root_arr)):
+                    tree = MergeTree(n_base=10**4)
+                    tree.append(m_root, 0)
                     tree_arr[i_tree] = tree
                     pool[snap_max].append((i_tree, 0, halo_id))
-            prog_data = self.read_cols(snap, 'Prog', ['Index', 'Snap', mass_key], 'records')
+            prog_data = self.read_cols(
+                snap, 'Prog', ['Index', 'Snap', mass_key], 'records'
+            )
             # Trace progenitors
             current_pool = np.asarray(pool[snap])
             if len(current_pool) == 0:
                 continue
-            prog_pointer = host_data.loc[current_pool[:, -1], ['ProgIndex', 'ProgNumber']].values
+            prog_pointer = host_data.loc[
+                current_pool[:, -1], ['ProgIndex', 'ProgNumber']
+            ].values
             cond = prog_pointer[:, -1] > 0
             current_pool = current_pool[cond]
             prog_pointer = prog_pointer[cond]
-            for (i_tree, idx_node_host, host_id), (idx, num) in zip(current_pool, prog_pointer):
+            for (i_tree, idx_node_host, host_id), (idx, num) \
+                in zip(current_pool, prog_pointer):
                 tree = tree_arr[i_tree]
                 for i_prog, prog in enumerate(prog_data[idx:idx + num]):
                     halo_id = prog['Index']
                     halo_snap = prog['Snap']
                     mass = prog[mass_key]
-                    idx_node_new = tree.append(z, mass)
+                    idx_node_new = tree.append(mass, level)
                     if i_prog == 0:
-                        # Append first progenitor
                         tree.link_tail_index(idx_node_host, idx_node_new)
                     else:
-                        # Append next progenitor
                         tree.link_next_index(idx_node_prev, idx_node_new)
                     pool[halo_snap].append((i_tree, idx_node_new, halo_id))
                     idx_node_prev = idx_node_new
