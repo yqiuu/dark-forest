@@ -14,12 +14,8 @@ from hmf.growth_factor import GrowthFactor
 
 
 __all__ = [
-    'RandomStateGSL',
-    'GrowKit',
     'HaloKit',
-    'HaloMergeTree',
     'TreeBinarySplit',
-    'tree_split',
     'estimate_conditional_mass_func'
 ]
 
@@ -37,27 +33,7 @@ cdef gsl_rng* gsl_rng_init(unsigned long int seed):
     return rstate
 
 
-cdef class RandomStateGSL:
-    """
-    Wrapper of the GSL random number generator.
-    """
-
-    cdef gsl_rng* rstate
-
-    def __cinit__(self, seed):
-        self.rstate = gsl_rng_alloc(gsl_rng_mt19937)
-        gsl_rng_set(self.rstate, seed)
-
-
-    def __init__(self, seed):
-        pass
-
-
-    def __dealloc__(self):
-        gsl_rng_free(self.rstate)
-
-
-cdef class MergeTree:
+cdef class MergerTree:
     """Container of a single tree. Data are stored in a c++ vector."""
     cdef vector[Leaf] data
 
@@ -132,22 +108,9 @@ cdef class TreeBinarySplit:
         cdef double[::] mv = np.asarray(z_target, dtype=np.double).flatten()
         cdef vector[double] vec
         vec.assign(&mv[0], &mv[0] + mv.shape[0])
-        tree = MergeTree()
+        tree = MergerTree()
         tree.from_vector(self.planter.grow(m_root, z_root, vec))
         return tree
-
-
-cdef class GrowKit:
-    cdef KitSplit* kit_sp
-    cdef public double m_res
-
-
-    def __cinit__(self, G0, gamma1, gamma2, m_res, eps1, eps2):
-        self.kit_sp = new KitSplit(G0, gamma1, gamma2, m_res, eps1, eps2)
-        self.m_res = m_res
-
-    def __dealloc__(self):
-        del self.kit_sp
 
 
 def rebuild_halo_kit(*rebuild_args):
@@ -221,125 +184,6 @@ cdef class HaloKit:
 
     def __reduce__(self):
         return (rebuild_halo_kit, self.rebuild_args)
-
-
-cdef class HaloMergeTree:
-    cdef:
-        vector[Leaf] tree
-        object z_arr
-
-
-    def __cinit__(self, method='split', **params):
-        self.z_arr = None
-        if method == 'split':
-            self._init_split(
-                params['halo_kit'], params['grow_kit'], params['m_root'],
-                params['z_root'], params['z_target'], params['m_res'],
-                params['rstate'], params['n_base']
-            )
-        elif method == 'empty':
-            self._init_empty(params['n_base'])
-        else:
-            raise ValueError("Method %s is not understood"%method)
-
-
-    property m_root:
-        def __get__(self):
-            return self.tree[0].mass
-
-
-    property redshifts:
-        def __get__(self):
-            return np.copy(self.z_arr)
-        def __set__(self, z_arr):
-            if self.z_arr is None:
-                self.z_arr = np.sort(z_arr)
-            else:
-                logger.warning("redshifts can only be set once")
-
-
-    def levels(self, z, tol=0.01):
-        level = np.argmin(abs(self.redshifts - z))
-        z_level = self.redshifts[level]
-        if abs(z_level - z) > tol:
-            logger.warning("Fail to find a redshift within the tolerance")
-        return level
-
-
-    def halos(self, level=-1):
-        # Create a copy of all nodes with modified attribute name
-        tree_arr = np.asarray(<c_Leaf[:self.tree.size()]>(<c_Leaf*>&self.tree[0]))
-        if level != -1:
-            tree_arr = tree_arr[tree_arr['level'] == level]
-        #print(tree_arr)
-        dtype = [
-            ('mass', 'f8'), ('z', 'f8'), ('idx_tail', 'i4'), ('idx_next', 'i4')
-        ]
-        node_arr = np.zeros(len(tree_arr), dtype=dtype)
-        node_arr['mass'] = np.copy(tree_arr['mass'])
-        node_arr['z'] = self.redshifts[tree_arr['level']]
-        node_arr['idx_tail'] = np.copy(tree_arr['idx_tail'])
-        node_arr['idx_next'] = np.copy(tree_arr['idx_next'])
-        return node_arr
-
-
-    cdef _check_mass_range(self, HaloKit halo_kit, m_root, m_res):
-        if m_root <= halo_kit.m_min or m_root >= halo_kit.m_max:
-            raise ValueError("m_root beyond mass interpolation range")
-        if m_res <= halo_kit.m_min or m_res >= halo_kit.m_max:
-            raise ValueError("m_res beyond mass interpolation range")
-
-
-    cpdef int append(self, z, mass):
-        self.tree.push_back(Leaf(mass, <int>z, -1, -1))
-
-
-    cpdef void link_tail_index(self, idx, idx_tail):
-        self.tree[idx].idx_tail = idx_tail
-
-
-    cpdef void link_next_index(self, idx, idx_next):
-        self.tree[idx].idx_next = idx_next
-
-
-#    cdef _convert_redshifts(self, double z_root, double[::1] z_target):
-#        z_arr = np.append(z_root, z_target)
-#        self.redshifts = z_arr
-#        node_arr = np.asarray(<Node[:self.tree.n_node]>self.tree.data)
-#        for i_delta, delta in enumerate(np.unique(node_arr['trace'])):
-#            trace = node_arr['trace']
-#            trace[trace == delta] = z_arr[i_delta]
-
-
-    cdef _init_empty(self, int n_base):
-        self.tree.reserve(n_base)
-
-
-    cdef _init_split(self,
-        HaloKit halo_kit, GrowKit grow_kit, double m_root, double z_root,
-        double[::1] z_target, double m_res, RandomStateGSL rstate, int n_base
-    ):
-        self._check_mass_range(halo_kit, m_root, m_res)
-        # Create the tree
-        cdef vector[double] z_target_vec
-        z_target_vec.assign(&z_target[0], &z_target[-1] + 1)
-        self.tree = BinarySplit(
-            halo_kit.hr, grow_kit.kit_sp, rstate.rstate
-        ).grow(m_root, z_root, z_target_vec)
-        z_arr = np.append(z_root, z_target)
-        self.redshifts = z_arr
-        # Convert delta to redshift
-        #self._convert_redshifts(z_root, z_target)
-
-
-def tree_split(halo_kit, grow_kit, m_root, z_root, z_target, rstate=None, n_base=100000):
-    z_target = np.ravel(z_target).astype('f8')
-    if rstate is None:
-        rstate = RandomStateGSL(209204)
-    return HaloMergeTree(
-        method='split', halo_kit=halo_kit, grow_kit=grow_kit, m_root=m_root, z_root=z_root,
-        z_target=z_target, m_res=grow_kit.m_res, rstate=rstate, n_base=n_base
-    )
 
 
 def estimate_conditional_mass_func(tree, level, frac_bins=None, mean=True):
