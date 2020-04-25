@@ -70,8 +70,9 @@ cdef class MergeTree:
         self.data.reserve(n_base)
 
 
-    cpdef void append(self, mass, level):
+    cpdef int append(self, mass, level):
         self.data.push_back(Leaf(mass, level, -1, -1))
+        return self.data.size() - 1
 
 
     cpdef void link_tail_index(self, idx, idx_tail):
