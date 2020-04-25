@@ -291,7 +291,6 @@ def augment_simple_branch(
     Given a pruned branch, generate Monte Carlo tree to find a match.
     """
     # Load algorithm parameters
-    n_base = 5000
     m_min_cut = params_ag['m_min_cut']
     m_max_cut = params_ag['m_max_cut']
     eps_cut = params_ag['eps_cut']
