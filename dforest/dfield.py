@@ -16,6 +16,20 @@ __all__ = [
 
 
 def index_to_grid(inds, n_grid):
+    """Convert 1-D grid indices to 3-D grid indices.
+
+    Parameters
+    ----------
+    inds : 1-D array
+        1-D grid indices.
+    n_grid : int
+        Number of grids on a side.
+
+    Returns
+    -------
+    grid_x, grid_y, grid_z : 1-D array
+        3-D grid indices.
+    """
     grid_z = inds%n_grid
     inds = inds//n_grid
     grid_y = inds%n_grid
@@ -25,6 +39,22 @@ def index_to_grid(inds, n_grid):
 
 
 def pos_to_index(x, y, z, n_grid, box_size):
+    """Convert 3-D coordinates to 1-D grid indices.
+
+    Parameters
+    ----------
+    xx, yy, zz : 1-D array
+        3-D coordinates.
+    box_size: float
+        Box size. The code is designed for comoving units.
+    rstate : None or np.random.RandomState, optional
+        Random number generator. If None, ``np.random`` is used.
+
+    Returns
+    -------
+    1-D array
+        1-D grid indices.
+    """
     bins = np.linspace(0, box_size, n_grid + 1)
     grid_x = np.digitize(x, bins) - 1
     grid_y = np.digitize(y, bins) - 1
@@ -33,59 +63,71 @@ def pos_to_index(x, y, z, n_grid, box_size):
 
 
 class GridTool:
+    """Collection of useful operations for a cubic grid
+
+    Parameters
+    ----------
+    n_grid : int
+        Number of grids on a side.
+    box_size: float
+        Box size. The code is designed for comoving units.
+    rstate : None or np.random.RandomState, optional
+        Random number generator. If None, ``np.random`` is used.
+
+    Attributes
+    ----------
+    n_grid : int
+        Number of grids on a side.
+    box_size : float
+        Box size. The code is designed for comoving units.
+    """
     def __init__(self, n_grid, box_size, rstate=None):
         self._n_grid = n_grid
         self._box_size = box_size
         if rstate is None:
-            self.rstate = np.random.RandomState()
+            self.rstate = np.random
         else:
             self.rstate = rstate
 
 
     @property
     def n_grid(self):
-        """
-        Number of grids on a side.
-        """
+        """Number of grids on a side."""
         return self._n_grid
 
 
     @property
     def box_size(self):
-        """
-        Box size. [Mpc]
-        """
+        """Box size."""
         return self._box_size
 
 
     def index_to_grid(self, inds):
-        """
-        Convert 1-D grid indices to 3-D grid indices.
+        """Convert 1-D grid indices to 3-D grid indices.
 
         Parameters
         ----------
         inds : 1-D array
-            Input 1-D grid indices.
+            1-D grid indices.
 
         Returns
         -------
-        x, y, z : 1-D array
+        grid_x, grid_y, grid_z : 1-D array
             3-D grid indices.
         """
         return index_to_grid(inds, self.n_grid)
 
 
     def pos_to_index(self, xx, yy, zz, z_fix=0.):
-        """
-        Convert 3-D coordinates to 1-D grid indices.
+        """Convert 3-D coordinates to 1-D grid indices.
 
         Parameters
         ----------
         xx, yy, zz : 1-D array
-            Input 3-D coordinates.
+            3-D coordinates.
         z_fix : float, optional
-            Divide the box size by 1 + z_fix. Use this when coordinates are
-            not comoving.
+            Divide the box size by 1 + z_fix. Use this when coordinates are not
+            comoving.
 
         Returns
         -------
@@ -96,14 +138,14 @@ class GridTool:
 
 
     def sample_from_inds(self, inds):
-        """
-        Sample random points using 1-D grid indices. Each point is uniformly
-        distributed in the corresponding cell.
+        """Sample random points using 1-D grid indices.
+
+        Each point is uniformly distributed in the corresponding cell.
 
         Parameters
         ----------
         inds : 1-D array
-            Input 1-D grid indices.
+            1-D grid indices.
 
         Returns
         -------
@@ -122,13 +164,12 @@ class GridTool:
 
 
     def sample_from_field(self, den, n_sample, rstate=None):
-        """
-        Sample random points according to a given density field.
+        """Sample random points according to a given density field.
 
         Parameters
         ----------
         den : 1-D array
-            Input normalised density field.
+            Normalised density field.
         n_sample : int
             Number of samples to generate.
 
@@ -137,7 +178,7 @@ class GridTool:
         x, y, z : 1-D array
             3-D coordinates.
         inds : 1-D array
-            Corresponding 1-D grid indices.
+            1-D grid indices corresponding to the output coordinates.
         """
         inds = self.rstate.choice(len(den), n_sample, p=den)
         x, y, z = self.sample_from_inds(inds)
@@ -145,7 +186,33 @@ class GridTool:
 
 
 class DensityField(ABC):
-    def __init__(self, emf, redshifts, ages, n_grid, box_size, r_max=3., rstate=None):
+    """Class used to sample and evolve halo postions.
+
+    This is an abstract class. The user must override ``read_density_field`` and
+    ``read_transform_field``.
+
+
+    Parameters
+    ----------
+    emf : EnhancedMassFunction instance
+        This ojbect is used to calculate halo density fields.
+    redshifts : 1-D array
+        Redshifts.
+    ages : 1-D array
+        Age of the universe.
+    n_grid : int
+        Number of grids on a side.
+    box_size : float
+        Box size. The code is designed for comoving units.
+    r_max : float
+        Maximum displacement to move a halo. It must have the same unit with
+        ``box_size``.
+    rstate : None or np.random.RandomState, optional
+        Random number generator. If None, ``np.random`` is used.
+    """
+    def __init__(self,
+        emf, redshifts, ages, n_grid, box_size, r_max=3., rstate=None
+    ):
         self.gt_box = GridTool(n_grid, box_size, rstate)
         self.emf = emf
         self.redshifts = redshifts
@@ -159,27 +226,68 @@ class DensityField(ABC):
 
     @abstractmethod
     def read_density_field(self, snap):
-        """
+        """Abstract method to read dark matter density fields.
+
+        The density fields must be a cubic grid, and number of grids on each
+        side must be consisent with the input. The return array must be
+        flattened.
+
+        Parameters
+        ----------
+        snap : int
+            Snapshot.
+
         Returns
         -------
-        array
-            Overdensity grid.
+        1-D array
+            Dark matter density fields.
         """
         return np.array([0.])
 
 
     @abstractmethod
     def read_transform_field(self, snap):
-        """
+        """Abstract method to read dark matter transformed fields.
+
+        The transformed fields are the Fourier transfrom of ik/k^2 δ(k, t).
+        It must be a cubic grid, and number of grids on each
+        side must be consisent with the input. The return array must be
+        flattened. The deimension of the fields is length/time. It must have the
+        length unit as ``box_size`` and the same length as ``ages``.
+
+        Parameters
+        ----------
+        snap : int
+            Snapshot.
+
         Returns
         -------
-        array [Mpc/Myr]
-            Peculiar velocity grid.
+        1-D array
+            Dark matter transformed fields.
         """
         return np.array([0.])
 
 
     def check_bounds(self, a, z_fix=0.):
+        """Employ the periodic boundary conditions.
+
+        This function cannot handle the situation where a point is beyond twice
+        of the box size. This function makes a copy of the input, and therefore
+        does not change the input.
+
+        Parameters
+        ----------
+        a : array_like
+            Coordinates.
+        z_fix : float, optional
+            Divide the box size by 1 + z_fix. Use this when coordinates are not
+            comoving.
+
+        Returns
+        -------
+        array_like
+            Coordinates fixed by the periodic boundary conditions
+        """
         box_size = self.gt_box.box_size/(1. + z_fix)
         res = np.copy(a)
         res[res >= box_size] -= box_size
@@ -188,6 +296,25 @@ class DensityField(ABC):
 
 
     def move(self, x, y, z, dx, dy, dz):
+        """Implement a displacement to each coordinate.
+
+        This function employs the boundary conditions using ``check_bounds``.
+        This function does not change the input.
+
+        Parameters
+        ----------
+        x, y, z : 1-D array
+            3-D coordinates.
+        dx, dy, dz : 1-D array
+            Displacement on each deimension.
+
+        Returns
+        -------
+        x, y, z : 1-D array
+            3-D coordinates with displacements.
+        inds : 1-D array
+            1-D grid indices corresponding to the output coordinates.
+        """
         x = self.check_bounds(x + dx)
         y = self.check_bounds(y + dy)
         z = self.check_bounds(z + dz)
@@ -196,6 +323,27 @@ class DensityField(ABC):
 
 
     def populate_halos(self, m_halo, bins, snap):
+        """Sample halos postions according to the halo density fields.
+
+        This function calculates the halo density fields using the non-linear
+        halo bias described in Anh et al 2015.
+
+        Parameters
+        ----------
+        m_halo : 1-D array [h^-1 M_solar]
+            Halo masses.
+        bins : 1-D array
+            Halo mass bins.
+        snap : int
+            Snapshot.
+
+        Returns
+        -------
+        x_h, y_h, x_h : 1-D array
+            3-D coordinates.
+        inds : 1-D array
+            1-D grid indices corresponding to the output coordinates.
+        """
         emf = self.emf
         z = self.redshifts[snap]
         v_cell = (self.gt_box.box_size/self.gt_box.n_grid*emf.cosmo.h)**3
@@ -218,13 +366,27 @@ class DensityField(ABC):
 
 
     def move_halos(self, x_h, y_h, z_h, inds, m1, m2, snap1):
-        """
+        """Evolve halo postions.
+
         Parameters
         ----------
-        m1: array [h^-1 M_solar]
+        x_h, y_h, z_h : 1-D array
+            3-D coordinates.
+        inds : 1-D array
+            1-D grid indices corresponding to the input coordinates.
+        m1: 1-D array [h^-1 M_solar]
             Mass of the halos to be moved.
-        m2: array [h^-1 M_solar]
+        m2: 1-D array [h^-1 M_solar]
             Mass of the descendant halos.
+        snap1 : int
+            Snapshot of the halos to be moved.
+
+        Returns
+        -------
+        x, y, z : 1-D array
+            Moved 3-D coordinates.
+        inds : 1-D array
+            1-D grid indices corresponding to the output coordinates.
         """
         logger.info("Moving halos at snapshot %d"%snap1)
         snap2 = snap1 + 1
