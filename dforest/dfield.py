@@ -11,7 +11,7 @@ __all__ = [
     'index_to_grid',
     'pos_to_index',
     'GridTool',
-    'DensityField'
+    'DarkField'
 ]
 
 
@@ -185,7 +185,7 @@ class GridTool:
         return x, y, z, inds
 
 
-class DensityField(ABC):
+class DarkField(ABC):
     """Class used to sample and evolve halo postions.
 
     This is an abstract class. The user must override ``read_density_field`` and
