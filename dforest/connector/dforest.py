@@ -18,6 +18,21 @@ __all__ = [
 
 
 class DarkForestConnector(Connector):
+    """Connector of dark forest format.
+
+    Parameters
+    ----------
+    fname : str
+        File name.
+    prefix : str or None
+        Select all files that start with the given string. In this case,
+        ``fname`` should point to a folder. If None, open the single file given
+        by ``fname``.
+    write : bool
+        Use True if write operations are needed.
+    filters : pytables.Filters or None
+        Compression filters used by pytables.
+    """
     def __init__(self, fname, prefix=None, write=False, filters=None):
         self.prefix = prefix
         if prefix is None:
@@ -74,7 +89,7 @@ class DarkForestConnector(Connector):
         try:
             return self._little_h
         except AttributeError:
-            self._little_h = self.hf.get_node_attr('/Header', 'little_h')
+            self._little_h = self._get_header_attr('little_h')
             return self._little_h
 
 
@@ -83,7 +98,7 @@ class DarkForestConnector(Connector):
         try:
             return self._omega_m
         except AttributeError:
-            self._omega_m = self.hf.get_node_attr('/Header', 'omega_m')
+            self._omega_m = self._get_header_attr('omega_m')
             return self._omega_m
 
 
@@ -92,7 +107,7 @@ class DarkForestConnector(Connector):
         try:
             return self._sigma_8
         except AttributeError:
-            self._sigma_8 = self.hf.get_node_attr('/Header', 'sigma_8')
+            self._sigma_8 = self._get_header_attr('sigma_8')
             return self._sigma_8
 
 
@@ -101,7 +116,7 @@ class DarkForestConnector(Connector):
         try:
             return self._n_spectral
         except AttributeError:
-            self._n_spectral = self.hf.get_node_attr('/Header', 'n_spectral')
+            self._n_spectral = self._get_header_attr('n_spectral')
             return self._n_spectral
 
 
@@ -110,7 +125,7 @@ class DarkForestConnector(Connector):
         try:
             return self._box_size
         except AttributeError:
-            self._box_size = self.hf.get_node_attr('/Header', 'box_size')
+            self._box_size = self._get_header_attr('box_size')
             return self._box_size
 
 
@@ -119,7 +134,8 @@ class DarkForestConnector(Connector):
         try:
             return self._mass_unit
         except AttributeError:
-            self._mass_unit = self.hf.get_node_attr('/Header', 'mass_unit_to_solarmass')*u.solMass
+            self._mass_unit \
+                = self._get_header_attr('mass_unit_to_solarmass')*u.solMass
             return self._mass_unit
 
 
@@ -128,7 +144,8 @@ class DarkForestConnector(Connector):
         try:
             return self._radius_unit
         except AttributeError:
-            self._radius_unit = self.hf.get_node_attr('/Header', 'length_unit_to_kpc')*u.kiloparsec
+            self._radius_unit \
+                = self._get_header_attr('length_unit_to_kpc')*u.kiloparsec
             return self._radius_unit
 
 
@@ -137,8 +154,8 @@ class DarkForestConnector(Connector):
         try:
             return self._velocity_unit
         except AttributeError:
-            self._velocity_unit = \
-                self.hf.get_node_attr('/Header', 'velocity_unit_to_kms')*u.km/u.second
+            self._velocity_unit \
+                = self._get_header_attr('velocity_unit_to_kms')*u.km/u.second
             return self._velocity_unit
 
 
@@ -147,7 +164,7 @@ class DarkForestConnector(Connector):
         try:
             return self._m_particle
         except AttributeError:
-            self._m_particle = self.hf.get_node_attr('/Header', 'm_particle')
+            self._m_particle = self._get_header_attr('m_particle')
             return self._m_particle
 
     @property
@@ -168,23 +185,25 @@ class DarkForestConnector(Connector):
             return np.array(self._redshifts)
 
 
-    def read_cols(self, snap, target, cols=None, rtype='dict', index=None):
+    def read_cols(self, snap, target, cols=None, dtype='dict', index=None):
         """
         Read data.
 
         Parameters
         ----------
-            target: {'Host', 'Prog', 'Main'}
-                Name of the group.
-            cols: list
-                List of string specifying column names.
-            rtype: {'dict', 'pandas', 'records'}
-                Type of the return data.
-                    dict: python dictionary
-                    pandas: pandas data frame
-                    records: numpy records
-            index: str
-                If rtype is 'pandas', specify the index of the data frame.
+        snap : int
+            Snapshot.
+        target: {'Host', 'Prog', 'Main'}
+            Name of the group.
+        cols: list
+            List of string specifying column names.
+        dtype: {'dict', 'pandas', 'records'}
+            Type of the return data.
+                dict: python dictionary
+                pandas: pandas data frame
+                records: numpy records
+        index: str
+            If dtype is 'pandas', specify the index of the data frame.
 
         Returns
         -------
@@ -235,22 +254,43 @@ class DarkForestConnector(Connector):
                 arr[offset[i_f] : offset[i_f + 1]] = a
             data_out[c] = arr
         # Change data type
-        if rtype == 'dict':
+        if dtype == 'dict':
             return data_out
         data_out = pd.DataFrame.from_dict(data_out)
-        if rtype == 'pandas':
+        if dtype == 'pandas':
             if index is not None:
                 data_out.set_index(index, inplace=True)
             return data_out
-        elif rtype == 'records':
+        elif dtype == 'records':
             return data_out.to_records(index=False)
         else:
-            raise ValueError(f"Unkown rtype: '{rtype}'")
+            raise ValueError(f"Unkown dtype: '{dtype}'")
 
 
     def read_trees(self,
         mass_key, snap_max, snap_min=0, m_range=None, kwargs_tqdm={}
     ):
+        """Read data as merger trees.
+
+        Parameters
+        ----------
+        mass_key : str
+            Column name of halo mass.
+        snap_max : int
+            Maximum snapshot.
+        snap_min : int
+            Minimum snapshot.
+        m_range : tuple
+            Should be (m_min, m_max), which specifies the mass range of root
+            halos.
+        kwargs_tqdm : dict
+            Keyword arguments for tqdm.
+
+        Returns
+        -------
+        1-D array
+            Required data.
+        """
         kwargs_tqdm.update(desc='Reading dark forest')
         #
         redshifts = self.redshifts
@@ -319,9 +359,38 @@ class DarkForestConnector(Connector):
         return tree_arr
 
 
-    def gather(self,cntr_src, snap, c_target, c_rep=None, is_mass=False, transform=None):
+    def gather(self,
+        cntr_src, snap, c_tgt, c_rep=None, is_mass=False, transform=None
+    ):
+        """Combine data of this connector with the source connector.
+
+        Parameters
+        ----------
+        cntr_src : Connector instance
+            Connector to the source data.
+        snap : int
+            Snapshot.
+        c_tgt : str
+            Column name in the source connector. This will be the name in the
+            return data.
+        c_rep : str or None
+            Column name corresponding to ``c_tgt`` in this connector. If None,
+            it will be the same as ``c_tgt``.
+        is_mass : bool
+            Use True if ``c_tgt`` corresponds to halo mass. It will convert the
+            mass unit of the source data in order to be consisent with this
+            connector.
+        transform : callable
+            Make a transform to the combined data. The callable must take 1-D
+            array and return a 1-D array.
+
+        Returns
+        -------
+        pandas data frame
+            Required data.
+        """
         if c_rep is None:
-            c_rep = c_target
+            c_rep = c_tgt
 
         inds = self.read_cols(snap, 'MainA', ['Index'])['Index']
         inds_sim = inds[inds > 0]
@@ -329,14 +398,15 @@ class DarkForestConnector(Connector):
         df_ret = pd.DataFrame(index=inds)
         grp_name = self._find_group(c_rep, snap)
         if grp_name == 'MainA':
-            df_ret[c_target] = self.read_cols(snap, 'MainA', [c_rep])[c_rep]
+            df_ret[c_tgt] = self.read_cols(snap, 'MainA', [c_rep])[c_rep]
         else:
             # Combine simulation data
             df_src = pd.DataFrame(
-                cntr_src[snap, c_target], index=cntr_src[snap, 'ID'], columns=[c_target]
+                cntr_src[snap, c_tgt], index=cntr_src[snap, 'ID'],
+                columns=[c_tgt]
             )
-            df_ret[c_target] = np.zeros(len(df_ret), dtype=df_src.dtypes[c_target])
-            df_ret.loc[inds_sim, c_target] = df_src.loc[inds_sim, c_target]
+            df_ret[c_tgt] = np.zeros(len(df_ret), dtype=df_src.dtypes[c_tgt])
+            df_ret.loc[inds_sim, c_tgt] = df_src.loc[inds_sim, c_tgt]
             # Combine extended data
             df_ext = self.read_cols(snap, grp_name, [c_rep], 'pandas', 'Index')
             arr = df_ext.loc[inds_mc, c_rep].values
@@ -344,13 +414,22 @@ class DarkForestConnector(Connector):
                 arr /= self.mass_conversion
             if transform is not None:
                 arr = transform(arr)
-            arr = np.array(arr, dtype=df_src.dtypes[c_target])
-            df_ret.loc[inds_mc, c_target] = arr
+            arr = np.array(arr, dtype=df_src.dtypes[c_tgt])
+            df_ret.loc[inds_mc, c_tgt] = arr
 
         return df_ret
 
 
     def remove(self, name, kwargs_tqdm={}):
+        """Remove a column or a group.
+
+        Parameters
+        ----------
+        name : str
+            Name of the column or the group.
+        kwargs_tqdm : dict
+            Keyword arguments for tqdm.
+        """
         kwargs_tqdm.update(desc="Removing '%s'"%name)
         for i_snap in trange(self.n_snap, **kwargs_tqdm):
             for f in self.files:
@@ -361,6 +440,13 @@ class DarkForestConnector(Connector):
 
 
     def _switch_snapshot(self, snap):
+        """Switch the group of a snapshot.
+
+        Parameters
+        ----------
+        snap : int:
+            Snapshot.
+        """
         groups = []
         for f in self.files:
             groups.append(f.get_node('/Snapshot_%03d'%snap))
@@ -385,8 +471,33 @@ class DarkForestConnector(Connector):
 
 
 class DarkForestSaver:
+    """Convert the input into dark forest format.
+
+    Parameters
+    ----------
+    cntr : Connector instance
+        Connector to the data to be converted.
+    fname : str
+        File name of the data to be saved.
+    cols : list
+        Column names the data to be saved.
+    snap_max : int
+        Maximum snapshot.
+    snap_min : int
+        Minimum snapshot.
+    filters : tables.Filters
+        Compression filters used by pytables.
+    kwargs_tqdm : dict
+        Keyword arguments for tqdm.
+
+    Methods
+    -------
+    run()
+        Run the saver.
+    """
     def __init__(self,
-        cntr, fname, mass_key, cols, snap_max, snap_min=0, filters=None, kwargs_tqdm={}
+        cntr, fname, mass_key, cols, snap_max, snap_min=0,
+        filters=None, kwargs_tqdm={}
     ):
         self.cntr = cntr
         self.fname = fname
@@ -400,6 +511,7 @@ class DarkForestSaver:
 
 
     def run(self):
+        """Run the saver."""
         #
         cntr = self.cntr
         fname = self.fname
@@ -437,7 +549,8 @@ class DarkForestSaver:
                 desc_snap_arr = cntr[snap, 'DescendantSnap']
                 props_arr = np.asarray([cntr[snap, k] for k in mass_key])
                 for desc_id, desc_snap, host_id, halo_id, *props in zip(
-                    desc_id_arr, desc_snap_arr, host_id_arr, halo_id_arr, *props_arr
+                    desc_id_arr, desc_snap_arr, host_id_arr,
+                    halo_id_arr, *props_arr
                 ):
                     if host_id == -1 and desc_snap <= self.snap_max:
                         target_pool = desc_pool_arr[desc_snap]
@@ -448,49 +561,74 @@ class DarkForestSaver:
                 desc_pool_arr[snap] = None
 
 
+    def _get_header_attr(self, name):
+        return self.hf.get_node_attr('/Header', name)
+
+
     def _save_header(self, hf):
         return save_header(hf, self.cntr)
 
 
     def _save_snapshot(self, hf, prog_data, snap):
-        #
         cntr = self.cntr
         mass_conversion = cntr.mass_conversion
         mass_key = self.mass_key
         cols = self.cols
         # Save progenitor data
-        group_prog = hf.create_group('/Snapshot_%03d'%snap, 'Prog', createparents=True)
+        group_prog = hf.create_group(
+            '/Snapshot_%03d'%snap, 'Prog', createparents=True
+        )
         n_prog = len(prog_data)
         plain_data = []
         number = [0]*n_prog
         for i_prog, prog in enumerate(prog_data.values()):
             number[i_prog] = len(prog)
             plain_data.extend(prog)
-        df_prog = pd.DataFrame(plain_data, columns=['Index', 'Snap'] + [k for k in mass_key])
+        df_prog = pd.DataFrame(
+            plain_data, columns=['Index', 'Snap'] + [k for k in mass_key]
+        )
         df_prog['Snap'] = df_prog['Snap'].astype('i4')
         df_prog[mass_key] *= mass_conversion
         if len(df_prog) > 0:
             for c in df_prog.columns:
                 hf.create_carray(group_prog, c, obj=df_prog[c].values)
         # Save host data
-        group_host = hf.create_group('/Snapshot_%03d'%snap, 'Host', createparents=True)
+        group_host = hf.create_group(
+            '/Snapshot_%03d'%snap, 'Host', createparents=True
+        )
         select_host = cntr[snap, 'HostHaloID'] == cntr.host_id()
         id_ = cntr[snap, 'ID'][select_host]
         df_host = pd.DataFrame(id_, index=id_, columns=['ID'])
         df_host['ProgIndex'] = np.full(len(id_), -1, dtype='i8')
         df_host['ProgNumber'] = np.zeros(len(id_), dtype='i8')
-        df_host.loc[prog_data.keys(), 'ProgIndex'] = np.append(0, np.cumsum(number)[:-1])
+        df_host.loc[prog_data.keys(), 'ProgIndex'] \
+            = np.append(0, np.cumsum(number)[:-1])
         df_host.loc[prog_data.keys(), 'ProgNumber'] = number
         hf.create_carray(group_host, 'Index', obj=id_)
-        hf.create_carray(group_host, 'ProgIndex', obj=df_host['ProgIndex'].values)
-        hf.create_carray(group_host, 'ProgNumber', obj=df_host['ProgNumber'].values)
+        hf.create_carray(
+            group_host, 'ProgIndex', obj=df_host['ProgIndex'].values
+        )
+        hf.create_carray(
+            group_host, 'ProgNumber', obj=df_host['ProgNumber'].values
+        )
         for k in mass_key:
-            hf.create_carray(group_host, k, obj=cntr[snap, k][select_host]*mass_conversion)
+            hf.create_carray(
+                group_host, k, obj=cntr[snap, k][select_host]*mass_conversion
+            )
         for c in cols:
             hf.create_carray(group_host, c, obj=cntr[snap, c][select_host])
 
 
 def save_header(hf, cntr):
+    """Save the header for dark forest given a connector.
+
+    Parameters
+    ----------
+    hf : tables.File
+        File to which the date is saved.
+    cntr : Connector instance.
+        Connector to the data to be saved.
+    """
     header = hf.create_group('/', 'Header')
     # Save redshifts
     hf.create_carray(header, 'Redshift', obj=cntr.redshifts)
