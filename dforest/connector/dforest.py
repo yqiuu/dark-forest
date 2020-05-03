@@ -439,6 +439,10 @@ class DarkForestConnector(Connector):
                     pass
 
 
+    def _get_header_attr(self, name):
+        return self.hf.get_node_attr('/Header', name)
+
+
     def _switch_snapshot(self, snap):
         """Switch the group of a snapshot.
 
@@ -559,10 +563,6 @@ class DarkForestSaver:
                         except KeyError:
                             target_pool[desc_id] = [(halo_id, snap, *props)]
                 desc_pool_arr[snap] = None
-
-
-    def _get_header_attr(self, name):
-        return self.hf.get_node_attr('/Header', name)
 
 
     def _save_header(self, hf):
