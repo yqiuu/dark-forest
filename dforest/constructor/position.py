@@ -5,6 +5,7 @@ from .constructor import Constructor
 
 import numpy as np
 import pandas as pd
+import tables
 
 
 __all__ = ['PositionConstructor']
@@ -39,14 +40,30 @@ class PositionConstructor(Constructor):
         self.comoving = comoving
 
 
+    def _save_disps(self, inds, grid_inds, m_self, m_desc, disps, snap):
+        hf = self.cntr_ext.hf
+        group = hf.create_group(f'/Snapshot_{snap:03d}', 'Displacement')
+        hf.create_carray(group, 'Index', obj=inds)
+        hf.create_carray(group, 'GridIndex', obj=grid_inds)
+        hf.create_carray(group, 'Mass', obj=m_self)
+        hf.create_carray(group, 'MassDesc', obj=m_desc)
+        hf.create_carray(group, 'DispX', obj=disps[0])
+        hf.create_carray(group, 'DispY', obj=disps[1])
+        hf.create_carray(group, 'DispZ', obj=disps[2])
+
+
     def _populate_halos(self, m_halo, snap):
         bins = smart_bins(m_halo, self.n_min, self.d_min, 'log')
         return self.density_field.populate_halos(m_halo, bins, snap)
 
 
-    def _move_halos(self, inds, m_self, m_desc, snap):
-        x_h, y_h, z_h = self.density_field.gt_box.sample_from_inds(inds)
-        return self.density_field.move_halos(x_h, y_h, z_h, inds, m_self, m_desc, snap)
+    def _move_halos(self, inds, grid_inds, m_self, m_desc, snap):
+        x_h, y_h, z_h = self.density_field.gt_box.sample_from_inds(grid_inds)
+        pos_new, disps = self.density_field.move_halos(
+            x_h, y_h, z_h, grid_inds, m_self, m_desc, snap, return_disps=True
+        )
+        self._save_disps(inds, grid_inds, m_self, m_desc, disps, snap)
+        return pos_new
 
 
     def _add_property(self, df_inh, df_req, list_prog, snap, z):
@@ -74,7 +91,10 @@ class PositionConstructor(Constructor):
             df_pool_mc = df_pool.loc[df_req.index[select_mc]]
             grid_index_mc = df_pool_mc['GridIndex'].values
             m_desc_mc = df_pool_mc['MassDesc'].values
-            x_h, y_h, z_h, grid_index_mc = self._move_halos(grid_index_mc, m_mc, m_desc_mc, snap)
+            inds = df_pool_mc.index.values
+            x_h, y_h, z_h, grid_index_mc = self._move_halos(
+                inds, grid_index_mc, m_mc, m_desc_mc, snap
+            )
             grid_index[select_mc] = grid_index_mc
         #
         df_pos = pd.DataFrame(index=df_req.index[select_mc], columns=[col_x, col_y, col_z])

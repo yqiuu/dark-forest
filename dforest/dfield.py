@@ -217,7 +217,9 @@ class DensityField(ABC):
         return x_h, y_h, z_h, inds
 
 
-    def move_halos(self, x_h, y_h, z_h, inds, m1, m2, snap1):
+    def move_halos(
+        self, x_h, y_h, z_h, inds, m1, m2, snap1, return_disps=False
+    ):
         """
         Parameters
         ----------
@@ -243,6 +245,10 @@ class DensityField(ABC):
         dx = b1*vx1[inds] - b2*vx2[inds]
         dy = b1*vy1[inds] - b2*vy2[inds]
         dz = b1*vz1[inds] - b2*vz2[inds]
+        if return_disps:
+            disps = (np.copy(dx), np.copy(dy), np.copy(dz))
+        else:
+            disps = None
 
         dr = np.sqrt(dx*dx + dy*dy + dz*dz)
         cond = dr > self.r_max
@@ -254,4 +260,8 @@ class DensityField(ABC):
         dr_16, dr_50, dr_84 = np.percentile(dr, [16, 50, 84])
         logger.info(f"dr = {dr_50:.2f}/+{dr_84-dr_50:.2f}/-{dr_50-dr_16:.2f}")
 
-        return self.move(x_h, y_h, z_h, dx, dy, dz)
+        pos_new = self.move(x_h, y_h, z_h, dx, dy, dz)
+        if return_disps:
+            return pos_new, disps
+        else:
+            return pos_new
