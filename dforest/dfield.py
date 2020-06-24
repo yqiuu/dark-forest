@@ -237,7 +237,7 @@ class DensityField(ABC):
         emf.update(z=z1)
         b1 = spl(emf.m, emf.bias)(m1)
         emf.update(z=z2)
-        b2 = spl(emf.m, emf.bias)(m2)
+        b2 = spl(emf.m, emf.bias)(m1/np.mean(m1/m2))
 
         vx2, vy2, vz2 = self.read_transform_field(snap2)
         vx1, vy1, vz1 = self.read_transform_field(snap1)
