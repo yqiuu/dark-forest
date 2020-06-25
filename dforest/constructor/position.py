@@ -96,7 +96,7 @@ class PositionConstructor(Constructor):
             )
             df_pool_mc = df_pool.loc[df_req.index[select_mc]]
             x_desc, y_desc, z_desc \
-                = self.density_field.gt_box.sample_from_inds(df_pool_mc['GridIndex'].values)
+                = self.density_field.gt_pos.sample_from_inds(df_pool_mc['GridIndex'].values)
             m_desc_mc = df_pool_mc['MassDesc'].values
             inds = df_pool_mc.index.values
             x_mc, y_mc, z_mc, _ = self._move_halos(
@@ -128,10 +128,9 @@ class PositionConstructor(Constructor):
             # Put grid indices into the pool
             pool = {}
             cond = df_req['ProgNumber'] > 0
-            grid_inds = self.density_field.gt_box.pos_to_index(x_h[cond], y_h[cond], z_h[cond])
-            for (idx, num, m_desc), g_idx, in zip(
-                df_req[cond].itertuples(index=False), grid_inds
-            ):
+            prog_info = df_req[cond].itertuples(index=False)
+            grid_inds = self.density_field.gt_pos.pos_to_index(x_h[cond], y_h[cond], z_h[cond])
+            for (idx, num, m_desc), g_idx, in zip(prog_info, grid_inds):
                 for p_id in list_prog[idx:idx + num]:
                     if p_id < 0:
                         pool[p_id] = (g_idx, m_desc)

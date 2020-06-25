@@ -145,8 +145,9 @@ class GridTool:
 
 
 class DensityField(ABC):
-    def __init__(self, emf, redshifts, ages, n_grid, box_size, r_max=3., rstate=None):
-        self.gt_box = GridTool(n_grid, box_size, rstate)
+    def __init__(self, emf, redshifts, ages, n_grid_p, n_grid_v, box_size, r_max=3., rstate=None):
+        self.gt_pos = GridTool(n_grid_p, box_size, rstate)
+        self.gt_vel = GridTool(n_grid_v, box_size, rstate)
         self.emf = emf
         self.redshifts = redshifts
         self.ages = ages
@@ -180,7 +181,7 @@ class DensityField(ABC):
 
 
     def check_bounds(self, a, z_fix=0.):
-        box_size = self.gt_box.box_size/(1. + z_fix)
+        box_size = self.gt_pos.box_size/(1. + z_fix)
         res = np.copy(a)
         res[res >= box_size] -= box_size
         res[res < 0.] += box_size
@@ -191,14 +192,14 @@ class DensityField(ABC):
         x = self.check_bounds(x + dx)
         y = self.check_bounds(y + dy)
         z = self.check_bounds(z + dz)
-        inds = self.gt_box.pos_to_index(x, y, z)
+        inds = self.gt_pos.pos_to_index(x, y, z)
         return x, y, z, inds
 
 
     def populate_halos(self, m_halo, bins, snap):
         emf = self.emf
         z = self.redshifts[snap]
-        v_cell = (self.gt_box.box_size/self.gt_box.n_grid*emf.cosmo.h)**3
+        v_cell = (self.gt_pos.box_size/self.gt_pos.n_grid*emf.cosmo.h)**3
         delta_dm = self.read_density_field(snap)
 
         n_halo = len(m_halo)
@@ -213,13 +214,11 @@ class DensityField(ABC):
             den_halo = emf.halo_density(delta_dm, v_cell, m_median, z)
             den_halo /= np.sum(den_halo)
             x_h[cond], y_h[cond], z_h[cond], inds[cond] = \
-                self.gt_box.sample_from_field(den_halo, len(sample_sub))
+                self.gt_pos.sample_from_field(den_halo, len(sample_sub))
         return x_h, y_h, z_h, inds
 
 
-    def move_halos(
-        self, x_h, y_h, z_h, inds, m1, m2, snap1, return_disps=False
-    ):
+    def move_halos(self, x_h, y_h, z_h, inds, m1, m2, snap1, return_disps=False):
         """
         Parameters
         ----------
