@@ -40,18 +40,6 @@ class PositionConstructor(Constructor):
         self.comoving = comoving
 
 
-    def _save_disps(self, inds, grid_inds, m_self, m_desc, disps, snap):
-        hf = self.cntr_ext.hf
-        group = hf.create_group(f'/Snapshot_{snap:03d}', 'Displacement')
-        hf.create_carray(group, 'Index', obj=inds)
-        hf.create_carray(group, 'GridIndex', obj=grid_inds)
-        hf.create_carray(group, 'Mass', obj=m_self)
-        hf.create_carray(group, 'MassDesc', obj=m_desc)
-        hf.create_carray(group, 'DispX', obj=disps[0])
-        hf.create_carray(group, 'DispY', obj=disps[1])
-        hf.create_carray(group, 'DispZ', obj=disps[2])
-
-
     def _populate_halos(self, m_halo, snap):
         bins = smart_bins(m_halo, self.n_min, self.d_min, 'log')
         return self.density_field.populate_halos(m_halo, bins, snap)
@@ -62,8 +50,8 @@ class PositionConstructor(Constructor):
         pos_new, disps = self.density_field.move_halos(
             x_h, y_h, z_h, grid_inds, m_self, m_desc, snap, return_disps=True
         )
-        self._save_disps(inds, grid_inds, m_self, m_desc, disps, snap)
-        return pos_new
+        ratio = m_self/m_desc
+        return pos_new, disps, ratio
 
 
     def _add_property(self, df_inh, df_req, list_prog, snap, z):
@@ -99,20 +87,24 @@ class PositionConstructor(Constructor):
                 = self.density_field.gt_pos.sample_from_inds(df_pool_mc['GridIndex'].values)
             m_desc_mc = df_pool_mc['MassDesc'].values
             inds = df_pool_mc.index.values
-            x_mc, y_mc, z_mc, _ = self._move_halos(
-                inds, x_desc, y_desc, z_desc, m_mc, m_desc_mc, snap
-            )
+            (x_mc, y_mc, z_mc, _), (dx_mc, dy_mc, dz_mc), ratio \
+                = self._move_halos(inds, x_desc, y_desc, z_desc, m_mc, m_desc_mc, snap)
             x_h[select_mc] = x_mc
             y_h[select_mc] = y_mc
             z_h[select_mc] = z_mc
         #
-        df_pos = pd.DataFrame(index=df_req.index[select_mc], columns=[col_x, col_y, col_z])
+        df_pos = pd.DataFrame(index=df_req.index[select_mc])
         if len(m_mc) > 0:
             df_pos[col_x] = x_mc
             df_pos[col_y] = y_mc
             df_pos[col_z] = z_mc
-            if z_fix != 0.:
-                df_pos[[col_x, col_y, col_z]] /= (1. + z_fix)
+            if snap < snap_max:
+                df_pos[f'Disp{col_x}'] = dx_mc
+                df_pos[f'Disp{col_y}'] = dy_mc
+                df_pos[f'Disp{col_z}'] = dz_mc
+            df_pos /= (1. + z_fix)
+            if snap < snap_max:
+                df_pos[f'Ratio'] = ratio
         # Apply boundary condition to simulation halos
         df_inh[col_x] = density_field.check_bounds(df_inh[col_x], z_fix)
         df_inh[col_y] = density_field.check_bounds(df_inh[col_y], z_fix)
