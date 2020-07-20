@@ -11,6 +11,7 @@ static double integrand(double u, void* gamma1) {
     return pow(1. + 1./(u*u), *(double*)gamma1/2.);
 }
 
+
 KitSplit::KitSplit(
     double a0, double a1, double a2, double a3, double a4, double a5
 ):
@@ -63,11 +64,13 @@ KitSplit::KitSplit(
     }
 }
 
+
 KitSplit::~KitSplit()
 {
     gsl_interp_accel_free(j_u_acc_);
     gsl_spline_free(j_u_);
 }
+
 
 double KitSplit::j_func(double u_res) const
 {

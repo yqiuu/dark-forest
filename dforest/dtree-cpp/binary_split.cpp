@@ -14,10 +14,12 @@ struct Node {
     double delta;
 };
 
+
 static inline void append_leaf(MergerTree& tree, double m, int lvl)
 {
     tree.push_back(Leaf(m, lvl, -1, -1));
 }
+
 
 static inline void append_progenitor(
     MergerTree& tree, int& n_out, int& idx_first, double m, int lvl
@@ -38,6 +40,7 @@ static inline double compute_frac(
     return SQRT2OPI*kit_sp->j_func(u_res)*g1/sigma_start*dd;
 }
 
+
 static inline int reduce_delta(double& dd, double dd_target) {
     if (dd > dd_target) {
         dd = dd_target;
@@ -46,6 +49,7 @@ static inline int reduce_delta(double& dd, double dd_target) {
     else
         return 0;
 }
+
 
 int BinarySplit::split(
     MergerTree& tree, int idx_root, int level, double d_root, double d_target
