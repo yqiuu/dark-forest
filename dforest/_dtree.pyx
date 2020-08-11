@@ -1,7 +1,7 @@
 from libc.math cimport sqrt
 from libcpp.vector cimport vector
 from _dtree cimport HaloRelation as cpp_HaloRelation, \
-    KitSplit, Leaf, BinarySplit, gsl_rng, \
+    KitSplit, Leaf, EnsembleGrower, BinarySplit, gsl_rng, \
     gsl_rng_type, gsl_rng_alloc, gsl_rng_free, gsl_rng_mt19937
 
 import struct as binary
@@ -15,7 +15,9 @@ from hmf.growth_factor import GrowthFactor
 
 __all__ = [
     'HaloKit',
+    'ProgFunc',
     'TreeBinarySplit',
+    'TreeEnsemble',
     'estimate_conditional_mass_func'
 ]
 
@@ -111,6 +113,49 @@ cdef class TreeBinarySplit:
         tree = MergerTree()
         tree.from_vector(self.planter.grow(m_root, z_root, vec))
         return tree
+
+
+cdef class TreeEnsemble:
+    cdef gsl_rng* rstate
+    cdef EnsembleGrower* grower
+
+
+    def __cinit__(self,
+        ProgFunc pmf,
+        double m_res=1e8,
+        int n_draw=100,
+        unsigned long int seed=0
+    ):
+        self.rstate = gsl_rng_init(seed)
+        self.grower = new EnsembleGrower(
+            pmf.prog_func, m_res, n_draw, self.rstate
+        )
+
+
+    def __dealloc__(self):
+        gsl_rng_free(self.rstate)
+        del self.grower
+
+
+    def grow(self, m_root, z_root, z_target):
+        cdef double[::] mv = np.asarray(z_target, dtype=np.double).flatten()
+        cdef vector[double] vec
+        vec.assign(&mv[0], &mv[0] + mv.shape[0])
+        tree = MergerTree()
+        tree.from_vector(self.grower.grow_tree(m_root, z_root, vec))
+        return tree
+
+
+cdef class ProgFunc:
+    cdef ProgMassFunction* prog_func
+
+
+    def __cinit__(self, HaloKit halo_kit):
+        self.prog_func = new ProgMassFunction(halo_kit.hr)
+
+
+    def __dealloc__(self):
+        del self.prog_func
 
 
 def rebuild_halo_kit(*rebuild_args):

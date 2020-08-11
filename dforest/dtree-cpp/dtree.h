@@ -7,6 +7,7 @@
 #include<gsl/gsl_errno.h>
 #include<gsl/gsl_rng.h>
 #include<gsl/gsl_spline.h>
+#include"nut/nut.h"
 
 namespace dtree {
 const int kInitialSize = 1000;
@@ -103,6 +104,66 @@ private:
 
     const HaloRelation* hr_;
     const KitSplit* kit_sp_;
+    gsl_rng* rstate_;
+};
+
+
+// Ensemble method
+class ProgMassFunction
+{
+public:
+    ProgMassFunction(const HaloRelation* hr) : hr_(hr) {update(1e12, 0, 0.1);}
+    double operator () (double m1)
+    {
+        if (m1 == m2_)
+            return 0.;
+        const double sqrt_2opi = sqrt(2/M_PI);
+        double sigmasq1 = hr_->eval_sigma(m1);
+        sigmasq1 = sigmasq1*sigmasq1;
+        double ds = sigmasq1 - sigmasq2_;
+        double alpha = -hr_->eval_alpha(m1);
+        return sqrt_2opi * m2_/m1/m1 * sigmasq1*dd_*pow(ds, -1.5) \
+            * exp(-.5*dd_*dd_/ds)*alpha;
+    }
+    void update(double m2, double z1, double z2)
+    {
+        m2_ = m2;
+        sigmasq2_ = hr_->eval_sigma(m2);
+        sigmasq2_ = sigmasq2_*sigmasq2_;
+        dd_ = hr_->eval_d(z1) - hr_->eval_d(z2);
+    }
+
+private:
+    const HaloRelation* hr_;
+    double m2_;
+    double sigmasq2_;
+    double dd_;
+};
+
+
+class EnsembleGrower
+{
+public:
+    EnsembleGrower(
+        ProgMassFunction* prog_func, double m_res,
+        int n_draw, gsl_rng* rstate
+    ) : prog_func_(prog_func), m_res_(m_res), pool_prog_(n_draw),
+        n_draw_(n_draw), rstate_(rstate) {}
+    int grow_level(
+        MergerTree& tree, int idx_root, int level,
+        double z_target, double z_root
+    );
+    MergerTree grow_tree(
+        double m_root, double z_root, const std::vector<double>& z_target
+    );
+
+private:
+    void sample(double m2, double z1, double z2);
+
+    ProgMassFunction* prog_func_;
+    double m_res_;
+    std::vector< std::vector<double> > pool_prog_;
+    int n_draw_;
     gsl_rng* rstate_;
 };
 

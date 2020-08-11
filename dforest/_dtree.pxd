@@ -52,3 +52,15 @@ cdef extern from "dtree-cpp/dtree.h" namespace "dtree":
         vector[Leaf] grow(
             double m_root, double z_root, const vector[double]& z_target
         )
+
+    cdef cppclass ProgMassFunction:
+        ProgMassFunction(const HaloRelation* hr)
+
+    cdef cppclass EnsembleGrower:
+        EnsembleGrower(
+            ProgMassFunction* prog_func, double m_res,
+            int n_draw, gsl_rng* rstate
+        )
+        vector[Leaf] grow_tree(
+            double m_root, double z_root, const vector[double]& z_target
+        )

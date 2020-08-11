@@ -7,9 +7,11 @@ exts = [
     Extension(
         "dforest._dtree",
         sources=[
-            "dforest/dtree-cpp/binary_split.cpp",
+            "dforest/dtree-cpp/nut/nut.cpp",
             "dforest/dtree-cpp/halo_relation.cpp",
             "dforest/dtree-cpp/kit_split.cpp",
+            "dforest/dtree-cpp/binary_split.cpp",
+            "dforest/dtree-cpp/ensemble.cpp",
             "dforest/_dtree.pyx"
         ],
         include_dirs=["dforest"],
