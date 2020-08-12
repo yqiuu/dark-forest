@@ -27,7 +27,7 @@ void EnsembleGrower::sample(double m2, double z1, double z2)
     vector<double> m_free(n_draw_);
     vector<double> weights(n_draw_);
     Selector selector(rstate_);
-    bool done;
+    bool reject;
     int idx;
     for (auto& m : m_free)
         m = m2;
@@ -36,14 +36,14 @@ void EnsembleGrower::sample(double m2, double z1, double z2)
         for (auto& w : weights)
             if (w <= m)
                 w = 0.;
-        done = true;
+        reject = true;
         for (auto w : weights)
             if (w != 0.) {
-                done = false;
+                reject = false;
                 break;
             }
-        if (done)
-            break;
+        if (reject)
+            continue;
         idx = selector.sample(weights);
         pool_prog_[idx].push_back(m); 
         m_free[idx] -= m;
