@@ -1,3 +1,4 @@
+#include<exception>
 #include"nut.h"
 
 using namespace std;
@@ -138,13 +139,13 @@ void IntegralApproximation::save_knots()
 
 
 InverseTranformSampler::InverseTranformSampler(
-    function<double(double)> pdf, double a, double b, gsl_rng* rstate,
-    bool quadratic, double rtol, double atol
+    IntegralApproximation proxy, gsl_rng* rstate
 ) : rstate_(rstate)
 {
-    IntegralApproximation proxy(pdf, a, b, quadratic, rtol, atol);
     // Set normalisation
     norm_ = proxy.integral();
+    if (norm_ == 0.)
+        throw logic_error("Zero normalisation.");
     // Remove duplicated values
     int n_knot = proxy.x_knots().size();
     double val = proxy.s_knots()[0];
@@ -166,7 +167,7 @@ InverseTranformSampler::InverseTranformSampler(
             break;
     }
     int idx = 0;
-    int n_interp = idx_end - idx_begin;
+    unsigned int n_interp = idx_end - idx_begin;
     double* x_knots = (double*)malloc(n_interp*sizeof(double));
     double* s_knots = (double*)malloc(n_interp*sizeof(double));
     for(int i_knot = idx_begin; i_knot < idx_end; ++i_knot)
@@ -177,7 +178,12 @@ InverseTranformSampler::InverseTranformSampler(
     }
     // Construct CDF
     acc_ =  gsl_interp_accel_alloc();
-    cdf_inv_ = gsl_spline_alloc(gsl_interp_steffen, n_interp);
+    if (n_interp >= gsl_interp_type_min_size(gsl_interp_steffen))
+        cdf_inv_ = gsl_spline_alloc(gsl_interp_steffen, n_interp);
+    else if (n_interp >= gsl_interp_type_min_size(gsl_interp_linear))
+        cdf_inv_ = gsl_spline_alloc(gsl_interp_linear, n_interp);
+    else
+        throw logic_error("Insufficient number of points for interpolation.");
     gsl_spline_init(cdf_inv_, s_knots, x_knots, n_interp);
     //
     free(x_knots);

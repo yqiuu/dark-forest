@@ -33,7 +33,7 @@ private:
     void init_params(double a, double b, std::vector<double>& params);
     void divide(std::vector<double>::iterator, std::vector<double>&, bool);
     void save_knots();
-
+    // Parameters
     std::function<double(double)> func_;
     const bool quadratic_;
     const double rtol_;
@@ -49,10 +49,7 @@ private:
 class InverseTranformSampler
 {
 public:
-    InverseTranformSampler(
-        std::function<double(double)> pdf, double a, double b, gsl_rng* rstate,
-        bool quadratic=true, double rtol=1e-6, double atol=1e-9
-    );
+    InverseTranformSampler(IntegralApproximation proxy, gsl_rng* rstate);
     ~InverseTranformSampler()
     {
         gsl_spline_free(cdf_inv_);

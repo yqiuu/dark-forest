@@ -1,6 +1,8 @@
 #include"dtree.h"
 #include<iostream>
 
+#define TOL_RES 1e-6
+
 using namespace std;
 using namespace dtree;
 using namespace nut;
@@ -8,7 +10,10 @@ using namespace nut;
 void EnsembleGrower::sample(double m2, double z1, double z2)
 {
     prog_func_->update(m2, z1, z2);
-    InverseTranformSampler sampler(*prog_func_, m_res_, m2, rstate_);
+    IntegralApproximation proxy(*prog_func_, m_res_, m2, true, 1e-6, 1e-9, 3);
+    if (m2/m_res_ - 1 < TOL_RES || proxy.integral() == 0.)
+        return;
+    InverseTranformSampler sampler(proxy, rstate_);
     //
     int n_prog = (int)(sampler.norm()*n_draw_);
     vector<double> m_prog(n_prog);
