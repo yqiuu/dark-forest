@@ -12,13 +12,13 @@
 
 namespace nut
 {
-
 class IntegralApproximation
 {
 public:
     IntegralApproximation(
         std::function<double(double)>, double a, double b,
-        bool quadratic=true, double rtol=1e-6, double atol=1e-9
+        bool quadratic=true, double rtol=1e-6, double atol=1e-9,
+        int depth_min=3
     );
     double integral() const {return integral_;}
     const std::vector<double>& x_knots() {return x_knots_;}
@@ -31,7 +31,7 @@ public:
 
 private:
     void init_params(double a, double b, std::vector<double>& params);
-    void divide(std::vector<double>::iterator, std::vector<double>&);
+    void divide(std::vector<double>::iterator, std::vector<double>&, bool);
     void save_knots();
 
     std::function<double(double)> func_;

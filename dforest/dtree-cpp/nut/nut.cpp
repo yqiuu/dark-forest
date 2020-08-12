@@ -11,7 +11,7 @@ inline bool isclose(double a, double b, double rtol, double atol)
 
 IntegralApproximation::IntegralApproximation(
     function<double(double)> func, double a, double b,
-    bool quadratic, double rtol, double atol
+    bool quadratic, double rtol, double atol, int depth_min
 ) : func_(func), quadratic_(quadratic), rtol_(rtol), atol_(atol)
 {
     const int n_param = quadratic ? 7 : 5;
@@ -19,10 +19,10 @@ IntegralApproximation::IntegralApproximation(
     vector<double> params_next;
 
     init_params(a, b, params);
-    while(params.size() != 0)
+    for (int i_depth = 0; params.size() != 0; ++i_depth)
     {
         for(auto it = params.begin(); it != params.end(); it += n_param)
-            divide(it, params_next);
+            divide(it, params_next, i_depth >= depth_min);
         params.clear();
         params.swap(params_next);
     }
@@ -56,7 +56,7 @@ void IntegralApproximation::init_params(
 
 
 void IntegralApproximation::divide(
-    vector<double>::iterator it, vector<double>& params_next
+    vector<double>::iterator it, vector<double>& params_next, bool depth_limit
 )
 {
     double a, m, b, f_a, f_m, f_b, s_ab;
@@ -95,7 +95,7 @@ void IntegralApproximation::divide(
     //
     int disp;
     s_amb = s_am + s_mb;
-    if (isclose(s_ab, s_amb, rtol_, atol_))
+    if (isclose(s_ab, s_amb, rtol_, atol_) && depth_limit)
     {
         disp = lower_bound(x_knots_.begin(), x_knots_.end(), b) \
             - x_knots_.begin();
