@@ -9,8 +9,8 @@ using namespace nut;
 
 void EnsembleGrower::sample(double m2, double z1, double z2)
 {
-    prog_func_->update(m2, z1, z2);
-    IntegralApproximation proxy(*prog_func_, m_res_, m2, true, 1e-6, 1e-9, 3);
+    prog_func_.update(m2, z1, z2);
+    IntegralApproximation proxy(prog_func_, m_res_, m2, true, 1e-6, 1e-9, 3);
     if (m2/m_res_ - 1 < TOL_RES || proxy.integral() == 0.)
         return;
     InverseTranformSampler sampler(proxy, rstate_);

@@ -151,9 +151,9 @@ class EnsembleGrower
 {
 public:
     EnsembleGrower(
-        ProgMassFunction* prog_func, gsl_rng* rstate, double m_res,
+        const HaloRelation* hr, gsl_rng* rstate, double m_res,
         double m_eps, int n_draw
-    ) : prog_func_(prog_func), rstate_(rstate), m_res_(m_res), m_eps_(m_eps),
+    ) : prog_func_(hr), rstate_(rstate), m_res_(m_res), m_eps_(m_eps),
         n_draw_(n_draw), pool_prog_(n_draw), m_prev_(0.), i_draw_(n_draw) {}
     int grow_level(
         MergerTree& tree, int idx_root, int level,
@@ -166,7 +166,7 @@ public:
 private:
     void sample(double m2, double z1, double z2);
 
-    ProgMassFunction* prog_func_;
+    ProgMassFunction prog_func_;
     gsl_rng* rstate_;
     double m_res_;
     double m_eps_;

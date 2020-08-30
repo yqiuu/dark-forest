@@ -9,7 +9,6 @@ from hmf.growth_factor import GrowthFactor
 
 __all__ = [
     'HaloKit',
-    'ProgFunc',
     'TreeBinarySplit',
     'TreeEnsemble',
     'estimate_conditional_mass_func'
@@ -108,20 +107,22 @@ cdef class TreeBinarySplit:
 
 
 cdef class TreeEnsemble:
+    cdef HaloKit halo_kit
     cdef gsl_rng* rstate
     cdef EnsembleGrower* grower
 
 
     def __cinit__(self,
-        ProgFunc pmf,
+        object core,
         double m_res=1e8,
         double m_eps=1e6,
         int n_draw=100,
         unsigned long int seed=0
     ):
+        self.halo_kit = core if isinstance(core, HaloKit) else core.halo_kit()
         self.rstate = gsl_rng_init(seed)
         self.grower = new EnsembleGrower(
-            pmf.prog_func, self.rstate, m_res, m_eps, n_draw
+            self.halo_kit.hr, self.rstate, m_res, m_eps, n_draw
         )
 
 
@@ -137,18 +138,6 @@ cdef class TreeEnsemble:
         tree = MergerTree()
         tree.from_vector(self.grower.grow_tree(m_root, z_root, vec))
         return tree
-
-
-cdef class ProgFunc:
-    cdef ProgMassFunction* prog_func
-
-
-    def __cinit__(self, HaloKit halo_kit):
-        self.prog_func = new ProgMassFunction(halo_kit.hr)
-
-
-    def __dealloc__(self):
-        del self.prog_func
 
 
 def rebuild_halo_kit(*rebuild_args):
