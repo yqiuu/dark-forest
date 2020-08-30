@@ -12,7 +12,8 @@ from hmf.hmf import MassFunction
 __all__ = [
     'sample_mass_func',
     'smart_bins',
-    'EnhancedMassFunction'
+    'EnhancedMassFunction',
+    'KitHalo'
 ]
 
 
@@ -190,3 +191,50 @@ class EnhancedMassFunction(MassFunction):
 
     def sample_mass_func(self, m_min, m_max, volume, rstate=None):
         return sample_mass_func(self.dndm, self.m, m_min, m_max, volume, rstate)
+
+
+class KitHalo:
+    def __init__(self, hmf, z_grid=None):
+        hmf.update(z=0)
+        # Compute sigma_m
+        self.m_arr = np.copy(hmf.m)
+        self.sigma_arr = np.copy(hmf.sigma)
+        # Compute alpha_m
+        self.alpha_arr = np.copy(-hmf._dlnsdlnm)
+        # Compute delta_z
+        if z_grid is None:
+            self.z_arr = np.linspace(0, 200, 1000)
+        else:
+            self.z_arr = np.copy(z_grid)
+        gf = GrowthFactor(hmf.cosmo)
+        self.delta_arr \
+            = hmf.delta_c/np.array([gf.growth_factor(z) for z in self.z_arr])
+        #
+        self.m_to_sigma = spl(self.m_arr, self.sigma_arr)
+        self.sigma_to_m = spl(self.sigma_arr[::-1], self.m_arr[::-1])
+        self.alpha = spl(self.m_arr, self.alpha_arr)
+        self.z_to_d = spl(self.z_arr, self.delta_arr)
+        self.d_to_z = spl(self.delta_arr, self.z_arr)
+
+
+    def cmf_analytic(self, m1, z1, m2, z2, frac=True):
+        @vectorize
+        def limit(ds):
+            if ds == 0.:
+                return 0.
+            else:
+                return ds**-1.5*np.exp(-.5*dd*dd/ds)
+
+        dd = self.z_to_d(z1) - self.z_to_d(z2)
+        sigma1 = self.m_to_sigma(m1)
+        sigmasq1 = sigma1*sigma1
+        sigma2 = self.m_to_sigma(m2)
+        sigmasq2 = sigma2*sigma2
+        ds = sigmasq1 - sigmasq2
+        alpha = self.alpha(m1)
+        cmf = np.sqrt(2/np.pi)*sigmasq1*dd*limit(ds)*alpha
+        if frac:
+            return cmf
+        else:
+            return cmf*m2/m1
+
