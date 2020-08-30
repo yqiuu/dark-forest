@@ -128,7 +128,7 @@ cdef class TreeEnsemble:
     ):
         self.rstate = gsl_rng_init(seed)
         self.grower = new EnsembleGrower(
-            pmf.prog_func, m_res, n_draw, self.rstate
+            pmf.prog_func, self.rstate, m_res, n_draw
         )
 
 

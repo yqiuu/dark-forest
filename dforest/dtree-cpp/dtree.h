@@ -145,10 +145,9 @@ class EnsembleGrower
 {
 public:
     EnsembleGrower(
-        ProgMassFunction* prog_func, double m_res,
-        int n_draw, gsl_rng* rstate
-    ) : prog_func_(prog_func), m_res_(m_res), pool_prog_(n_draw),
-        n_draw_(n_draw), rstate_(rstate) {}
+        ProgMassFunction* prog_func, gsl_rng* rstate, double m_res, int n_draw
+    ) : prog_func_(prog_func), rstate_(rstate), m_res_(m_res),
+        n_draw_(n_draw), pool_prog_(n_draw) {}
     int grow_level(
         MergerTree& tree, int idx_root, int level,
         double z_target, double z_root
@@ -161,10 +160,10 @@ private:
     void sample(double m2, double z1, double z2);
 
     ProgMassFunction* prog_func_;
-    double m_res_;
-    std::vector< std::vector<double> > pool_prog_;
-    int n_draw_;
     gsl_rng* rstate_;
+    double m_res_;
+    int n_draw_;
+    std::vector< std::vector<double> > pool_prog_;
 };
 
 } // dtree
