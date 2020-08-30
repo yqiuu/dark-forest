@@ -58,15 +58,22 @@ int EnsembleGrower::grow_level(
     MergerTree& tree, int idx_root, int level, double z_target, double z_root
 )
 {
-    sample(tree[idx_root].mass, z_target, z_root);
-    auto it = pool_prog_[0].begin();
-    auto it_end = pool_prog_[0].end() - 1;
+    double m_root = tree[idx_root].mass;
+    if (abs(m_prev_ - m_root) >= m_eps_ || i_draw_ == n_draw_)
+    {
+        sample(m_root, z_target, z_root);
+        i_draw_ = 0;
+    }
+    m_prev_ = m_root;
+    //
+    auto it = pool_prog_[i_draw_].begin();
+    auto it_end = pool_prog_[i_draw_].end() - 1;
     int idx_next = tree.size();
     tree[idx_root].idx_tail = idx_next;
     for (; it < it_end; ++it)
         tree.push_back(Leaf(*it, level, -1, idx_next++));
     tree.push_back(Leaf(*it, level, -1, -1));
-    return pool_prog_[0].size();
+    return pool_prog_[i_draw_++].size();
 }
 
 

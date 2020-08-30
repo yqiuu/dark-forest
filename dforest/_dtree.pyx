@@ -115,12 +115,13 @@ cdef class TreeEnsemble:
     def __cinit__(self,
         ProgFunc pmf,
         double m_res=1e8,
+        double m_eps=1e6,
         int n_draw=100,
         unsigned long int seed=0
     ):
         self.rstate = gsl_rng_init(seed)
         self.grower = new EnsembleGrower(
-            pmf.prog_func, self.rstate, m_res, n_draw
+            pmf.prog_func, self.rstate, m_res, m_eps, n_draw
         )
 
 

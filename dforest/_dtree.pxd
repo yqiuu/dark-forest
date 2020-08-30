@@ -46,8 +46,8 @@ cdef extern from "dtree-cpp/dtree.h" namespace "dtree":
 
     cdef cppclass EnsembleGrower:
         EnsembleGrower(
-            ProgMassFunction* prog_func,  gsl_rng* rstate,
-            double m_res, int n_draw
+            ProgMassFunction* prog_func,gsl_rng* rstate,
+            double m_res, double m_eps, int n_draw
         )
         vector[Leaf] grow_tree(
             double m_root, double z_root, const vector[double]& z_target
