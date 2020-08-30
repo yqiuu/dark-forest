@@ -11,7 +11,6 @@
 using namespace std;
 using namespace dtree;
 
-
 static double integrand(double u, void* gamma1)
 {
     return pow(1. + 1./(u*u), *(double*)gamma1/2.);
@@ -31,7 +30,7 @@ AuxFunction::AuxFunction(double gamma1) : gamma1_(gamma1)
         // Construct u_spl
         double u_spl[n_spl];
         double u_iter = BREAK_POINT_1;
-        for(int i = 0; i < n_spl - 1; ++i)
+        for (int i = 0; i < n_spl - 1; ++i)
         {
             u_spl[i] = u_iter;
             u_iter *= du;
@@ -48,7 +47,7 @@ AuxFunction::AuxFunction(double gamma1) : gamma1_(gamma1)
         target.params = &gamma1_;
 
         j_u_spl[0] = j_bp1;
-        for(int i = 1; i < n_spl; ++i)
+        for (int i = 1; i < n_spl; ++i)
         {
             gsl_integration_qag(
                 &target, BREAK_POINT_1, u_spl[i], eps_abs, eps_rel,
@@ -260,7 +259,7 @@ int BinarySplit::split(
     {
         sort(tree.begin() + idx_first, tree.end());
         tree[idx_root].idx_tail = idx_first;
-        for(int i_prog = idx_first; i_prog - idx_first < n_out - 1; ++i_prog)
+        for (int i_prog = idx_first; i_prog - idx_first < n_out - 1; ++i_prog)
             tree[i_prog].idx_next = i_prog + 1;
     }
     return n_out;
@@ -279,13 +278,13 @@ MergerTree BinarySplit::grow(
     double d_target;
     MergerTree tree;
     tree.push_back(Leaf(m_root, level, -1, -1));
-    for(auto z : z_target)
+    for (auto z : z_target)
     {
         ++level;
         n_prog = n_prog_next;
         n_prog_next = 0;
         d_target = hr_->eval_d(z);
-        for(int i_prog = 0; i_prog < n_prog; ++i_prog)
+        for (int i_prog = 0; i_prog < n_prog; ++i_prog)
             n_prog_next += split(tree, idx_root++, level, d_root, d_target);
         d_root = d_target;
     }
