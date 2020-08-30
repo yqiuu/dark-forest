@@ -126,7 +126,7 @@ cdef class HaloKit:
         public double m_max
 
 
-    def __cinit__(self, hmf, z_grid=None, save=None, rebuild_args=None):
+    def __cinit__(self, hmf, z_grid=None, rebuild_args=None):
         if rebuild_args is None:
             hmf.update(z = 0)
             self.m_min = 10**hmf.Mmin
@@ -142,29 +142,16 @@ cdef class HaloKit:
             else:
                 z_arr = np.copy(z_grid)
             gf = GrowthFactor(hmf.cosmo)
-            delta_arr = hmf.delta_c \
-                /np.array([gf.growth_factor(z) for z in z_arr])
+            delta_arr \
+                = hmf.delta_c/np.array([gf.growth_factor(z) for z in z_arr])
         else:
-            self.m_min, self.m_max, m_arr, \
-            sigma_arr, alpha_arr, z_arr, delta_arr = rebuild_args
+            self.m_min, self.m_max, \
+            m_arr, sigma_arr, alpha_arr, z_arr, delta_arr = rebuild_args
         # Set rebuild args
         self.rebuild_args = (
-            self.m_min, self.m_max, m_arr,
-            sigma_arr, alpha_arr, z_arr, delta_arr
+            self.m_min, self.m_max,
+            m_arr, sigma_arr, alpha_arr, z_arr, delta_arr
         )
-        # Save a binary file of necessary arrays for external uses
-        if save is not None:
-            with open(save, "wb") as fp:
-                n_mass = m_arr.size
-                fp.write(binary.pack('i', n_mass))
-                fp.write(binary.pack('%dd'%n_mass, *m_arr))
-                fp.write(binary.pack('%dd'%n_mass, *sigma_arr))
-                fp.write(binary.pack('%dd'%n_mass, *alpha_arr))
-
-                n_z = z_arr.size
-                fp.write(binary.pack('i', n_z))
-                fp.write(binary.pack('%dd'%n_z, *z_arr))
-                fp.write(binary.pack('%dd'%n_z, *delta_arr))
         # Initialisation
         cdef:
             double[::1] mv_m_arr = m_arr
@@ -173,7 +160,8 @@ cdef class HaloKit:
             double[::1] mv_z_arr = z_arr
             double[::1] mv_delta_arr = delta_arr
         self.hr = new HaloRelation(
-            &mv_m_arr[0], &mv_sigma_arr[0], &mv_alpha_arr[0], mv_m_arr.shape[0],
+            &mv_m_arr[0], &mv_sigma_arr[0],
+            &mv_alpha_arr[0], mv_m_arr.shape[0],
             &mv_z_arr[0], &mv_delta_arr[0], mv_z_arr.shape[0]
         )
 
@@ -184,6 +172,23 @@ cdef class HaloKit:
 
     def __reduce__(self):
         return (rebuild_halo_kit, self.rebuild_args)
+
+
+    def save_binary(self, fname):
+        """Save a binary file of necessary arrays for external uses."""
+        self.m_min, self.m_max, m_arr, \
+        sigma_arr, alpha_arr, z_arr, delta_arr = self.rebuild_args
+        with open(fname, "wb") as fp:
+            n_mass = m_arr.size
+            fp.write(binary.pack('i', n_mass))
+            fp.write(binary.pack('%dd'%n_mass, *m_arr))
+            fp.write(binary.pack('%dd'%n_mass, *sigma_arr))
+            fp.write(binary.pack('%dd'%n_mass, *alpha_arr))
+
+            n_z = z_arr.size
+            fp.write(binary.pack('i', n_z))
+            fp.write(binary.pack('%dd'%n_z, *z_arr))
+            fp.write(binary.pack('%dd'%n_z, *delta_arr))
 
 
 def estimate_conditional_mass_func(tree, level, frac_bins=None, mean=True):
