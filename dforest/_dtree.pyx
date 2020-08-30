@@ -1,15 +1,9 @@
 from libc.math cimport sqrt
 from libcpp.vector cimport vector
-from _dtree cimport HaloRelation as cpp_HaloRelation, \
-    Leaf, EnsembleGrower, BinarySplit, gsl_rng, \
-    gsl_rng_type, gsl_rng_alloc, gsl_rng_free, gsl_rng_mt19937
 
 import struct as binary
-from .logger import logger
 
 import numpy as np
-import h5py
-from scipy.interpolate import InterpolatedUnivariateSpline as spl
 from hmf.growth_factor import GrowthFactor
 
 
