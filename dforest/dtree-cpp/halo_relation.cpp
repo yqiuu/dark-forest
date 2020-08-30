@@ -39,7 +39,8 @@ HaloRelation::HaloRelation(
 HaloRelation::HaloRelation(const char* fname)
 {
     ifstream fp(fname, ios::in | ios::binary);
-    if(!fp) {
+    if(!fp)
+    {
         cout << "Error: cannot open the file" << endl;
         exit(EXIT_FAILURE);
     }

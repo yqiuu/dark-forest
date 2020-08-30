@@ -31,14 +31,16 @@ void EnsembleGrower::sample(double m2, double z1, double z2)
     int idx;
     for (auto& m : m_free)
         m = m2;
-    for (auto m : m_prog) {
+    for (auto m : m_prog)
+    {
         weights = m_free;
         for (auto& w : weights)
             if (w <= m)
                 w = 0.;
         reject = true;
         for (auto w : weights)
-            if (w != 0.) {
+            if (w != 0.)
+            {
                 reject = false;
                 break;
             }
@@ -78,7 +80,8 @@ MergerTree EnsembleGrower::grow_tree(
     int n_prog_next = 1;
     MergerTree tree;
     tree.push_back(Leaf(m_root, level, -1, -1));
-    for(auto z : z_target) {
+    for(auto z : z_target)
+    {
         ++level;
         n_prog = n_prog_next;
         n_prog_next = 0;

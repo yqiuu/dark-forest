@@ -12,14 +12,16 @@ using namespace std;
 using namespace dtree;
 
 
-static double integrand(double u, void* gamma1) {
+static double integrand(double u, void* gamma1)
+{
     return pow(1. + 1./(u*u), *(double*)gamma1/2.);
 }
 
 
 AuxFunction::AuxFunction(double gamma1) : gamma1_(gamma1)
 {
-    if (gamma1_ < 1.) {
+    if (gamma1_ < 1.)
+    {
         const int n_spl = 25;
         const double du = pow(BREAK_POINT_2/BREAK_POINT_1, 1./(n_spl - 1));
         const int n_intg = 100;
@@ -29,7 +31,8 @@ AuxFunction::AuxFunction(double gamma1) : gamma1_(gamma1)
         // Construct u_spl
         double u_spl[n_spl];
         double u_iter = BREAK_POINT_1;
-        for(int i = 0; i < n_spl - 1; ++i) {
+        for(int i = 0; i < n_spl - 1; ++i)
+        {
             u_spl[i] = u_iter;
             u_iter *= du;
         }
@@ -45,7 +48,8 @@ AuxFunction::AuxFunction(double gamma1) : gamma1_(gamma1)
         target.params = &gamma1_;
 
         j_u_spl[0] = j_bp1;
-        for(int i = 1; i < n_spl; ++i) {
+        for(int i = 1; i < n_spl; ++i)
+        {
             gsl_integration_qag(
                 &target, BREAK_POINT_1, u_spl[i], eps_abs, eps_rel,
                 n_intg, key, workspace, &res, &err
@@ -60,7 +64,8 @@ AuxFunction::AuxFunction(double gamma1) : gamma1_(gamma1)
         j_u_ = gsl_spline_alloc(gsl_interp_cspline, n_spl);
         gsl_spline_init(j_u_, u_spl, j_u_spl, n_spl);
     }
-    else {
+    else
+    {
         cout << "Error: gamma1 should be smaller than 1" << endl;
         exit(EXIT_FAILURE);
     }
@@ -89,7 +94,10 @@ double AuxFunction::operator() (double u_res) const
         return j_bp2_ + u_res - BREAK_POINT_2
             - 0.5*gamma1_*(1./u_res - 1./BREAK_POINT_2);
 }
-struct Node {
+
+
+struct Node
+{
     Node(double m=0., double d=0.) : mass(m), delta(d) {}
     double mass;
     double delta;
@@ -110,14 +118,17 @@ static inline void append_progenitor(
 static inline double compute_frac(
     const AuxFunction& j_func, double sigma_start, double sigmasq_start,
     double sigmasq_res, double g1, double dd
-) {
+)
+{
     double u_res = sigma_start*pow(sigmasq_res - sigmasq_start, -.5);
     return SQRT2OPI*j_func(u_res)*g1/sigma_start*dd;
 }
 
 
-static inline int reduce_delta(double& dd, double dd_target) {
-    if (dd > dd_target) {
+static inline int reduce_delta(double& dd, double dd_target)
+{
+    if (dd > dd_target)
+    {
         dd = dd_target;
         return 1;
     }
@@ -151,7 +162,8 @@ int BinarySplit::split(
     int n_out = 0;
     int idx_first = -1;
     int idx = 0;
-    while(idx < tree_binary.size()) {
+    while(idx < tree_binary.size())
+    {
         m_start = tree_binary[idx].mass;
         d_start = tree_binary[idx].delta;
         dd_target = d_target - d_start;
@@ -168,7 +180,8 @@ int BinarySplit::split(
         //
         q = 0.;
         q_res = m_res_/m_start;
-        if (q_res >= 0.5) {
+        if (q_res >= 0.5)
+        {
             // No split
             dd = eps1_*SQRT2*sqrt(sigmasq_half - sigmasq_start);
             save = reduce_delta(dd, dd_target);
@@ -176,7 +189,8 @@ int BinarySplit::split(
                 func_j_, sigma_start, sigmasq_start, sigmasq_res, g1, dd
             );
         }
-        else {
+        else
+        {
             // Compute B and beta
             V_res = sigmasq_res*pow(sigmasq_res - sigmasq_start, -1.5);
             V_half = sigmasq_half*pow(sigmasq_half - sigmasq_start, -1.5);
@@ -205,7 +219,8 @@ int BinarySplit::split(
                 func_j_, sigma_start, sigmasq_start, sigmasq_res, g1, dd
             );
             // Generate random numbers and split the tree
-            if (gsl_rng_uniform(rstate_) < N_upper) {
+            if (gsl_rng_uniform(rstate_) < N_upper)
+            {
                 q = pow(pow(q_res, eta)
                     + pow_diff*gsl_rng_uniform(rstate_), 1./eta);
                 m_q = q*m_start;
@@ -223,13 +238,15 @@ int BinarySplit::split(
         m_prog1 = (1 - F - q)*m_start;
         m_prog2 = q*m_start;
         // Add progenitors
-        if (save) {
+        if (save)
+        {
             if (m_prog1 > m_res_)
                 append_progenitor(tree, n_out, idx_first, m_prog1, level);
             if (m_prog2 > m_res_)
                 append_progenitor(tree, n_out, idx_first, m_prog2, level);
         }
-        else {
+        else
+        {
             if (m_prog1 > m_res_)
                 tree_binary.push_back(Node(m_prog1, d_start + dd));
             if (m_prog2 > m_res_)
@@ -239,7 +256,8 @@ int BinarySplit::split(
         ++idx;
     }
     // Link progenitor indices
-    if (n_out > 0) {
+    if (n_out > 0)
+    {
         sort(tree.begin() + idx_first, tree.end());
         tree[idx_root].idx_tail = idx_first;
         for(int i_prog = idx_first; i_prog - idx_first < n_out - 1; ++i_prog)
@@ -261,7 +279,8 @@ MergerTree BinarySplit::grow(
     double d_target;
     MergerTree tree;
     tree.push_back(Leaf(m_root, level, -1, -1));
-    for(auto z : z_target) {
+    for(auto z : z_target)
+    {
         ++level;
         n_prog = n_prog_next;
         n_prog_next = 0;

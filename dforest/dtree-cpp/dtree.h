@@ -9,11 +9,13 @@
 #include<gsl/gsl_spline.h>
 #include"nut/nut.h"
 
-namespace dtree {
+namespace dtree
+{
 const int kInitialSize = 1000;
 
 
-class HaloRelation {
+class HaloRelation
+{
 public:
     HaloRelation(
         double *mass, double *sigma, double *alpha, int n_mass,
@@ -48,7 +50,8 @@ private:
 };
 
 
-struct Leaf {
+struct Leaf
+{
     Leaf(double m, int lvl, int i_t, int i_n)
         : mass(m), level(lvl), idx_tail(i_t), idx_next(i_n) {}
     bool operator< (const Leaf& a) const {return mass >= a.mass;}
@@ -63,7 +66,8 @@ struct Leaf {
 using MergerTree = std::vector<Leaf>;
 
 
-class AuxFunction {
+class AuxFunction
+{
 public:
     AuxFunction(double gamma1);
     ~AuxFunction();
@@ -77,7 +81,8 @@ private:
 };
 
 
-class BinarySplit {
+class BinarySplit
+{
 public:
     BinarySplit(
         const HaloRelation* hr, gsl_rng* rstate, double m_res,
