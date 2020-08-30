@@ -25,19 +25,6 @@ cdef extern from "dtree-cpp/dtree.h" namespace "dtree":
         )
         HaloRelation(const char* fname) except +
 
-    cdef cppclass KitSplit:
-        KitSplit(
-            double a0, double a1, double a2,
-            double a3, double a4, double a5
-        )
-        double g0() const
-        double gamma1() const
-        double gamma2() const
-        double m_res() const
-        double eps1() const
-        double eps2() const
-        double j_func(double u_res) const
-
     cdef cppclass Leaf:
         Leaf(double m, int lvl, int i_t, int i_n)
         double mass;
@@ -47,7 +34,8 @@ cdef extern from "dtree-cpp/dtree.h" namespace "dtree":
 
     cdef cppclass BinarySplit:
         BinarySplit(
-            const HaloRelation* hr, const KitSplit* kit_sp, gsl_rng* rstate
+            const HaloRelation* hr, gsl_rng* rstate, double m_res,
+            double g0, double gamma1, double gamma2, double eps1, double eps2
         )
         vector[Leaf] grow(
             double m_root, double z_root, const vector[double]& z_target

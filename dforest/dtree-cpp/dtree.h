@@ -12,31 +12,6 @@
 namespace dtree {
 const int kInitialSize = 1000;
 
-class KitSplit {
-public:
-    KitSplit(double a0, double a1, double a2, double a3, double a4, double a5);
-    ~KitSplit();
-    double g0() const {return g0_;}
-    double gamma1() const {return gamma1_;}
-    double gamma2() const {return gamma2_;}
-    double m_res() const {return m_res_;}
-    double eps1() const {return eps1_;}
-    double eps2() const {return eps2_;}
-    double j_func(double u_res) const;
-
-private:
-    double g0_;
-    double gamma1_;
-    double gamma2_;
-    double m_res_;
-    double eps1_;
-    double eps2_;
-
-    double j_bp2_; // value of the second break point of J
-    gsl_interp_accel *j_u_acc_;
-    gsl_spline *j_u_;
-};
-
 
 class HaloRelation {
 public:
@@ -87,11 +62,29 @@ struct Leaf {
 
 using MergerTree = std::vector<Leaf>;
 
+
+class AuxFunction {
+public:
+    AuxFunction(double gamma1);
+    ~AuxFunction();
+    double operator() (double u_res) const;
+
+private:
+    double gamma1_;
+    double j_bp2_; // value of the second break point of J
+    gsl_interp_accel *j_u_acc_;
+    gsl_spline *j_u_;
+};
+
+
 class BinarySplit {
 public:
     BinarySplit(
-        const HaloRelation* hr, const KitSplit* kit_sp, gsl_rng* rstate
-    ) : hr_(hr), kit_sp_(kit_sp), rstate_(rstate) {}
+        const HaloRelation* hr, gsl_rng* rstate, double m_res,
+        double g0, double gamma1, double gamma2, double eps1, double eps2
+    ) : hr_(hr), rstate_(rstate), m_res_(m_res),
+        g0_(g0), gamma1_(gamma1), gamma2_(gamma2), eps1_(eps1), eps2_(eps2),
+        func_j_(gamma1) {}
     MergerTree grow(
         double m_root, double z_root, const std::vector<double>& z_target
     );
@@ -103,8 +96,16 @@ private:
     );
 
     const HaloRelation* hr_;
-    const KitSplit* kit_sp_;
     gsl_rng* rstate_;
+    const double m_res_;
+    // Algorithm parameters
+    const double g0_;
+    const double gamma1_;
+    const double gamma2_;
+    const double eps1_;
+    const double eps2_;
+    //
+    const AuxFunction func_j_;
 };
 
 

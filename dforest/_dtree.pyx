@@ -1,7 +1,7 @@
 from libc.math cimport sqrt
 from libcpp.vector cimport vector
 from _dtree cimport HaloRelation as cpp_HaloRelation, \
-    KitSplit, Leaf, EnsembleGrower, BinarySplit, gsl_rng, \
+    Leaf, EnsembleGrower, BinarySplit, gsl_rng, \
     gsl_rng_type, gsl_rng_alloc, gsl_rng_free, gsl_rng_mt19937
 
 import struct as binary
@@ -78,7 +78,6 @@ cdef class TreeBinarySplit:
     """Wrapper class to generator merger tree by binary splits."""
     cdef HaloKit halo_kit
     cdef gsl_rng* rstate
-    cdef KitSplit* kit_sp
     cdef BinarySplit* planter
 
 
@@ -94,15 +93,14 @@ cdef class TreeBinarySplit:
     ):
         self.halo_kit = core if isinstance(core, HaloKit) else core.halo_kit()
         self.rstate = gsl_rng_init(seed)
-        self.kit_sp = new KitSplit(G0, gamma1, gamma2, m_res, eps1, eps2)
         self.planter = new BinarySplit(
-            self.halo_kit.hr, self.kit_sp, self.rstate
+            self.halo_kit.hr, self.rstate, m_res,
+            G0, gamma1, gamma2, eps1, eps2
         )
 
 
     def __dealloc__(self):
         gsl_rng_free(self.rstate)
-        del self.kit_sp
         del self.planter
 
 
