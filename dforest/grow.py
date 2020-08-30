@@ -285,7 +285,7 @@ def interpolate_mass(m_prog, s_prog, m_root, t_root, t_target, ages):
 
 
 def augment_simple_branch(
-    planter, host, prog, mass_key, m_root, z_root, z_target, params_ag,
+    grower, host, prog, mass_key, m_root, z_root, z_target, params_ag,
 ):
     """
     Given a pruned branch, generate Monte Carlo tree to find a match.
@@ -342,7 +342,7 @@ def augment_simple_branch(
             m_prog_trail = m_best
             n_prog_trail = n_best
         else:
-            tree = planter.grow(m_root, z_root, z_target)
+            tree = grower.grow(m_root, z_root, z_target)
             m_prog_trail = tree.leaf(next_level)
             n_prog_trail = len(m_prog_trail)
             n_trail += 1
@@ -370,7 +370,7 @@ def augment_simple_branch(
 
 
 def augment_chunk(
-    planter, host_chunk, prog_chunk, pool_list_chunk,
+    grower, host_chunk, prog_chunk, pool_list_chunk,
     mass_key, snap, z_root, t_root, z_target, t_target,
     redshifts, ages, m_cut, params_ag, comm,
 ):
@@ -408,7 +408,7 @@ def augment_chunk(
         interpolate_mass(m_prog, prog['Snap'], m_root, t_root, t_target, ages)
         prog, m_unres, m_cut_fix, eps_match_fix, n_trail \
             = augment_simple_branch(
-                planter, host, prog, mass_key,
+                grower, host, prog, mass_key,
                 m_root, z_root, z_target, params_ag,
             )
         stats_chunk[i_chunk] = m_cut_fix, eps_match_fix, n_trail
@@ -454,7 +454,7 @@ def augment_chunk(
 
 
 def grow_halos(
-    cntr, planter, fname, mass_key, snap_max, snap_min=0, params_ag=None,
+    cntr, grower, fname, mass_key, snap_max, snap_min=0, params_ag=None,
     root_halos=None, inds_sub=None, filters=None, comm=None, master_rank=0
 ):
     """Primary function to grow halos.
@@ -467,7 +467,7 @@ def grow_halos(
     cntr : Connector or DarkSeed instance
         Object specifies the cosmology and the timesteps. It also gives access
         to the N-body simulation data if applicable.
-    planter: object
+    grower: object
         Monte Carlo merger generator.
     fname : str
         Path of the output file.
@@ -524,7 +524,7 @@ def grow_halos(
         z_root, t_root = redshifts[snap], ages[snap]
         z_target, t_target = redshifts[snap - 1], ages[snap - 1]
         new_prog_chunk, next_host_chunk, stats_chunk = augment_chunk(
-            planter, host_chunk, prog_chunk, pool_list_chunk,
+            grower, host_chunk, prog_chunk, pool_list_chunk,
             mass_key, snap, z_root, t_root, z_target, t_target,
             redshifts, ages, m_cut, params_ag, comm
         )

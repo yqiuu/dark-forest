@@ -72,7 +72,7 @@ cdef class TreeBinarySplit:
     """Wrapper class to generator merger tree by binary splits."""
     cdef HaloKit halo_kit
     cdef gsl_rng* rstate
-    cdef BinarySplit* planter
+    cdef BinarySplit* grower
 
 
     def __cinit__(self,
@@ -87,7 +87,7 @@ cdef class TreeBinarySplit:
     ):
         self.halo_kit = core if isinstance(core, HaloKit) else core.halo_kit()
         self.rstate = gsl_rng_init(seed)
-        self.planter = new BinarySplit(
+        self.grower = new BinarySplit(
             self.halo_kit.hr, self.rstate, m_res,
             G0, gamma1, gamma2, eps1, eps2
         )
@@ -95,7 +95,7 @@ cdef class TreeBinarySplit:
 
     def __dealloc__(self):
         gsl_rng_free(self.rstate)
-        del self.planter
+        del self.grower
 
 
     def grow(self, m_root, z_root, z_target):
@@ -103,7 +103,7 @@ cdef class TreeBinarySplit:
         cdef vector[double] vec
         vec.assign(&mv[0], &mv[0] + mv.shape[0])
         tree = MergerTree()
-        tree.from_vector(self.planter.grow(m_root, z_root, vec))
+        tree.from_vector(self.grower.grow(m_root, z_root, vec))
         return tree
 
 

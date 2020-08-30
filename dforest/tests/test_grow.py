@@ -57,14 +57,14 @@ def quick_plain_grow(fname, m_res, box_size, hmf_model='PS'):
     dark_seed = dforest.DarkSeed(
         emf, redshifts, box_size, z_grid=np.linspace(0, 50, 1000)
     )
-    planter = dforest.TreeBinarySplit(
+    grower = dforest.TreeBinarySplit(
         dark_seed, G0=0.57, gamma1=0.38, gamma2=-0.01,
         m_res=m_res, eps1=0.1, eps2=0.1, seed=seed
     )
 
     dforest.grow_halos(
         cntr=dark_seed,
-        planter=planter,
+        grower=grower,
         fname=fname,
         mass_key="Mvir",
         snap_max=snap_max,

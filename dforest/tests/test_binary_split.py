@@ -9,14 +9,14 @@ def test_binary_spkit():
     # Create test tree
     emf = dforest.EnhancedMassFunction(Mmin=6)
     halo_kit = dforest.HaloKit(emf)
-    planter = dforest.TreeBinarySplit(
+    grower = dforest.TreeBinarySplit(
         halo_kit, G0=0.57, gamma1=0.38, gamma2=-0.01,
         m_res=1e8, eps1=0.1, eps2=0.1, seed=831
     )
     m_root = 1e10
     z_root = 0.5
     z_target = np.array([1., 2., 4.])
-    tree_test = planter.grow(
+    tree_test = grower.grow(
         m_root=m_root, z_root=z_root, z_target=z_target
     ).tree()
     # Load fiducial tree
