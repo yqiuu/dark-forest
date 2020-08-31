@@ -10,20 +10,19 @@ using namespace nut;
 void EnsembleGrower::sample(double m2, double z1, double z2)
 {
     prog_func_.update(m2, z1, z2);
+    // Sample progenitors
     IntegralApproximation proxy(prog_func_, m_res_, m2, true, 1e-6, 1e-9, 3);
     if (m2/m_res_ - 1 < TOL_RES || proxy.integral() == 0.)
         return;
     InverseTranformSampler sampler(proxy, rstate_);
-    //
     int n_prog = (int)(sampler.norm()*n_draw_);
     vector<double> m_prog(n_prog);
     for (auto& m : m_prog)
         m = sampler.sample();
     sort(m_prog.begin(), m_prog.end(), greater<double>());
-    //
+    // Assign progenitors
     for (auto& elem : pool_prog_)
         elem.clear();
-    //
     vector<double> m_free(n_draw_);
     vector<double> weights(n_draw_);
     Selector selector(rstate_);
@@ -65,7 +64,8 @@ int EnsembleGrower::grow_level(
         i_draw_ = 0;
     }
     m_prev_ = m_root;
-    //
+    if (pool_prog_[i_draw_].size() == 0)
+        return 0;
     auto it = pool_prog_[i_draw_].begin();
     auto it_end = pool_prog_[i_draw_].end() - 1;
     int idx_next = tree.size();
