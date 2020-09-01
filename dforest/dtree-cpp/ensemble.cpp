@@ -71,8 +71,6 @@ int EnsembleGrower::grow_level(
     for (; it < it_end; ++it)
         tree.push_back(Leaf(*it, level, -1, idx_next++));
     tree.push_back(Leaf(*it, level, -1, -1));
-    if (i_draw_ > 0)
-        cout << i_draw_ << endl;
     return pool_prog_[i_draw_++].size();
 }
 
