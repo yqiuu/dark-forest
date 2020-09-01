@@ -215,9 +215,11 @@ class KitHalo:
         self.alpha = spl(self.m_arr, self.alpha_arr)
         self.z_to_d = spl(self.z_arr, self.delta_arr)
         self.d_to_z = spl(self.delta_arr, self.z_arr)
+        #
+        self.norm_cmf = np.sqrt(2/np.pi)*np.log(10)
 
 
-    def cmf_analytic(self, m1, z1, m2, z2, frac=True):
+    def cmf(self, m1, z1, m2, z2, frac=True):
         @vectorize
         def limit(ds):
             if ds == 0.:
@@ -232,7 +234,7 @@ class KitHalo:
         sigmasq2 = sigma2*sigma2
         ds = sigmasq1 - sigmasq2
         alpha = self.alpha(m1)
-        cmf = np.sqrt(2/np.pi)*sigmasq1*dd*limit(ds)*alpha
+        cmf = self.norm_cmf*sigmasq1*dd*limit(ds)*alpha
         if frac:
             return cmf
         else:
