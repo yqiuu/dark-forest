@@ -1,4 +1,5 @@
 from math import sqrt, exp, log10
+import struct as binary
 
 import numpy as np
 from numpy import vectorize
@@ -239,4 +240,19 @@ class KitHalo:
             return cmf
         else:
             return cmf*m2/m1
+
+
+    def save_binary(self, fname):
+        """Save a binary file of necessary arrays for external uses."""
+        with open(fname, "wb") as fp:
+            n_mass = self.m_arr.size
+            fp.write(binary.pack('i', n_mass))
+            fp.write(binary.pack('%dd'%n_mass, *self.m_arr))
+            fp.write(binary.pack('%dd'%n_mass, *self.sigma_arr))
+            fp.write(binary.pack('%dd'%n_mass, *self.alpha_arr))
+
+            n_z = self.z_arr.size
+            fp.write(binary.pack('i', n_z))
+            fp.write(binary.pack('%dd'%n_z, *self.z_arr))
+            fp.write(binary.pack('%dd'%n_z, *self.delta_arr))
 
