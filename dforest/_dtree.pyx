@@ -1,6 +1,7 @@
 from libc.math cimport sqrt
 from libcpp.vector cimport vector
 
+from .core import KitHalo
 import struct as binary
 
 import numpy as np
@@ -26,6 +27,21 @@ cdef gsl_rng* gsl_rng_init(unsigned long int seed):
     cdef gsl_rng* rstate = gsl_rng_alloc(gsl_rng_mt19937)
     gsl_rng_set(rstate, seed)
     return rstate
+
+
+cdef HaloRelation* halo_relation_init(kit_halo):
+    cdef:
+        double[::1] mv_m_arr = kit_halo.m_arr
+        double[::1] mv_sigma_arr = kit_halo.sigma_arr
+        double[::1] mv_alpha_arr = kit_halo.alpha_arr
+        double[::1] mv_z_arr = kit_halo.z_arr
+        double[::1] mv_delta_arr = kit_halo.delta_arr
+        HaloRelation* hr = new HaloRelation(
+            &mv_m_arr[0], &mv_sigma_arr[0],
+            &mv_alpha_arr[0], mv_m_arr.shape[0],
+            &mv_z_arr[0], &mv_delta_arr[0], mv_z_arr.shape[0]
+        )
+    return hr
 
 
 cdef class MergerTree:
@@ -69,7 +85,7 @@ cdef class MergerTree:
 
 cdef class TreeBinarySplit:
     """Wrapper class to generator merger tree by binary splits."""
-    cdef HaloKit halo_kit
+    cdef HaloRelation* hr 
     cdef gsl_rng* rstate
     cdef BinarySplit* grower
 
@@ -84,16 +100,18 @@ cdef class TreeBinarySplit:
         double eps2=.1,
         unsigned long int seed=0
     ):
-        self.halo_kit = core if isinstance(core, HaloKit) else core.halo_kit()
+        self.hr = halo_relation_init(
+            core if isinstance(core, KitHalo) else core.kit_halo()
+        )
         self.rstate = gsl_rng_init(seed)
         self.grower = new BinarySplit(
-            self.halo_kit.hr, self.rstate, m_res,
-            G0, gamma1, gamma2, eps1, eps2
+            self.hr, self.rstate, m_res, G0, gamma1, gamma2, eps1, eps2
         )
 
 
     def __dealloc__(self):
         gsl_rng_free(self.rstate)
+        del self.hr
         del self.grower
 
 
@@ -107,7 +125,7 @@ cdef class TreeBinarySplit:
 
 
 cdef class TreeEnsemble:
-    cdef HaloKit halo_kit
+    cdef HaloRelation* hr 
     cdef gsl_rng* rstate
     cdef EnsembleGrower* grower
 
@@ -118,15 +136,16 @@ cdef class TreeEnsemble:
         int n_draw=100,
         unsigned long int seed=0
     ):
-        self.halo_kit = core if isinstance(core, HaloKit) else core.halo_kit()
-        self.rstate = gsl_rng_init(seed)
-        self.grower = new EnsembleGrower(
-            self.halo_kit.hr, self.rstate, m_res, n_draw
+        self.hr = halo_relation_init(
+            core if isinstance(core, KitHalo) else core.kit_halo()
         )
+        self.rstate = gsl_rng_init(seed)
+        self.grower = new EnsembleGrower(self.hr, self.rstate, m_res, n_draw)
 
 
     def __dealloc__(self):
         gsl_rng_free(self.rstate)
+        del self.hr
         del self.grower
 
 

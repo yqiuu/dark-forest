@@ -1,4 +1,4 @@
-from ._dtree import *
+from .core import KitHalo
 from .connector.dforest import save_header
 from .logger import logger, dividing_line, memory_usage
 
@@ -581,5 +581,5 @@ class DarkSeed:
         self.box_size = box_size
 
 
-    def halo_kit(self):
-        return HaloKit(self.emf, z_grid=self.z_grid)
+    def kit_halo(self):
+        return KitHalo(self.emf, z_grid=self.z_grid)
