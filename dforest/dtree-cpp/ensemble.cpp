@@ -9,7 +9,10 @@ using namespace nut;
 
 void EnsembleGrower::sample(double m2, double z1, double z2)
 {
-    prog_func_.update(m2, z1, z2);
+    if (!prog_func_.update(m2, z1, z2) && i_draw_ != n_draw_)
+        return;
+    else
+        i_draw_ = 0;
     // Sample progenitors
     IntegralApproximation proxy(prog_func_, m_res_, m2, true, 1e-6, 1e-9, 3);
     if (m2/m_res_ - 1 < TOL_RES || proxy.integral() == 0.)
@@ -58,12 +61,7 @@ int EnsembleGrower::grow_level(
 )
 {
     double m_root = tree[idx_root].mass;
-    if (abs(m_prev_ - m_root) >= m_eps_ || i_draw_ == n_draw_)
-    {
-        sample(m_root, z_target, z_root);
-        i_draw_ = 0;
-    }
-    m_prev_ = m_root;
+    sample(m_root, z_target, z_root);
     if (pool_prog_[i_draw_].size() == 0)
         return 0;
     auto it = pool_prog_[i_draw_].begin();
@@ -73,6 +71,8 @@ int EnsembleGrower::grow_level(
     for (; it < it_end; ++it)
         tree.push_back(Leaf(*it, level, -1, idx_next++));
     tree.push_back(Leaf(*it, level, -1, -1));
+    if (i_draw_ > 0)
+        cout << i_draw_ << endl;
     return pool_prog_[i_draw_++].size();
 }
 

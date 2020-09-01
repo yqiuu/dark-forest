@@ -115,14 +115,13 @@ cdef class TreeEnsemble:
     def __cinit__(self,
         object core,
         double m_res=1e8,
-        double m_eps=1e6,
         int n_draw=100,
         unsigned long int seed=0
     ):
         self.halo_kit = core if isinstance(core, HaloKit) else core.halo_kit()
         self.rstate = gsl_rng_init(seed)
         self.grower = new EnsembleGrower(
-            self.halo_kit.hr, self.rstate, m_res, m_eps, n_draw
+            self.halo_kit.hr, self.rstate, m_res, n_draw
         )
 
 

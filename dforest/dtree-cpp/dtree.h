@@ -118,7 +118,8 @@ private:
 class ProgMassFunction
 {
 public:
-    ProgMassFunction(const HaloRelation* hr) : hr_(hr) {update(1e12, 0, 0.1);}
+    ProgMassFunction(const HaloRelation* hr)
+        : hr_(hr), m2_(-1.), z1_(-1.), z2_(-1.) {update(1e12, 0, 0.1);}
     double operator () (double m1)
     {
         if (m1 == m2_)
@@ -131,17 +132,27 @@ public:
         return sqrt_2opi * m2_/m1/m1 * sigmasq1*dd_*pow(ds, -1.5) \
             * exp(-.5*dd_*dd_/ds)*alpha;
     }
-    void update(double m2, double z1, double z2)
+    bool update(double m2, double z1, double z2)
     {
-        m2_ = m2;
-        sigmasq2_ = hr_->eval_sigma(m2);
-        sigmasq2_ = sigmasq2_*sigmasq2_;
-        dd_ = hr_->eval_d(z1) - hr_->eval_d(z2);
+        if (m2_ == m2 && z1_ == z1 && z2_ == z2)
+            return false;
+        else
+        {
+            m2_ = m2;
+            z1_ = z1;
+            z2_ = z2;
+            sigmasq2_ = hr_->eval_sigma(m2);
+            sigmasq2_ = sigmasq2_*sigmasq2_;
+            dd_ = hr_->eval_d(z1) - hr_->eval_d(z2);
+            return true;
+        }
     }
 
 private:
     const HaloRelation* hr_;
     double m2_;
+    double z1_;
+    double z2_;
     double sigmasq2_;
     double dd_;
 };
@@ -151,10 +162,9 @@ class EnsembleGrower
 {
 public:
     EnsembleGrower(
-        const HaloRelation* hr, gsl_rng* rstate, double m_res,
-        double m_eps, int n_draw
-    ) : prog_func_(hr), rstate_(rstate), m_res_(m_res), m_eps_(m_eps),
-        n_draw_(n_draw), pool_prog_(n_draw), m_prev_(0.), i_draw_(n_draw) {}
+        const HaloRelation* hr, gsl_rng* rstate, double m_res, int n_draw
+    ) : prog_func_(hr), rstate_(rstate), m_res_(m_res),
+        n_draw_(n_draw), pool_prog_(n_draw), i_draw_(n_draw) {}
     int grow_level(
         MergerTree& tree, int idx_root, int level,
         double z_target, double z_root
@@ -169,11 +179,9 @@ private:
     ProgMassFunction prog_func_;
     gsl_rng* rstate_;
     double m_res_;
-    double m_eps_;
     int n_draw_;
     //
     std::vector< std::vector<double> > pool_prog_;
-    double m_prev_;
     int i_draw_;
 };
 
