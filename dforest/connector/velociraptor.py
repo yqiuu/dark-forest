@@ -173,11 +173,11 @@ class VELOCIraptorConnector(Connector):
         if n == 1:
             return -1
         else:
-            return np.full(n, -1, dtype = self.data_type['hostHaloID'])
+            return np.full(n, -1, dtype=self.data_type['hostHaloID'])
 
 
     def new_id(self, snap, inds):
-        return snap*10**12 + inds + 1
+        return super().new_id(snap, inds)
 
 
 class VELOCIraptorSaver:

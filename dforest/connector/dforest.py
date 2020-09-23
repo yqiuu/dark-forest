@@ -168,6 +168,14 @@ class DarkForestConnector(Connector):
             return np.array(self._redshifts)
 
 
+    def host_id(self, n=1):
+        return super().host_id(n)
+
+
+    def new_id(self, snap, inds):
+        return super().new_id(snap, inds)
+
+
     def read_cols(self, snap, target, cols=None, rtype='dict', index=None):
         """
         Read data.

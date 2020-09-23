@@ -143,6 +143,19 @@ class Connector(ABC):
             return np.array(self._ages)
 
 
+    @abstractmethod
+    def host_id(self, n=1):
+        if n == 1:
+            return -1
+        else:
+            return np.full(n, -1, dtype='i8')
+
+
+    @abstractmethod
+    def new_id(self, snap, inds):
+        return snap*10**12 + inds + 1
+
+
     @property
     def G(self):
         """Gravitational constant.
