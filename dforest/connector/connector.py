@@ -22,14 +22,13 @@ class Connector(ABC):
         pass
 
 
-    @abstractmethod
     def __enter__(self):
-        pass
+        self.open()
+        return self
 
 
-    @abstractmethod
     def __exit__(self, *args):
-        pass
+        self.close()
 
 
     @abstractmethod
@@ -147,6 +146,16 @@ class Connector(ABC):
             cosmo = FlatLambdaCDM(**self.cosmo_params)
             self._ages = cosmo.age(self.redshifts).value*1e3
             return np.array(self._ages)
+
+
+    @abstractmethod
+    def open(self):
+        pass
+
+
+    @abstractmethod
+    def close(self):
+        pass
 
 
     @abstractmethod

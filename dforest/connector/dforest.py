@@ -45,26 +45,6 @@ class DarkForestConnector(Connector):
                 self.filters = filters
 
 
-    def __enter__(self):
-        if self.write:
-            mode = 'r+'
-            filters = self.filters
-        else:
-            mode = 'r'
-            filters = None
-        files = []
-        for f in self.targets:
-            files.append(tables.File(f, mode, filters=filters))
-        self.files = files
-        self.hf = files[0]
-        return self
-
-
-    def __exit__(self, *args):
-        for f in self.files:
-            f.close()
-
-
     def __getitem__(self, key):
         pass
 
@@ -174,6 +154,26 @@ class DarkForestConnector(Connector):
         except AttributeError:
             self._redshifts = self.hf.get_node('/Header', 'Redshift').read()
             return np.array(self._redshifts)
+
+
+    def open(self):
+        if self.write:
+            mode = 'r+'
+            filters = self.filters
+        else:
+            mode = 'r'
+            filters = None
+        files = []
+        for f in self.targets:
+            files.append(tables.File(f, mode, filters=filters))
+        self.files = files
+        self.hf = files[0]
+        return self
+
+
+    def close(self):
+        for f in self.files:
+            f.close()
 
 
     def host_id(self, n=1):

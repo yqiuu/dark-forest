@@ -22,17 +22,6 @@ class VELOCIraptorConnector(Connector):
         self._fname = fname
 
 
-    def __enter__(self):
-        self.fp = h5py.File(self.fname, "r")
-        self.hf = tables.File(self.fname, "r")
-        return self
-
-
-    def __exit__(self, *args):
-        self.fp.close()
-        self.hf.close()
-
-
     def __getitem__(self, key):
         snap, column = key
         dataset = self.fp.get('Snap_%03d'%snap)
@@ -165,6 +154,16 @@ class VELOCIraptorConnector(Connector):
                 redshifts[snap] = 1./self.fp.get('Snap_%03d'%snap).attrs['scalefactor'] - 1.
             self._redshifts = redshifts
             return np.array(self._redshifts)
+
+
+    def open(self):
+        self.fp = h5py.File(self.fname, "r")
+        self.hf = tables.File(self.fname, "r")
+
+
+    def close(self):
+        self.fp.close()
+        self.hf.close()
 
 
     def max_forest_id(self, snap_max):
