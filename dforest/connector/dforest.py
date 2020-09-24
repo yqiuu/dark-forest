@@ -70,6 +70,14 @@ class DarkForestConnector(Connector):
 
 
     @property
+    def fname(self):
+        if self.prefix is None:
+            return self.file_names[0]
+        else:
+            raise ValueError("Connector contains multiple files.")
+
+
+    @property
     def little_h(self):
         try:
             return self._little_h

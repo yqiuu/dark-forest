@@ -39,6 +39,12 @@ class Connector(ABC):
 
     @property
     @abstractmethod
+    def fname(self):
+        return ''
+
+
+    @property
+    @abstractmethod
     def little_h(self):
         return 0.
 

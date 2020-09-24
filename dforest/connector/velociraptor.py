@@ -19,7 +19,7 @@ __all__ = [
 
 class VELOCIraptorConnector(Connector):
     def __init__(self, fname):
-        self.fname = fname
+        self._fname = fname
 
 
     def __enter__(self):
@@ -42,6 +42,11 @@ class VELOCIraptorConnector(Connector):
             return np.asarray(dataset['hostHaloID'])
         else:
             return np.asarray(dataset[column])
+
+
+    @property
+    def fname(self):
+        return self._fname
 
 
     @property
