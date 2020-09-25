@@ -194,25 +194,17 @@ class ForwardConstructor(Constructor):
 
 
     def run(self, cntr_ext, cntr_src):
-        self.forest_id_max = cntr_src.max_forest_id(self.snap_max)
         self.pool_sim = [{} for snap in range(self.snap_max + 1)]
         self.df_forward_next = None
-        with tables.File(generate_file_name(cntr_ext), 'r') as hf_fix:
-            self.snap_jump = hf_fix.get_node_attr('/', 'snap_jump')
-            self.hf_fix = hf_fix
+        if cntr_ext == cntr_src:
+            self.forest_id_max = 0
             super().run(cntr_ext, cntr_src)
-
-
-    def _get_offset(self, snap):
-        cntr_ext = self.cntr_ext
-        offset = 0
-        for i_part in range(cntr_ext.i_part):
-            with tables.File(generate_file_name(cntr_ext, i_part)) as hf:
-                try:
-                    offset += hf.get_node_attr(f'/Snapshot_{snap:03d}', 'n_halo')
-                except NoSuchNodeError:
-                    pass
-        return offset
+        else:
+            self.forest_id_max = cntr_src.max_forest_id(self.snap_max)
+            with tables.File(generate_file_name(cntr_ext), 'r') as hf_fix:
+                self.snap_jump = hf_fix.get_node_attr('/', 'snap_jump')
+                self.hf_fix = hf_fix
+                super().run(cntr_ext, cntr_src)
 
 
     def _prepare_req_data(self, snap):
@@ -222,13 +214,97 @@ class ForwardConstructor(Constructor):
 
 
     def _prepare_inh_data(self, snap):
-        grp = self.hf_fix.get_node(f'/Snapshot_{snap:03d}')
+        # If df_A = pd.DataFrame(), df_A.append(df_B) = df_B.
         df_inh = pd.DataFrame()
-        if 'Index' in grp:
-            for col in ['Index', 'HostHaloID', 'DescendantSnap', 'Descendant', 'ForestID']:
-                df_inh[col] = self.hf_fix.get_node(grp, col).read()
-            df_inh.set_index('Index', inplace=True)
+        if self.cntr_ext != self.cntr_src:
+            grp = self.hf_fix.get_node(f'/Snapshot_{snap:03d}')
+            if 'Index' in grp:
+                columns = [
+                    'Index', 'HostHaloID', 'DescendantSnap',
+                    'Descendant', 'ForestID'
+                ]
+                for col in columns:
+                    df_inh[col] = self.hf_fix.get_node(grp, col).read()
+                df_inh.set_index('Index', inplace=True)
         return df_inh
+
+
+    def _add_property(self, df_inh, df_req, list_prog, snap, z):
+        offset = self._get_offset(snap)
+        if len(df_inh) > 0:
+            self._generate_pointer_ns(df_inh, snap, offset)
+        df_forward = self._generate_pointer_mc(
+            df_inh, df_req, list_prog, snap, offset
+        )
+        df_forward = df_inh.append(df_forward)
+        return df_forward
+
+
+    def _save_output(self, df_new, snap):
+        hf = self.cntr_ext.hf
+        grp_snap = hf.get_node(f'/Snapshot_{snap:03d}')
+        if 'MainA' in grp_snap:
+            hf.remove_node(grp_snap, 'MainA', recursive=True)
+        if 'MainB' in grp_snap:
+            hf.remove_node(grp_snap, 'MainB', recursive=True)
+        grp_a = hf.create_group(f'/Snapshot_{snap:03d}', 'MainA')
+        for col in df_new.columns:
+            hf.create_carray(grp_a, col, obj=df_new[col].values)
+        inds = df_new.index.values.astype('i8')
+        hf.create_carray(grp_a, 'Index', obj=inds)
+        grp_b = hf.create_group(f'/Snapshot_{snap:03d}', 'MainB')
+        hf.create_carray(grp_b, 'Index', obj=inds[inds < 0])
+
+
+    def _get_offset(self, snap):
+        cntr_ext = self.cntr_ext
+        offset = 0
+        args_attr = (f'/Snapshot_{snap:03d}', 'n_halo')
+        for i_part in range(cntr_ext.i_part):
+            if self.cntr_ext is None:
+                offset += cntr_ext.files[i_part].get_node_attr(*args_attr)
+            else:
+                with tables.File(generate_file_name(cntr_ext, i_part)) as hf:
+                    try:
+                        offset += hf.get_node_attr(*args_attr)
+                    except NoSuchNodeError:
+                        pass
+        return offset
+
+
+    def _generate_pointer_ns(self, df_inh, snap, offset):
+        """
+        Generate new IDs for simulation halos, and change Descendant/HostHaloID
+        accordingly.
+        """
+        # Load local variables
+        cntr_src = self.cntr_src
+        pool_sim = self.pool_sim
+        snap_max = self.snap_max
+        snap_jump = self.snap_jump
+        #
+        id_new = cntr_src.new_id(snap, np.arange(offset, offset + len(df_inh)))
+        df_inh.insert(0, 'ID', id_new)
+        #
+        pool_sim[snap] = {
+            id_o: id_n for id_o, id_n in zip(df_inh.index, df_inh['ID'])
+        }
+        # Fix host halo IDs
+        select_sub_halo = df_inh['HostHaloID'] != cntr_src.host_id()
+        halo_id_sub = df_inh.loc[
+            df_inh.loc[select_sub_halo, 'HostHaloID'], 'ID'
+        ].values
+        df_inh.loc[select_sub_halo, 'HostHaloID'] = halo_id_sub
+        # Generate new Descendant for simulations halos
+        desc_snap = df_inh['DescendantSnap'].values
+        desc_id = df_inh['Descendant'].values
+        df_inh['Descendant'] = list(map(
+            lambda d_snap, d_id: pool_sim[d_snap][d_id], desc_snap, desc_id
+        ))
+        # Clean memory
+        snap_clean = snap + snap_jump
+        if snap_clean <= snap_max:
+            pool_sim[snap_clean] = None
 
 
     def _generate_pointer_mc(self, df_inh, df_req, list_prog, snap, offset):
@@ -242,14 +318,16 @@ class ForwardConstructor(Constructor):
         df_forward_mc = pd.DataFrame(index=df_req.index[select_mc_halo])
         n_halo_mc = len(df_forward_mc)
         n_halo_sim = len(df_inh)
+        offset = offset + n_halo_sim
         df_forward_mc['ID'] = cntr_src.new_id(
-            snap, np.arange(offset + n_halo_sim, offset + n_halo_sim + n_halo_mc)
+            snap, np.arange(offset, offset + n_halo_mc)
         )
         df_forward_mc['HostHaloID'] = cntr_src.host_id(n_halo_mc)
         if snap == snap_max:
             df_forward_mc['DescendantSnap'] = snap
             df_forward_mc['Descendant'] = df_forward_mc['ID'] # [1]
-            df_forward_mc['ForestID'] = np.arange(forest_id_max, forest_id_max + n_halo_mc)
+            df_forward_mc['ForestID'] \
+                = np.arange(forest_id_max, forest_id_max + n_halo_mc)
         else:
             df_forward_mc = df_forward_mc.join(df_forward_next)
         # Put DescendantSnap/Descendant/ForestID into the pool
@@ -270,61 +348,8 @@ class ForwardConstructor(Constructor):
                 if p_id < 0:
                     progenitors[p_id] = (snap, h_id, f_id)
         self.df_forward_next = pd.DataFrame.from_dict(
-            progenitors, orient='index', columns=['DescendantSnap', 'Descendant', 'ForestID']
+            progenitors, orient='index',
+            columns=['DescendantSnap', 'Descendant', 'ForestID']
         )
         return df_forward_mc
 
-
-    def _generate_pointer_ns(self, df_inh, snap, offset):
-        """
-        Generate new IDs for simulation halos, and change Descendant/HostHaloID
-        accordingly.
-        """
-        # Load local variables
-        cntr_src = self.cntr_src
-        pool_sim = self.pool_sim
-        snap_max = self.snap_max
-        snap_jump = self.snap_jump
-        #
-        df_inh.insert(0, 'ID', cntr_src.new_id(snap, np.arange(offset, offset + len(df_inh))))
-        #
-        pool_sim[snap] = {old_id: new_id for old_id, new_id in zip(df_inh.index, df_inh['ID'])}
-        # Fix host halo IDs
-        select_sub_halo = df_inh['HostHaloID'] != cntr_src.host_id()
-        halo_id_sub = df_inh.loc[df_inh.loc[select_sub_halo, 'HostHaloID'], 'ID'].values
-        df_inh.loc[select_sub_halo, 'HostHaloID'] = halo_id_sub
-        # Generate new Descendant for simulations halos
-        desc_snap = df_inh['DescendantSnap'].values
-        desc_id = df_inh['Descendant'].values
-        df_inh['Descendant'] = list(map(
-            lambda d_snap, d_id: pool_sim[d_snap][d_id], desc_snap, desc_id
-        ))
-        # Clean memory
-        snap_clean = snap + snap_jump
-        if snap_clean <= snap_max:
-            pool_sim[snap_clean] = None
-
-
-    def _add_property(self, df_inh, df_req, list_prog, snap, z):
-        offset = self._get_offset(snap)
-        if len(df_inh) > 0:
-            self._generate_pointer_ns(df_inh, snap, offset)
-        df_forward = self._generate_pointer_mc(df_inh, df_req, list_prog, snap, offset)
-        df_forward = df_inh.append(df_forward)
-        return df_forward
-
-
-    def _save_output(self, df_new, snap):
-        hf = self.cntr_ext.hf
-        grp_snap = hf.get_node(f'/Snapshot_{snap:03d}')
-        if 'MainA' in grp_snap:
-            hf.remove_node(grp_snap, 'MainA', recursive=True)
-        if 'MainB' in grp_snap:
-            hf.remove_node(grp_snap, 'MainB', recursive=True)
-        grp_a = hf.create_group(f'/Snapshot_{snap:03d}', 'MainA')
-        for col in df_new.columns:
-            hf.create_carray(grp_a, col, obj=df_new[col].values)
-        inds = df_new.index.values.astype('i8')
-        hf.create_carray(grp_a, 'Index', obj=inds)
-        grp_b = hf.create_group(f'/Snapshot_{snap:03d}', 'MainB')
-        hf.create_carray(grp_b, 'Index', obj=inds[inds < 0])

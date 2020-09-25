@@ -75,7 +75,7 @@ class Constructor(ABC):
         self.cntr_ext = cntr_ext
         self.cntr_src = cntr_src
         self._set_column_names(self.col_req, self.snap_min)
-        redshifts = self.cntr_src.redshifts
+        redshifts = self.cntr_ext.redshifts
         n_snap = self.snap_max - self.snap_min + 1
         for i_snap, snap in enumerate(self._range()):
             logger.info(f"{self.message}: {i_snap+1}/{n_snap} ({memory_usage()})")

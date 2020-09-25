@@ -379,7 +379,7 @@ class DarkForestConnector(Connector):
     def add_property(self, constructor):
         src_name, src_type = self.source
         if src_name == '':
-            constructor.run(self, None)
+            constructor.run(self, self)
         else:
             with src_type(src_name) as cntr_src:
                 constructor.run(self, cntr_src)
