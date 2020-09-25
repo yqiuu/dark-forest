@@ -2,7 +2,7 @@ import os
 from abc import ABC, abstractmethod
 from copy import deepcopy
 
-from ..core import EnhancedMassFunction
+from ..core import EnhancedMassFunction, KitHalo
 from ..logger import logger
 from .._dtree import *
 
@@ -201,8 +201,8 @@ class Connector(ABC):
         return EnhancedMassFunction(**self._params)
 
 
-    def halo_kit(self):
-        return HaloKit(self.emf(), self._z_grid)
+    def kit_halo(self):
+        return KitHalo(self.emf(), self._z_grid)
 
 
     def rho_halo(self, z, mode='crit', delta_h=200.):
