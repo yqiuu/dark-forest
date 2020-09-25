@@ -215,12 +215,15 @@ def gather_data(
 
 
 def save_data(
-    cntr, fname, host_data, prog_data, stats_data, snap, snap_min, filters, comm, master_rank
+    cntr, fname, host_data, prog_data, stats_data,
+    snap, snap_min, filters, comm, master_rank
 ):
     if comm is None or comm.Get_rank() == master_rank:
         with tables.File(fname, 'a', filters=filters) as hf:
             # Save progenitor data
-            group_prog = hf.create_group('/Snapshot_%03d'%snap, 'Prog', createparents=True)
+            group_prog = hf.create_group(
+                '/Snapshot_%03d'%snap, 'Prog', createparents=True
+            )
             n_prog_data = len(prog_data)
             if n_prog_data > 0:
                 logger.info("Saving data of %d progenitor halos"%n_prog_data)
@@ -228,12 +231,18 @@ def save_data(
                     hf.create_carray(group_prog, c, obj=prog_data[c])
             # Save host data for the last snapshot
             if snap - 1 == snap_min:
-                group_last = hf.create_group('/Snapshot_%03d'%snap_min, 'Host', createparents=True)
+                group_last = hf.create_group(
+                    '/Snapshot_%03d'%snap_min, 'Host', createparents=True
+                )
                 if n_prog_data > 0:
                     logger.info("Saving data for the last snapshot")
-                    prog_index = np.full(n_prog_data, -1, dtype=host_data.dtype['ProgIndex'])
+                    prog_index = np.full(
+                        n_prog_data, -1, dtype=host_data.dtype['ProgIndex']
+                    )
                     hf.create_carray(group_last, 'ProgIndex', obj=prog_index)
-                    prog_number = np.full(n_prog_data, 0, dtype=host_data.dtype['ProgNumber'])
+                    prog_number = np.full(
+                        n_prog_data, 0, dtype=host_data.dtype['ProgNumber']
+                    )
                     hf.create_carray(group_last, 'ProgNumber', obj=prog_number)
                     leaf_type = get_leaf_type(host_data, prog_data)
                     hf.create_carray(group_last, 'LeafType', obj=leaf_type)
@@ -241,7 +250,9 @@ def save_data(
                         if c != 'Snap':
                             hf.create_carray(group_last, c, obj=prog_data[c])
             # Save host data
-            group_host = hf.create_group('/Snapshot_%03d'%snap, 'Host', createparents=True)
+            group_host = hf.create_group(
+                '/Snapshot_%03d'%snap, 'Host', createparents=True
+            )
             n_host_data = len(host_data)
             if n_host_data > 0:
                 logger.info("Saving data of %d host halos"%n_host_data)
@@ -250,6 +261,8 @@ def save_data(
                 if not isinstance(cntr, DarkSeed):
                     for c in stats_data.dtype.names:
                         hf.create_carray(group_host, c, obj=stats_data[c])
+            #
+            hf.set_node_attr('/Snapshot_%03d'%snap, 'n_halo', n_host_data)
 
 
 def get_leaf_type(host_data, prog_data):
