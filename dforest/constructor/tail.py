@@ -9,11 +9,9 @@ __all__ = ['TailConstructor']
 
 class TailConstructor(Constructor):
     def __init__(self,
-        cntr_ext, cntr_src, cols, snap_max, snap_min=0, postfix=None, kwargs_tqdm={}
+        cols, snap_max, snap_min=0, postfix=None, kwargs_tqdm={}
     ):
         super().__init__(
-            cntr_ext=cntr_ext,
-            cntr_src=cntr_src,
             col_inh=[cols['tail']],
             col_req=['ProgIndex', 'ProgNumber'],
             snap_min=snap_min,

@@ -13,12 +13,10 @@ __all__ = ['PositionConstructor']
 
 class PositionConstructor(Constructor):
     def __init__(self,
-        cntr_ext, cntr_src, cols, density_field, n_min, d_min,
-        snap_max, snap_min=0, postfix=None, comoving=True, kwargs_tqdm={}
+        cols, density_field, n_min, d_min, snap_max, snap_min=0,
+        postfix=None, comoving=True, kwargs_tqdm={}
     ):
         super().__init__(
-            cntr_ext=cntr_ext,
-            cntr_src=cntr_src,
             col_inh=[cols['x'], cols['y'], cols['z']],
             col_req=['ProgIndex', 'ProgNumber', cols['m_vir']],
             snap_max=snap_max,

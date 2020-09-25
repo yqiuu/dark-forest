@@ -12,12 +12,10 @@ __all__ = ['VirialConstructor']
 
 class VirialConstructor(Constructor):
     def __init__(self,
-        cntr_ext, cntr_src, cols, snap_max, snap_min=0,
+        cols, snap_max, snap_min=0,
         postfix=None, mode='crit', delta_h=200., kwargs_tqdm={}
     ):
         super().__init__(
-            cntr_ext=cntr_ext,
-            cntr_src=cntr_src,
             col_inh=[cols['m_vir'], cols['r_vir']],
             col_req=[cols['m_main']],
             snap_max=snap_max,

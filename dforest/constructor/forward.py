@@ -29,16 +29,16 @@ def generate_file_name(cntr_ext, i_part=None):
 
 
 class ForwardRebuilder:
-    def __init__(self, cntr_ext, cntr_src, snap_max, snap_min=0, kwargs_tqdm={}):
-        self.cntr_ext = cntr_ext
-        self.cntr_src = cntr_src
+    def __init__(self, snap_max, snap_min=0, kwargs_tqdm={}):
         self.snap_max = snap_max
         self.snap_min = snap_min
         self.kwargs_tqdm = kwargs_tqdm
 
 
-    def run(self):
-        with tables.File(generate_file_name(self.cntr_ext), 'w') as hf:
+    def run(self, cntr_ext, cntr_src):
+        self.cntr_ext = cntr_ext
+        self.cntr_src = cntr_src
+        with tables.File(generate_file_name(cntr_ext), 'w') as hf:
             snap_jump = self._rebuild(hf)
             hf.set_node_attr('/', 'snap_jump', snap_jump)
 
@@ -175,10 +175,8 @@ class ForwardRebuilder:
 
 
 class ForwardConstructor(Constructor):
-    def __init__(self, cntr_ext, cntr_src, snap_max, snap_min=0, kwargs_tqdm={}):
+    def __init__(self, snap_max, snap_min=0, kwargs_tqdm={}):
         super().__init__(
-            cntr_ext=cntr_ext,
-            cntr_src=cntr_src,
             col_inh=[],
             col_req=[],
             snap_max=snap_max,
@@ -191,18 +189,18 @@ class ForwardConstructor(Constructor):
             kwargs_tqdm=kwargs_tqdm
         )
         self.kwargs_tqdm = kwargs_tqdm
-        self.pool_sim = [{} for snap in range(snap_max + 1)]
-        self.df_forward_next = None
-        self.forest_id_max = cntr_src.max_forest_id(snap_max)
         #
         self.test_mode = False
 
 
-    def run(self):
-        with tables.File(generate_file_name(self.cntr_ext), 'r') as hf_fix:
+    def run(self, cntr_ext, cntr_src):
+        self.forest_id_max = cntr_src.max_forest_id(self.snap_max)
+        self.pool_sim = [{} for snap in range(self.snap_max + 1)]
+        self.df_forward_next = None
+        with tables.File(generate_file_name(cntr_ext), 'r') as hf_fix:
             self.snap_jump = hf_fix.get_node_attr('/', 'snap_jump')
             self.hf_fix = hf_fix
-            super().run()
+            super().run(cntr_ext, cntr_src)
 
 
     def _get_offset(self, snap):

@@ -58,12 +58,10 @@ class KernelSpinSampler:
 
 class SpinConstructor(Constructor):
     def __init__(self,
-        cntr_ext, cntr_src, cols, spin_sampler, snap_max, snap_min=0,
+        cols, spin_sampler, snap_max, snap_min=0,
         postfix=None, primary_spin=False, rstate=None, kwargs_tqdm={}
     ):
         super().__init__(
-            cntr_ext=cntr_ext,
-            cntr_src=cntr_src,
             col_inh=[cols['spin'], cols['L_x'], cols['L_y'], cols['L_z']],
             col_req=['ProgIndex', 'ProgNumber', cols['m_vir'], cols['r_vir'], cols['v_vir']],
             snap_min=snap_min,
