@@ -37,7 +37,7 @@ def create_output(cntr, fname, filters, comm, master_rank):
                 hf.set_node_attr(header, 'length_unit_to_kpc', 1.)
                 hf.set_node_attr(header, 'velocity_unit_to_kms', 1.)
                 hf.set_node_attr(header, 'm_particle', 0.)
-                hf.set_node_attr(header, 'src', '')
+                hf.set_node_attr(header, 'src_name', '')
                 hf.set_node_attr(header, 'src_type', DarkForestConnector)
         else:
             with tables.File(fname, 'w', filters=filters) as hf:
