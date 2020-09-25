@@ -41,9 +41,7 @@ def create_output(cntr, fname, filters, comm, master_rank):
                 hf.set_node_attr(header, 'src_type', DarkForestConnector)
         else:
             with tables.File(fname, 'w', filters=filters) as hf:
-                save_header(hf, cntr)
-                hf.set_node_attr(header, 'src', cntr.fname)
-                hf.set_node_attr(header, 'src_type', type(cntr))
+                save_header(hf, cntr, copy_src=True)
 
 
 def init_root_halos(cntr, mass_key, snap_max, root_halos):

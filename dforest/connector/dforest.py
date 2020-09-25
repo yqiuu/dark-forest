@@ -156,6 +156,16 @@ class DarkForestConnector(Connector):
             return np.array(self._redshifts)
 
 
+    @property
+    def source(self):
+        try:
+            return self._src_name, self._src_type
+        except AttributeError:
+            self._src_name = self.hf.get_node_attr('/Header', 'src_name')
+            self._src_type = self.hf.get_node_attr('/Header', 'src_type')
+            return self._src_name, self._src_type
+
+
     def open(self):
         if self.write:
             mode = 'r+'
@@ -465,7 +475,7 @@ class DarkForestSaver:
 
 
     def _save_header(self, hf):
-        return save_header(hf, self.cntr)
+        return save_header(hf, self.cntr, copy_src=False)
 
 
     def _save_snapshot(self, hf, prog_data, snap):
@@ -506,7 +516,7 @@ class DarkForestSaver:
             hf.create_carray(group_host, c, obj=cntr[snap, c][select_host])
 
 
-def save_header(hf, cntr):
+def save_header(hf, cntr, copy_src=False):
     header = hf.create_group('/', 'Header')
     # Save redshifts
     hf.create_carray(header, 'Redshift', obj=cntr.redshifts)
@@ -520,3 +530,11 @@ def save_header(hf, cntr):
     hf.set_node_attr(header, 'length_unit_to_kpc', cntr.radius_unit.value)
     hf.set_node_attr(header, 'velocity_unit_to_kms', cntr.velocity_unit.value)
     hf.set_node_attr(header, 'm_particle', cntr.m_particle)
+    if copy_src:
+        src_name, src_type = cntr.source
+    else:
+        src_name = cntr.fname
+        src_type = type(cntr)
+    hf.set_node_attr(header, 'src_name', src_name)
+    hf.set_node_attr(header, 'src_type', src_type)
+
