@@ -142,19 +142,30 @@ class Constructor(ABC):
 
 
     def _prepare_inh_data(self, snap):
-        halo_id_sim = self.cntr_src[snap, 'ID']
-        df_sim = pd.DataFrame(index=halo_id_sim)
-        for col in self.col_inh:
+        cntr_ext = self.cntr_ext
+        cntr_src = self.cntr_src
+        if cntr_ext == cntr_src:
+            return pd.DataFrame()
+        else:
+            halo_id_sim = cntr_src[snap, 'ID']
+            df_inh = pd.DataFrame(index=halo_id_sim)
+            for col in self.col_inh:
+                try:
+                    df_inh[col] = cntr_src[snap, col]
+                except KeyError:
+                    pass
             try:
-                df_sim[col] = self.cntr_src[snap, col]
-            except KeyError:
-                pass
-        try:
-            halo_id_fix = self.cntr_ext.read_cols(snap, 'MainA', ['Index'])['Index']
-        except IOError:
-            raise Exception("run FowardRebuilder before adding any other properties") from None
-        df_sim = df_sim.loc[halo_id_fix[halo_id_fix > 0]]
-        return df_sim
+                halo_id_fix \
+                    = cntr_ext.read_cols(snap, 'MainA', ['Index'])['Index']
+            except IOError:
+                raise Exception(
+                    "Run FowardRebuilder before adding any other properties"
+                ) from None
+            df_inh = df_inh.loc[halo_id_fix[halo_id_fix > 0]]
+            if len(df_inh) > 0:
+                return df_inh
+            else:
+                return pd.DataFrame()
 
 
     @abstractmethod

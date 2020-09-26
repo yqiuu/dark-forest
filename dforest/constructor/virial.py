@@ -15,6 +15,8 @@ class VirialConstructor(Constructor):
         cols, snap_max, snap_min=0,
         postfix=None, mode='crit', delta_h=200., kwargs_tqdm={}
     ):
+        if 'm_vir' not in cols:
+            cols['m_vir'] = cols['m_main']
         super().__init__(
             col_inh=[cols['m_vir'], cols['r_vir']],
             col_req=[cols['m_main']],
@@ -30,7 +32,6 @@ class VirialConstructor(Constructor):
         self.col_m_vir = cols['m_vir']
         self.col_r_vir = cols['r_vir']
         self.col_v_vir = cols['v_vir']
-        self.mass_conversion = cntr_src.mass_conversion
         self.mode = mode
         self.delta_h = delta_h
 
@@ -40,8 +41,9 @@ class VirialConstructor(Constructor):
         col_m_vir = self.col_m_vir
         col_r_vir = self.col_r_vir
         col_v_vir = self.col_v_vir
-        rho_halo = self.cntr_src.rho_halo(z, self.mode, self.delta_h)
-        G = self.cntr_src.G
+        rho_halo = self.cntr_ext.rho_halo(z, self.mode, self.delta_h)
+        mass_conversion = self.cntr_ext.mass_conversion
+        G = self.cntr_ext.G
         # Compute virial radius
         func_radius = np.vectorize(
             lambda m_vir:(0.75/np.pi*m_vir/rho_halo)**(1./3.), 'd'
@@ -49,12 +51,13 @@ class VirialConstructor(Constructor):
         func_velocity = np.vectorize(
             lambda m_vir, r_vir:np.sqrt(G*m_vir/r_vir), 'd'
         )
-        df_req = df_req[df_req.index < 0]/self.mass_conversion
+        df_req = df_req[df_req.index < 0]/mass_conversion
         df_vir = pd.DataFrame(index=df_req.index)
         if len(df_req) > 0:
             df_vir[col_r_vir] = func_radius(df_req)
             df_vir[col_v_vir] = func_velocity(df_req, df_vir)
-        df_inh[col_v_vir] = func_velocity(*df_inh.values.T)
-        df_inh.drop(columns=self.col_m_vir, inplace=True)
+        if len(df_inh) > 0:
+            df_inh[col_v_vir] = func_velocity(*df_inh.values.T)
+            df_inh.drop(columns=self.col_m_vir, inplace=True)
         df_vir = df_inh.append(df_vir)
         return df_vir
