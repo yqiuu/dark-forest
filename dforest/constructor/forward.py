@@ -175,13 +175,13 @@ class ForwardRebuilder:
 
 
 class ForwardConstructor(Constructor):
-    def __init__(self, snap_max, snap_min=0, kwargs_tqdm={}):
+    def __init__(self, cols, snap_max, snap_min=0, kwargs_tqdm={}):
         super().__init__(
             col_inh=[],
             col_req=[],
             snap_max=snap_max,
             snap_min=snap_min,
-            read_prog=['Index'],
+            read_prog=['Index', cols['m_main']],
             inherit=False,
             forward=False,
             postfix=None,
@@ -301,6 +301,8 @@ class ForwardConstructor(Constructor):
         df_inh['Descendant'] = list(map(
             lambda d_snap, d_id: pool_sim[d_snap][d_id], desc_snap, desc_id
         ))
+        # TO DO: need algorithm to assign Primary for NS halos
+        df_inh['Primary'] = 0
         # Clean memory
         snap_clean = snap + snap_jump
         if snap_clean <= snap_max:
@@ -328,6 +330,7 @@ class ForwardConstructor(Constructor):
             df_forward_mc['Descendant'] = df_forward_mc['ID'] # [1]
             df_forward_mc['ForestID'] \
                 = np.arange(forest_id_max, forest_id_max + n_halo_mc)
+            df_forward_mc['Primary'] = 0
         else:
             df_forward_mc = df_forward_mc.join(df_forward_next)
         # Put DescendantSnap/Descendant/ForestID into the pool
@@ -344,12 +347,18 @@ class ForwardConstructor(Constructor):
             df_req.loc[cond, ['ProgIndex', 'ProgNumber']].values,
             df_forward.loc[cond, ['ID', 'ForestID']].values
         ):
-            for p_id in list_prog[idx:idx + num]:
+            m_main = -1
+            id_main = -1
+            for p_id, p_m in list_prog[idx:idx + num]:
                 if p_id < 0:
-                    progenitors[p_id] = (snap, h_id, f_id)
+                    progenitors[p_id] = (snap, h_id, f_id, 0)
+                    if p_m > m_main:
+                        m_main = p_m
+                        id_main = p_id
+            progenitors[id_main] = (snap, h_id, f_id, 1)
         self.df_forward_next = pd.DataFrame.from_dict(
             progenitors, orient='index',
-            columns=['DescendantSnap', 'Descendant', 'ForestID']
+            columns=['DescendantSnap', 'Descendant', 'ForestID', 'Primary']
         )
         return df_forward_mc
 
