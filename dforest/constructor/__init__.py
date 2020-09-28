@@ -4,4 +4,5 @@ from .tail import *
 from .virial import *
 from .spin import *
 from .position import *
+from .entropy import *
 
