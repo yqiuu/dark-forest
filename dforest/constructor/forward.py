@@ -181,7 +181,7 @@ class ForwardConstructor(Constructor):
             col_req=[],
             snap_max=snap_max,
             snap_min=snap_min,
-            read_prog=['Index', cols['m_main']],
+            read_prog=['Index', 'Snap', cols['m_main']],
             inherit=False,
             forward=False,
             postfix=None,
@@ -195,7 +195,7 @@ class ForwardConstructor(Constructor):
 
     def run(self, cntr_ext, cntr_src):
         self.pool_sim = [{} for snap in range(self.snap_max + 1)]
-        self.df_forward_next = None
+        self.pool_mc = [{} for snap in range(self.snap_max + 1)]
         if cntr_ext == cntr_src:
             self.forest_id_max = 0
             super().run(cntr_ext, cntr_src)
@@ -314,7 +314,7 @@ class ForwardConstructor(Constructor):
         cntr_src = self.cntr_src
         snap_max = self.snap_max
         forest_id_max = self.forest_id_max
-        df_forward_next = self.df_forward_next
+        pool = self.pool_mc
         #
         select_mc_halo = df_req.index < 0
         df_forward_mc = pd.DataFrame(index=df_req.index[select_mc_halo])
@@ -325,17 +325,21 @@ class ForwardConstructor(Constructor):
             snap, np.arange(offset, offset + n_halo_mc)
         )
         df_forward_mc['HostHaloID'] = cntr_src.host_id(n_halo_mc)
-        if snap == snap_max:
-            df_forward_mc['DescendantSnap'] = snap
-            df_forward_mc['Descendant'] = df_forward_mc['ID'] # [1]
-            df_forward_mc['ForestID'] \
-                = np.arange(forest_id_max, forest_id_max + n_halo_mc)
-            df_forward_mc['Primary'] = 0
-        else:
-            df_forward_mc = df_forward_mc.join(df_forward_next)
+        df_forward_mc['DescendantSnap'] = snap
+        df_forward_mc['Descendant'] = df_forward_mc['ID']
+        # TO DO: need algorithm to fix forest ID.
+        df_forward_mc['ForestID'] \
+            = np.arange(forest_id_max, forest_id_max + n_halo_mc)
+        df_forward_mc['Primary'] = 0
+        if snap < snap_max:
+            df_next = pd.DataFrame.from_dict(
+                pool[snap], orient='index',
+                columns=['DescendantSnap', 'Descendant', 'ForestID', 'Primary']
+            )
+            df_forward_mc.loc[df_next.index, df_next.columns] = df_next
+            self.forest_id_max += len(df_forward_mc) - len(df_next)
+            pool[snap] = None
         # Put DescendantSnap/Descendant/ForestID into the pool
-        progenitors = {}
-        halo_id_host_sim = df_req.index[~select_mc_halo]
         if n_halo_sim > 0:
             df_forward = df_inh.loc[df_req.index[~select_mc_halo]]
             df_forward = df_forward.append(df_forward_mc)
@@ -347,18 +351,20 @@ class ForwardConstructor(Constructor):
             df_req.loc[cond, ['ProgIndex', 'ProgNumber']].values,
             df_forward.loc[cond, ['ID', 'ForestID']].values
         ):
-            m_main = -1
-            id_main = -1
-            for p_id, p_m in list_prog[idx:idx + num]:
+            main_id = -1
+            main_snap = -1
+            main_m = -1
+            for p_id, p_snap, p_m in list_prog[idx:idx + num]:
                 if p_id < 0:
-                    progenitors[p_id] = (snap, h_id, f_id, 0)
-                    if p_m > m_main:
-                        m_main = p_m
-                        id_main = p_id
-            progenitors[id_main] = (snap, h_id, f_id, 1)
-        self.df_forward_next = pd.DataFrame.from_dict(
-            progenitors, orient='index',
-            columns=['DescendantSnap', 'Descendant', 'ForestID', 'Primary']
-        )
+                    pool[p_snap][p_id] = (snap, h_id, f_id, 0)
+                    if p_m > main_m:
+                        main_id = p_id
+                        main_snap = p_snap
+                        main_m = p_m
+            if main_id != -1:
+                # TO DO: need algorithm to assign Primary when it is not a MC
+                # halo
+                pool[main_snap][main_id] = (snap, h_id, f_id, 1)
+                pass
         return df_forward_mc
 
