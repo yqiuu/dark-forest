@@ -249,7 +249,7 @@ class DarkForestConnector(Connector):
             for c in cols:
                 data[c] = hf.get_node(grp, c).read()
                 if c == 'Index' and self.not_ext:
-                    data[c] = -np.asarray(data[c], dtype='i8')
+                    data[c] = -np.abs(data[c].astype(dtype='i8'))
             data_all[i_f] = data
             if len(data) > 0:
                 n_tot += len(data[c])
