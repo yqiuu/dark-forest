@@ -18,8 +18,9 @@ __all__ = [
 
 
 class DarkForestConnector(Connector):
-    def __init__(self, fname, prefix=None, write=False, filters=None):
+    def __init__(self, fname, prefix=None, write=False, filters=None, not_ext=False):
         self.prefix = prefix
+        self.not_ext = not_ext
         if prefix is None:
             self.file_names = [fname]
             self.targets = [fname]
@@ -159,11 +160,15 @@ class DarkForestConnector(Connector):
     @property
     def source(self):
         try:
-            return self._src_name, self._src_type
+            return self._source
         except AttributeError:
-            self._src_name = self.hf.get_node_attr('/Header', 'src_name')
-            self._src_type = self.hf.get_node_attr('/Header', 'src_type')
-            return self._src_name, self._src_type
+            src_name = self.hf.get_node_attr('/Header', 'src_name')
+            src_type = self.hf.get_node_attr('/Header', 'src_type')
+            if src_name == '':
+                self._source = None
+            else:
+                self._source = src_type(src_name)
+            return self._source
 
 
     def open(self):
@@ -243,6 +248,8 @@ class DarkForestConnector(Connector):
             data = {}
             for c in cols:
                 data[c] = hf.get_node(grp, c).read()
+                if c == 'Index' and self.not_ext:
+                    data[c] = -np.asarray(data[c], dtype='i8')
             data_all[i_f] = data
             if len(data) > 0:
                 n_tot += len(data[c])
@@ -377,11 +384,10 @@ class DarkForestConnector(Connector):
 
 
     def add_property(self, constructor):
-        src_name, src_type = self.source
-        if src_name == '':
+        if self.source is None or self.not_ext:
             constructor.run(self, self)
         else:
-            with src_type(src_name) as cntr_src:
+            with self.source as cntr_src:
                 constructor.run(self, cntr_src)
 
 
