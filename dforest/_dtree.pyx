@@ -81,6 +81,17 @@ cdef class MergerTree:
         return np.copy(<c_Leaf[:self.data.size()]>(<c_Leaf*>&self.data[0]))
 
 
+    def trace_main_branch(self):
+        cdef list branch = []
+        cdef int idx_tail
+        branch.append(self.data[0].mass)
+        idx_tail = self.data[0].idx_tail
+        while idx_tail != -1:
+            branch.append(self.data[idx_tail].mass)
+            idx_tail = self.data[idx_tail].idx_tail
+        return np.array(branch)
+
+
 cdef class TreeBinarySplit:
     """Wrapper class to generator merger tree by binary splits."""
     cdef HaloRelation* hr 
