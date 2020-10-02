@@ -217,7 +217,7 @@ class KitHalo:
         self.z_to_d = spl(self.z_arr, self.delta_arr)
         self.d_to_z = spl(self.delta_arr, self.z_arr)
         #
-        self.norm_cmf = np.sqrt(2/np.pi)*np.log(10)
+        self.norm_cmf = -np.sqrt(2/np.pi)*np.log(10)
 
 
     def cmf(self, m1, z1, m2, z2, frac=True):
