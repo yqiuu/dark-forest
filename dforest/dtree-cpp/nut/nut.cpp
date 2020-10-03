@@ -190,3 +190,15 @@ InverseTranformSampler::InverseTranformSampler(
     free(s_knots);
 }
 
+
+size_t Selector::sample(vector<double>& weights)
+{
+    size_t n_weight = weights.size();
+    cdf_.resize(n_weight);
+    cdf_[0] = weights[0];
+    for(size_t idx = 1; idx < n_weight; ++idx)
+        cdf_[idx] = cdf_[idx - 1] + weights[idx];
+    double r = cdf_[n_weight - 1]*gsl_rng_uniform(rstate_);
+    return lower_bound(cdf_.begin(), cdf_.end(), r) - cdf_.begin();
+}
+

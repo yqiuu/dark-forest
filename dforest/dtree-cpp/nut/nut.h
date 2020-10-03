@@ -70,24 +70,7 @@ class Selector
 {
 public:
     Selector(gsl_rng* rstate) : rstate_(rstate) {}
-    size_t sample(std::vector<double>& weights)
-    {
-        size_t n_weight = weights.size();
-        cdf_.resize(n_weight);
-        cdf_[0] = weights[0];
-        for(size_t idx = 1; idx < n_weight; ++idx)
-            cdf_[idx] = cdf_[idx - 1] + weights[idx];
-        double norm = cdf_[n_weight - 1];
-        for(auto &elem : cdf_)
-            elem /= norm;
-
-        double r = gsl_rng_uniform(rstate_);
-        size_t idx = 0;
-        for(; idx < cdf_.size(); ++idx)
-            if (r < cdf_[idx])
-                break;
-        return idx;
-    }
+    size_t sample(std::vector<double>& weights);
 private:
     gsl_rng* rstate_;
     std::vector<double> cdf_;
