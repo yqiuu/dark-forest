@@ -142,6 +142,7 @@ cdef class TreeEnsemble:
     def __cinit__(self,
         object core,
         double m_res=1e8,
+        double eps=0.1,
         int n_draw=100,
         unsigned long int seed=0
     ):
@@ -149,7 +150,9 @@ cdef class TreeEnsemble:
             core if isinstance(core, KitHalo) else core.kit_halo()
         )
         self.rstate = gsl_rng_init(seed)
-        self.grower = new EnsembleGrower(self.hr, self.rstate, m_res, n_draw)
+        self.grower = new EnsembleGrower(
+            self.hr, self.rstate, m_res, eps, n_draw
+        )
 
 
     def __dealloc__(self):

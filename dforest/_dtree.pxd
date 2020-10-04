@@ -43,7 +43,8 @@ cdef extern from "dtree-cpp/dtree.h" namespace "dtree":
 
     cdef cppclass EnsembleGrower:
         EnsembleGrower(
-            const HaloRelation* hr,gsl_rng* rstate, double m_res, int n_draw
+            const HaloRelation* hr, gsl_rng* rstate, double m_res,
+            double eps, int n_draw
         )
         vector[Leaf] grow_tree(
             double m_root, double z_root, const vector[double]& z_target

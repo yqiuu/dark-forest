@@ -118,8 +118,9 @@ private:
 class ProgMassFunction
 {
 public:
-    ProgMassFunction(const HaloRelation* hr)
-        : hr_(hr), m2_(-1.), z1_(-1.), z2_(-1.) {update(1e12, 0, 0.1);}
+    ProgMassFunction(const HaloRelation* hr, double eps)
+        : hr_(hr), eps_(eps), m2_(-1.), z1_(-1.), z2_(-1.)
+    {update(1e12, 0, 0.1);}
     double operator () (double m1)
     {
         if (m1 == m2_)
@@ -134,7 +135,7 @@ public:
     }
     bool update(double m2, double z1, double z2)
     {
-        if (m2_ == m2 && z1_ == z1 && z2_ == z2)
+        if (abs(m2_ - m2) < eps_*m2_ && z1_ == z1 && z2_ == z2)
             return false;
         else
         {
@@ -150,6 +151,7 @@ public:
 
 private:
     const HaloRelation* hr_;
+    double eps_;
     double m2_;
     double z1_;
     double z2_;
@@ -162,8 +164,9 @@ class EnsembleGrower
 {
 public:
     EnsembleGrower(
-        const HaloRelation* hr, gsl_rng* rstate, double m_res, int n_draw
-    ) : prog_func_(hr), rstate_(rstate), m_res_(m_res),
+        const HaloRelation* hr, gsl_rng* rstate, double m_res,
+        double eps, int n_draw
+    ) : prog_func_(hr, eps), rstate_(rstate), m_res_(m_res),
         n_draw_(n_draw), pool_prog_(n_draw), i_draw_(n_draw) {}
     int grow_level(
         MergerTree& tree, int idx_root, int level,
