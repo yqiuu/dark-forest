@@ -139,29 +139,31 @@ void IntegralApproximation::save_knots()
 
 
 InverseTranformSampler::InverseTranformSampler(
-    IntegralApproximation proxy, gsl_rng* rstate
+    const vector<double>& cdf_y,
+    const vector<double>& cdf_x,
+    gsl_rng* rstate
 ) : rstate_(rstate)
 {
     // Set normalisation
-    norm_ = proxy.integral();
+    norm_ = cdf_y.back();
     if (norm_ == 0.)
         throw logic_error("Zero normalisation.");
     // Remove duplicated values
-    int n_knot = proxy.x_knots().size();
-    double val = proxy.s_knots()[0];
+    int n_knot = cdf_x.size();
+    double val = cdf_y[0];
     int idx_begin = 0;
     for(int i_knot = 1; i_knot < n_knot; ++i_knot)
     {
-        if (proxy.s_knots()[i_knot] == val)
+        if (cdf_y[i_knot] == val)
             ++idx_begin;
         else
             break;
     }
-    val = proxy.s_knots()[n_knot - 1];
+    val = cdf_y[n_knot - 1];
     int idx_end = n_knot;
     for(int i_knot = n_knot - 2; i_knot > idx_begin; --i_knot)
     {
-        if (proxy.s_knots()[i_knot] == val)
+        if (cdf_y[i_knot] == val)
             --idx_end;
         else
             break;
@@ -169,11 +171,11 @@ InverseTranformSampler::InverseTranformSampler(
     int idx = 0;
     unsigned int n_interp = idx_end - idx_begin;
     double* x_knots = (double*)malloc(n_interp*sizeof(double));
-    double* s_knots = (double*)malloc(n_interp*sizeof(double));
+    double* y_knots = (double*)malloc(n_interp*sizeof(double));
     for(int i_knot = idx_begin; i_knot < idx_end; ++i_knot)
     {
-        x_knots[idx] = proxy.x_knots()[i_knot];
-        s_knots[idx] = proxy.s_knots()[i_knot]/norm_;
+        x_knots[idx] = cdf_x[i_knot];
+        y_knots[idx] = cdf_y[i_knot]/norm_;
         ++idx;
     }
     // Construct CDF
@@ -184,10 +186,10 @@ InverseTranformSampler::InverseTranformSampler(
         cdf_inv_ = gsl_spline_alloc(gsl_interp_linear, n_interp);
     else
         throw logic_error("Insufficient number of points for interpolation.");
-    gsl_spline_init(cdf_inv_, s_knots, x_knots, n_interp);
+    gsl_spline_init(cdf_inv_, y_knots, x_knots, n_interp);
     //
     free(x_knots);
-    free(s_knots);
+    free(y_knots);
 }
 
 

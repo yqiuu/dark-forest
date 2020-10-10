@@ -49,7 +49,13 @@ private:
 class InverseTranformSampler
 {
 public:
-    InverseTranformSampler(IntegralApproximation proxy, gsl_rng* rstate);
+    InverseTranformSampler(
+        const std::vector<double>& cdf_y,
+        const std::vector<double>& cdf_x,
+        gsl_rng* rstate
+    );
+    InverseTranformSampler(IntegralApproximation proxy, gsl_rng* rstate)
+        : InverseTranformSampler(proxy.s_knots(), proxy.x_knots(), rstate) {}
     ~InverseTranformSampler()
     {
         gsl_spline_free(cdf_inv_);
