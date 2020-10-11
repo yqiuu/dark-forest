@@ -9,7 +9,7 @@ using namespace nut;
 
 void EnsembleGrower::sample(double m2, double z1, double z2)
 {
-    if (!prog_func_.update(m2, z1, z2) && i_draw_ != n_draw_)
+    if (!prog_func_.update(m2, z1, z2) && ++i_draw_ != n_draw_)
         return;
     else
         i_draw_ = 0;
@@ -71,7 +71,7 @@ int EnsembleGrower::grow_level(
     for (; it < it_end; ++it)
         tree.push_back(Leaf(*it, level, -1, idx_next++));
     tree.push_back(Leaf(*it, level, -1, -1));
-    return pool_prog_[i_draw_++].size();
+    return pool_prog_[i_draw_].size();
 }
 
 
