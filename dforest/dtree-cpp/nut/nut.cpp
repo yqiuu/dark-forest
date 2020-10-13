@@ -62,6 +62,7 @@ void IntegralApproximation::divide(
 {
     double a, m, b, f_a, f_m, f_b, s_ab;
     double ml, f_ml, s_am, mr, f_mr, s_mb, s_amb;
+    mr = ml = f_ml = f_mr = 0.;
     if (quadratic_)
     {
         a = *it++;

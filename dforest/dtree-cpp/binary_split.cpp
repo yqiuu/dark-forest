@@ -160,7 +160,7 @@ int BinarySplit::split(
     int save;
     int n_out = 0;
     int idx_first = -1;
-    int idx = 0;
+    size_t idx = 0;
     while(idx < tree_binary.size())
     {
         m_start = tree_binary[idx].mass;
