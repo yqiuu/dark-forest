@@ -82,14 +82,36 @@ cdef class MergerTree:
 
 
     def trace_main_branch(self):
-        cdef list branch = []
         cdef int idx_tail
+
+        branch = []
         branch.append(self.data[0].mass)
         idx_tail = self.data[0].idx_tail
         while idx_tail != -1:
             branch.append(self.data[idx_tail].mass)
             idx_tail = self.data[idx_tail].idx_tail
         return np.array(branch)
+
+
+    def trace_unevolved_subhalo(self):
+        cdef int idx_tail
+        cdef int idx_next
+
+        branch = []
+        branch.append(self.data[0].idx_next)
+        idx_tail = self.data[0].idx_tail
+        while idx_tail != -1:
+            branch.append(self.data[idx_tail].idx_next)
+            idx_tail = self.data[idx_tail].idx_tail
+        m_sub_tot = []
+        for idx_next0 in branch:
+            m_sub_z = []
+            idx_next = idx_next0
+            while idx_next != -1:
+                m_sub_z.append(self.data[idx_next].mass)
+                idx_next = self.data[idx_next].idx_next
+            m_sub_tot.append(np.asarray(m_sub_z))
+        return np.asarray(m_sub_tot)
 
 
 cdef class TreeBinarySplit:
