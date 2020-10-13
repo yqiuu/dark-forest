@@ -67,7 +67,7 @@ int EnsembleGrower::grow_level(
     auto it = pool_prog_[i_draw_].begin();
     auto it_end = pool_prog_[i_draw_].end() - 1;
     int idx_next = tree.size();
-    tree[idx_root].idx_tail = idx_next;
+    tree[idx_root].idx_tail = idx_next++;
     for (; it < it_end; ++it)
         tree.push_back(Leaf(*it, level, -1, idx_next++));
     tree.push_back(Leaf(*it, level, -1, -1));
