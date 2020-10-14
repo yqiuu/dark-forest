@@ -38,7 +38,7 @@ cdef extern from "dtree-cpp/dtree.h" namespace "dtree":
             double g0, double gamma1, double gamma2, double eps1, double eps2
         )
         vector[Leaf] grow(
-            double m_root, double z_root, const vector[double]& z_target
+            double m_root, const vector[double]& z_target
         )
 
     cdef cppclass EnsembleGrower:
@@ -47,5 +47,5 @@ cdef extern from "dtree-cpp/dtree.h" namespace "dtree":
             double eps, int n_draw
         )
         vector[Leaf] grow_tree(
-            double m_root, double z_root, const vector[double]& z_target
+            double m_root, const vector[double]& z_target
         )

@@ -91,7 +91,7 @@ public:
         g0_(g0), gamma1_(gamma1), gamma2_(gamma2), eps1_(eps1), eps2_(eps2),
         func_j_(gamma1) {}
     MergerTree grow(
-        double m_root, double z_root, const std::vector<double>& z_target
+        double m_root, const std::vector<double>& z_target
     );
 
 private:
@@ -173,7 +173,7 @@ public:
         double z_target, double z_root
     );
     MergerTree grow_tree(
-        double m_root, double z_root, const std::vector<double>& z_target
+        double m_root, const std::vector<double>& z_arr
     );
 
 private:

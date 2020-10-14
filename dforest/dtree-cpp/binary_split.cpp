@@ -267,23 +267,24 @@ int BinarySplit::split(
 
 
 MergerTree BinarySplit::grow(
-    double m_root, double z_root, const vector<double>& z_target
+    double m_root, const vector<double>& z_target
 )
 {
     int level = 0;
     int idx_root = 0;
     int n_prog = 1;
     int n_prog_next = 1;
-    double d_root = hr_->eval_d(z_root);
-    double d_target;
     MergerTree tree;
     tree.push_back(Leaf(m_root, level, -1, -1));
-    for (auto z : z_target)
+
+    double d_root = hr_->eval_d(z_target[0]);
+    double d_target;
+    for (auto it = z_target.begin() + 1; it < z_target.end(); ++it)
     {
         ++level;
         n_prog = n_prog_next;
         n_prog_next = 0;
-        d_target = hr_->eval_d(z);
+        d_target = hr_->eval_d(*it);
         for (int i_prog = 0; i_prog < n_prog; ++i_prog)
             n_prog_next += split(tree, idx_root++, level, d_root, d_target);
         d_root = d_target;

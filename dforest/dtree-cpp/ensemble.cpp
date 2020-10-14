@@ -57,11 +57,11 @@ void EnsembleGrower::sample(double m2, double z1, double z2)
 
 
 int EnsembleGrower::grow_level(
-    MergerTree& tree, int idx_root, int level, double z_target, double z_root
+    MergerTree& tree, int idx_root, int level, double z_root, double z_prog
 )
 {
     double m_root = tree[idx_root].mass;
-    sample(m_root, z_target, z_root);
+    sample(m_root, z_prog, z_root);
     if (pool_prog_[i_draw_].size() == 0)
         return 0;
     auto it = pool_prog_[i_draw_].begin();
@@ -76,7 +76,7 @@ int EnsembleGrower::grow_level(
 
 
 MergerTree EnsembleGrower::grow_tree(
-    double m_root, double z_root, const vector<double>& z_target
+    double m_root, const vector<double>& z_target
 )
 {
     int level = 0;
@@ -85,15 +85,17 @@ MergerTree EnsembleGrower::grow_tree(
     int n_prog_next = 1;
     MergerTree tree;
     tree.push_back(Leaf(m_root, level, -1, -1));
-    for (auto z : z_target)
+
+    double z_root = z_target[0];
+    for (auto it = z_target.begin() + 1; it < z_target.end(); ++it)
     {
         ++level;
         n_prog = n_prog_next;
         n_prog_next = 0;
         for (int i_prog = 0; i_prog < n_prog; ++i_prog)
             n_prog_next += \
-                grow_level(tree, idx_root++, level, z_root, z);
-        z_root = z;
+                grow_level(tree, idx_root++, level, *it, z_root);
+        z_root = *it;
     }
     return tree;
 }

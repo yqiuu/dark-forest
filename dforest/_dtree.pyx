@@ -146,12 +146,12 @@ cdef class TreeBinarySplit:
         del self.grower
 
 
-    def grow(self, m_root, z_root, z_target):
+    def grow(self, m_root, z_target):
         cdef double[::] mv = np.asarray(z_target, dtype=np.double).flatten()
         cdef vector[double] vec
         vec.assign(&mv[0], &mv[0] + mv.shape[0])
         tree = MergerTree()
-        tree.from_vector(self.grower.grow(m_root, z_root, vec))
+        tree.from_vector(self.grower.grow(m_root, vec))
         return tree
 
 
@@ -183,12 +183,12 @@ cdef class TreeEnsemble:
         del self.grower
 
 
-    def grow(self, m_root, z_root, z_target):
+    def grow(self, m_root, z_target):
         cdef double[::] mv = np.asarray(z_target, dtype=np.double).flatten()
         cdef vector[double] vec
         vec.assign(&mv[0], &mv[0] + mv.shape[0])
         tree = MergerTree()
-        tree.from_vector(self.grower.grow_tree(m_root, z_root, vec))
+        tree.from_vector(self.grower.grow_tree(m_root, vec))
         return tree
 
 
