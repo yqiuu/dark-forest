@@ -193,7 +193,7 @@ class ForwardConstructor(Constructor):
         self.kwargs_tqdm = kwargs_tqdm
         self.pool_sim = [{} for snap in range(snap_max + 1)]
         self.df_forward_next = None
-        self.forest_id_max = cntr_src.max_forest_id(snap_max)
+        self.forest_id_max = cntr_src.max_forest_id(snap_max, snap_min)
         #
         self.test_mode = False
 
