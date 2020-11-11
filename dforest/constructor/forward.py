@@ -140,7 +140,7 @@ class ForwardRebuilder:
         n_snap = snap_max + 1
         df_source_all = [None]*n_snap
         pool = [{} for i_snap in range(n_snap)]
-        snap_target = [None]*n_snap
+        snap_target = np.arange(n_snap)
         kwargs_tqdm.update(desc="Rebuilding original trees")
         for snap in trange(snap_min, n_snap, **kwargs_tqdm):
             logger.info(f"Processing snapshot {snap}/{n_snap} ({memory_usage()})")
