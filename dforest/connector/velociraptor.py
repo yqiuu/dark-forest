@@ -164,7 +164,7 @@ class VELOCIraptorConnector(Connector):
 
     def max_forest_id(self, snap_max):
         forest_id_max = max(self[snap_min, 'ForestID']) # Assume that the snapshot starts at zero
-        for snap in range(1, snap_max + 1):
+        for snap in range(snap_min, snap_max + 1):
             forest_id_max = max(forest_id_max, *self[snap, 'ForestID'])
         return forest_id_max
 
