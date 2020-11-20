@@ -4,7 +4,7 @@ This code uses Monte-Carlo algorithm to generate merger trees for cosmological d
 
 The code is able to evolve the position and velocity of the Monte-Carlo haloes as well.
 
-Author : Yisheng Qiu
+Author : [Yisheng Qiu](https://github.com/yqiuu)
 
 If you use this code, cite [Qiu et al. 2020](https://ui.adsabs.harvard.edu/abs/2020MNRAS.500..493Q/abstract):
 
