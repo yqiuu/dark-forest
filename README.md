@@ -6,8 +6,9 @@ The code is able to evolve the position and velocity of the Monte-Carlo haloes a
 
 Author : Yisheng Qiu
 
-If you use this code, cite the following paper:
+If you use this code, cite [Qiu et al. 2020](https://ui.adsabs.harvard.edu/abs/2020MNRAS.500..493Q/abstract):
 
+```
 @ARTICLE{2020MNRAS.500..493Q,
        author = {{Qiu}, Yisheng and {Mutch}, Simon J. and {Elahi}, Pascal J. and
          {Poulton}, Rhys J.~J. and {Power}, Chris and {Wyithe}, J. Stuart B.},
@@ -26,4 +27,4 @@ archivePrefix = {arXiv},
        adsurl = {https://ui.adsabs.harvard.edu/abs/2020MNRAS.500..493Q},
       adsnote = {Provided by the SAO/NASA Astrophysics Data System}
 }
-
+```
