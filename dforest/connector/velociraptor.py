@@ -117,7 +117,7 @@ class VELOCIraptorConnector(Connector):
         try:
             return self._m_particle
         except AttributeError:
-            self._m_particle = self[300, 'Mass_tot'][0]/self[300, 'npart'][0]*self.mass_conversion
+            self._m_particle = self[50, 'Mass_tot'][0]/self[50, 'npart'][0]*self.mass_conversion
             return self._m_particle
 
 
