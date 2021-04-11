@@ -474,13 +474,25 @@ class DarkForestSaver:
         df_host['ProgNumber'] = np.zeros(len(id_), dtype='i8')
         df_host.loc[prog_data.keys(), 'ProgIndex'] = np.append(0, np.cumsum(number)[:-1])
         df_host.loc[prog_data.keys(), 'ProgNumber'] = number
-        hf.create_carray(group_host, 'Index', obj=id_)
-        hf.create_carray(group_host, 'ProgIndex', obj=df_host['ProgIndex'].values)
-        hf.create_carray(group_host, 'ProgNumber', obj=df_host['ProgNumber'].values)
-        for k in mass_key:
-            hf.create_carray(group_host, k, obj=cntr[snap, k][select_host]*mass_conversion)
-        for c in cols:
-            hf.create_carray(group_host, c, obj=cntr[snap, c][select_host])
+
+        if len(df_host) == 0:
+            hf.create_array(group_host, 'Index', obj=np.array([]))
+            hf.create_array(group_host, 'ProgIndex', obj=np.array([]))
+            hf.create_array(group_host, 'ProgNumber', obj=np.array([]))
+            for k in mass_key:
+                hf.create_array(group_host, k, obj=np.array([]))
+            for c in cols:
+                hf.create_array(group_host, c, obj=np.array([]))
+
+
+        if len(df_host) > 0:
+            hf.create_carray(group_host, 'Index', obj=id_)
+            hf.create_carray(group_host, 'ProgIndex', obj=df_host['ProgIndex'].values)
+            hf.create_carray(group_host, 'ProgNumber', obj=df_host['ProgNumber'].values)
+            for k in mass_key:
+                hf.create_carray(group_host, k, obj=cntr[snap, k][select_host]*mass_conversion)
+            for c in cols:
+                hf.create_carray(group_host, c, obj=cntr[snap, c][select_host])
 
 
 def save_header(hf, cntr):
