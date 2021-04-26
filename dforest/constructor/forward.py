@@ -224,13 +224,25 @@ class ForwardConstructor(Constructor):
 
 
     def _prepare_inh_data(self, snap):
-        grp = self.hf_fix.get_node(f'/Snapshot_{snap:03d}')
+        try:
+            grp = self.hf_fix.get_node(f'/Snapshot_{snap:03d}')
+        except NoSuchNodeError:
+            grp = None
         df_inh = pd.DataFrame()
-        if 'Index' in grp:
+        if grp is not None and 'Index' in grp:
             for col in ['Index', 'HostHaloID', 'DescendantSnap', 'Descendant', 'ForestID']:
                 df_inh[col] = self.hf_fix.get_node(grp, col).read()
             df_inh.set_index('Index', inplace=True)
         return df_inh
+
+    # def _prepare_inh_data(self, snap):
+    #     grp = self.hf_fix.get_node(f'/Snapshot_{snap:03d}')
+    #     df_inh = pd.DataFrame()
+    #     if 'Index' in grp:
+    #         for col in ['Index', 'HostHaloID', 'DescendantSnap', 'Descendant', 'ForestID']:
+    #             df_inh[col] = self.hf_fix.get_node(grp, col).read()
+    #         df_inh.set_index('Index', inplace=True)
+    #     return df_inh
 
 
     def _generate_pointer_mc(self, df_inh, df_req, list_prog, snap, offset):
