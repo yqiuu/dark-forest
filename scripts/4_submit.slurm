@@ -1,0 +1,17 @@
+#!/bin/bash
+
+#SBATCH --job-name=L210_N4320
+
+#SBATCH --time=1:20:00
+
+#SBATCH --mail-type=ALL --mail-user=balu.srdhr@gmail.com
+
+#SBATCH --nodes=1
+
+#SBATCH --tasks-per-node=1
+
+#SBATCH --mem-per-cpu=35G
+
+#SBATCH --array=0
+
+time python 4_add_forward_fix.py params.yml $SLURM_ARRAY_TASK_ID
