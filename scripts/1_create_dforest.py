@@ -7,6 +7,7 @@ logging.getLogger('dforest').setLevel(logging.INFO)
 
 import dforest
 
+## fname points to the merger tree file
 ##GADGET boxes:
 # fname = "/fred/oz009/pelahi/GENESIS/L105_N2048/newtree/VELOCIraptor.tree.walkabletree.forestID.hdf5"
 # fname = "/fred/oz009/pelahi/GENESIS/L105_N2048/tree.old/VELOCIraptor.tree.t4.0-189.walkabletree.forestID.hdf5"
@@ -21,8 +22,8 @@ fname = "/fred/oz009/GENESIS/L210_N4320_Grids_Halos_Trees-balu/trees/VELOCIrapto
 
 save_name = './outputs/dforest_out.hdf5'
 
-snap_min = 11
-snap_max = 119
+snap_min = 11 #first snapshot where the haloes start appearing in the Nbody merger tree. dfrorest breaks if the snap_min has no haloes.
+snap_max = 119 #your smallest snapshot of interest; usually the last snapshot of the tree.
 
 with dforest.VELOCIraptorConnector(fname) as cntr:
     dforest.DarkForestSaver(
