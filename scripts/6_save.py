@@ -1,3 +1,5 @@
+"""Export the augmented catalogue to VELOCIraptor HDF5 using a YAML config argument."""
+
 import os
 import sys
 

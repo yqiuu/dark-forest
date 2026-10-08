@@ -1,3 +1,5 @@
+"""Split the catalogue into forest partitions using a YAML configuration argument."""
+
 import sys
 sys.path.append('/home/bsreedha/models/dark-forest/')
 

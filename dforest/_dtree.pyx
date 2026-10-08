@@ -1,3 +1,5 @@
+"""Cython bindings for GSL random states and Monte Carlo merger trees."""
+
 from libc.stdlib cimport malloc, free
 from libc.math cimport sqrt
 
@@ -103,6 +105,8 @@ cdef class RandomStateGSL:
 
 
 cdef class GrowKit:
+    """Configure binary splitting, with mass resolution ``m_res`` in h^-1 solar masses."""
+
     cdef:
         SplitKit split
 
@@ -123,6 +127,12 @@ def rebuild_halo_kit(*rebuild_args):
 
 
 cdef class HaloKit:
+    """Tabulate mass variance and collapse thresholds for merger-tree growth.
+
+    Built from an hmf mass function and an optional redshift grid; ``save``
+    exports the interpolation arrays to a binary file.
+    """
+
     cdef:
         HaloRelation hr
         tuple rebuild_args
@@ -187,6 +197,8 @@ cdef class HaloKit:
 
 
 cdef class HaloMergeTree:
+    """Store halo masses, redshifts, and progenitor links in a merger tree."""
+
     cdef:
         NodeVector tree
         object z_arr
@@ -225,6 +237,7 @@ cdef class HaloMergeTree:
 
 
     def levels(self, z, tol=0.01):
+        """Return the nearest redshift level, warning if its distance exceeds ``tol``."""
         level = np.argmin(abs(self.redshifts - z))
         z_level = self.redshifts[level]
         if abs(z_level - z) > tol:
@@ -233,6 +246,7 @@ cdef class HaloMergeTree:
 
 
     def halos(self, level=-1):
+        """Return copied halo records at a level, or all records for ``level=-1``."""
         # Create a copy of all nodes with modified attribute name
         dtype = [('z', 'f8'), ('mass', 'f8'), ('idx_tail', 'i4'), ('idx_next', 'i4')]
         node_arr = np.asarray(<Node[:self.tree.n_node]>self.tree.data).astype(dtype)
@@ -250,14 +264,17 @@ cdef class HaloMergeTree:
 
 
     cpdef int append(self, z, mass):
+        """Append a halo and return its node index."""
         return NodeVector_Append(&self.tree, z, mass)
 
 
     cpdef void link_tail_index(self, idx, idx_tail):
+        """Set a node's first progenitor index."""
         self.tree.data[idx].idx_tail = idx_tail
 
 
     cpdef void link_next_index(self, idx, idx_next):
+        """Set the next progenitor index in a sibling chain."""
         self.tree.data[idx].idx_next = idx_next
 
 
@@ -289,6 +306,11 @@ cdef class HaloMergeTree:
 
 
 def tree_split(halo_kit, grow_kit, m_root, z_root, z_target, rstate=None, n_base=100000):
+    """Grow a Monte Carlo merger tree from a root halo to target redshifts.
+
+    ``m_root`` is in h^-1 solar masses and targets run toward higher redshift.
+    If no random state is supplied, use the fixed seed 209204.
+    """
     z_target = np.ravel(z_target).astype('f8')
     if rstate is None:
         rstate = RandomStateGSL(209204)
@@ -299,6 +321,10 @@ def tree_split(halo_kit, grow_kit, m_root, z_root, z_target, rstate=None, n_base
 
 
 def estimate_conditional_mass_func(tree, level, frac_bins=None, mean=True):
+    """Return mass-fraction bin centres and progenitor mass fractions per dln(f).
+
+    ``mean=True`` averages over trees; otherwise retain the tree dimension.
+    """
     tree = np.ravel(tree)
     level = np.ravel(level)
     # Set fraction bins

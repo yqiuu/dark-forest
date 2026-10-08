@@ -1,3 +1,5 @@
+"""Sample halo positions on grids and move them using simulation fields."""
+
 from abc import ABC, abstractmethod
 
 from .logger import logger
@@ -16,6 +18,7 @@ __all__ = [
 
 
 def index_to_grid(inds, n_grid):
+    """Convert flat indices to (x, y, z) indices on a cubic grid."""
     grid_z = inds%n_grid
     inds = inds//n_grid
     grid_y = inds%n_grid
@@ -25,6 +28,7 @@ def index_to_grid(inds, n_grid):
 
 
 def pos_to_index(x, y, z, n_grid, box_size):
+    """Map positions within the box to flat indices on a cubic grid."""
     bins = np.linspace(0, box_size, n_grid + 1)
     grid_x = np.digitize(x, bins) - 1
     grid_y = np.digitize(y, bins) - 1
@@ -33,6 +37,8 @@ def pos_to_index(x, y, z, n_grid, box_size):
 
 
 class GridTool:
+    """Convert and sample positions on a cubic grid with box size in Mpc."""
+
     def __init__(self, n_grid, box_size, rstate=None):
         self._n_grid = n_grid
         self._box_size = box_size
@@ -145,6 +151,12 @@ class GridTool:
 
 
 class DensityField(ABC):
+    """Provide simulation fields for halo placement and motion.
+
+    Subclasses supply density and transform grids for each snapshot.
+    Box lengths are in Mpc and snapshot ages are in Myr.
+    """
+
     def __init__(self, emf, redshifts, ages, n_grid_p, n_grid_v, box_size, r_max=3., rstate=None):
         self.gt_pos = GridTool(n_grid_p, box_size, rstate)
         self.gt_vel = GridTool(n_grid_v, box_size, rstate)
@@ -172,15 +184,18 @@ class DensityField(ABC):
     @abstractmethod
     def read_transform_field(self, snap):
         """
+        Read the displacement transform used to move halos between snapshots.
+
         Returns
         -------
-        array [Mpc/Myr]
-            Peculiar velocity grid.
+        x, y, z : array [Mpc]
+            Flattened displacement fields on the velocity grid.
         """
         return np.array([0.])
 
 
     def check_bounds(self, a, z_fix=0.):
+        """Apply one periodic wrap, using physical box size when ``z_fix != 0``."""
         box_size = self.gt_pos.box_size/(1. + z_fix)
         res = np.copy(a)
         res[res >= box_size] -= box_size
@@ -189,6 +204,7 @@ class DensityField(ABC):
 
 
     def move(self, x, y, z, dx, dy, dz):
+        """Apply displacements and return wrapped positions and flat grid indices."""
         x = self.check_bounds(x + dx)
         y = self.check_bounds(y + dy)
         z = self.check_bounds(z + dz)
@@ -197,6 +213,7 @@ class DensityField(ABC):
 
 
     def populate_halos(self, m_halo, bins, snap):
+        """Sample positions and grid indices using halo density in each mass bin."""
         emf = self.emf
         z = self.redshifts[snap]
         v_cell = (self.gt_pos.box_size/self.gt_pos.n_grid*emf.cosmo.h)**3
@@ -220,6 +237,11 @@ class DensityField(ABC):
 
     def move_halos(self, x_h, y_h, z_h, inds, m1, m2, snap1, return_disps=False):
         """
+        Move halos backward from snapshot ``snap1 + 1`` to ``snap1``.
+
+        Return positions and grid indices; if requested, also return the
+        displacements before clipping their lengths to ``r_max``.
+
         Parameters
         ----------
         m1: array [h^-1 M_solar]

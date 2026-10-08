@@ -1,3 +1,5 @@
+"""Halo mass functions, sampling, and adaptive mass bins."""
+
 from math import sqrt, exp, log10
 
 import numpy as np
@@ -26,7 +28,7 @@ def sample_mass_func(dndm, m_hmf, m_min, m_max, volume, rstate=None):
         Minimum mass of the resulting sample.
     m_max: float [h^-1 M_solar]
         Maximum mass of the resulting sample.
-    volume: float [h^-3 Mpc]
+    volume: float [h^-3 Mpc^3]
         Effective volume for the resulting sample.
 
     Returns
@@ -99,6 +101,8 @@ def smart_bins(data, n_min, d_min, scale='linear'):
 
 
 class EnhancedMassFunction(MassFunction):
+    """Extend the hmf mass function with halo bias and conditional sampling."""
+
     @cached_quantity
     def bias(self):
         """
@@ -118,6 +122,11 @@ class EnhancedMassFunction(MassFunction):
 
 
     def prog_mass_func(self, m_prog, z_prog, m_root, z_root, frac=True):
+        """Evaluate the progenitor mass function for a root halo.
+
+        Return mass-weighted values when ``frac=True``, otherwise number-weighted values.
+        Masses are in h^-1 solar masses.
+        """
         #
         delta_c = self.delta_c
         m = self.m
@@ -142,6 +151,7 @@ class EnhancedMassFunction(MassFunction):
 
 
     def conditional_mass_func(self, delta_lin, m_cell, m_halo, z):
+        """Evaluate dn/dm for halos in a cell of linear overdensity ``delta_lin``."""
         z0 = self.z
         cosmo = self.cosmo
         n_eff = self.n_eff
@@ -178,6 +188,7 @@ class EnhancedMassFunction(MassFunction):
 
 
     def halo_density(self, delta, v_cell, m_halo, z):
+        """Return relative halo density for a matter overdensity and cell volume."""
         mean_density0 = self.mean_density0
         m_max = 10**(self.Mmax + 1)
         ratio = 1 + delta
@@ -189,4 +200,5 @@ class EnhancedMassFunction(MassFunction):
 
 
     def sample_mass_func(self, m_min, m_max, volume, rstate=None):
+        """Sample halo masses in h^-1 solar masses for a volume in h^-3 Mpc^3."""
         return sample_mass_func(self.dndm, self.m, m_min, m_max, volume, rstate)

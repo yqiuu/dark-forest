@@ -1,3 +1,5 @@
+"""Rebuild source links for a partition; arguments are YAML config and partition index."""
+
 import os
 import sys
 import logging

@@ -1,3 +1,5 @@
+"""Grow one forest partition with MPI; arguments are YAML config and partition index."""
+
 import os
 import sys
 import logging

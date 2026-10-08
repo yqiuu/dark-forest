@@ -74,7 +74,7 @@ class Constructor(ABC):
 
 
     def run(self):
-        """Run the constructor."""
+        """Compute and save properties over the inclusive snapshot range."""
         redshifts = self.cntr_src.redshifts
         n_snap = self.snap_max - self.snap_min + 1
         for i_snap, snap in enumerate(self._range()):

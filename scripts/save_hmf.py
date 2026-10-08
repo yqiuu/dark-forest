@@ -1,3 +1,5 @@
+"""Estimate and save a binned halo mass function from the configured simulation."""
+
 import numpy as np
 import sys
 

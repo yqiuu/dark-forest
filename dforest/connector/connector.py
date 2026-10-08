@@ -1,3 +1,5 @@
+"""Common cosmology and unit interface for halo catalogue connectors."""
+
 import os
 from abc import ABC, abstractmethod
 from copy import deepcopy
@@ -17,6 +19,11 @@ __all__ = ['Connector']
 
 
 class Connector(ABC):
+    """Expose snapshot columns, cosmology, and units through a context manager.
+
+    Subclasses implement column access as ``connector[snap, column]``.
+    """
+
     @abstractmethod
     def __init__(self, fp):
         pass
@@ -153,6 +160,7 @@ class Connector(ABC):
 
 
     def update_emf_params(self, z_grid=None, **kwargs):
+        """Update mass-function parameters and the HaloKit redshift grid."""
         self._z_grid = z_grid
         try:
             params = self._params
@@ -169,15 +177,22 @@ class Connector(ABC):
 
 
     def emf(self):
+        """Create an enhanced mass function using this connector's cosmology."""
         self.update_emf_params()
         return EnhancedMassFunction(**self._params)
 
 
     def halo_kit(self):
+        """Create the interpolation tables needed to grow Monte Carlo trees."""
         return HaloKit(self.emf(), self._z_grid)
 
 
     def rho_halo(self, z, mode='crit', delta_h=200.):
+        """Return halo density in catalogue mass/length^3 units.
+
+        ``mode`` selects virial, critical, or mean density; ``delta_h`` sets
+        the overdensity for the latter two choices.
+        """
         density_unit = self.mass_unit/self.radius_unit**3
         cosmo = FlatLambdaCDM(**self.cosmo_params)
         rho_crit = cosmo.critical_density(z).to(density_unit).value

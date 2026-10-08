@@ -1,3 +1,5 @@
+"""Add pointers and halo properties; arguments are YAML config and partition index."""
+
 import os
 import sys
 import logging
@@ -20,6 +22,7 @@ import astropy.units as u
 kms_to_MpcMyr = u.km.to(u.Mpc)/u.s.to(u.Myr)
 
 def resample_by_factor(array, sample_fac=4):
+    """Coarsen a cubic grid by averaging blocks of ``sample_fac`` cells per side."""
     arr_shape = array.shape[0]
     arr = array.reshape(arr_shape//sample_fac, sample_fac,
                     arr_shape//sample_fac, sample_fac,
@@ -28,6 +31,8 @@ def resample_by_factor(array, sample_fac=4):
     return arr
 
 class DynamicDensityField(DensityField):
+    """Load SWIFT grids and adjust the velocity-grid resolution by snapshot."""
+
     def move_halos(self, x_h, y_h, z_h, inds, m1, m2, snap1, return_disps=False):
         ret = super().move_halos(x_h, y_h, z_h, inds, m1, m2, snap1, return_disps)
         if snap1 > 108:
@@ -40,12 +45,14 @@ class DynamicDensityField(DensityField):
         return ret
 
     def read_density_field(self, snap):
+        """Return the flattened matter overdensity on the coarsened position grid."""
         path_grid = "/fred/oz009/GENESIS/L210_N4320_Grids_Halos_Trees-balu/grids"
         with h5py.File(os.path.join(path_grid, 'snap_%04d.hdf5'%snap), 'r') as hf:
             den_dm = np.ravel(resample_by_factor(np.asarray(hf['PartType1/Grids/Density']), 2))
         return den_dm/np.mean(den_dm) - 1
         
     def read_transform_field(self, snap):
+        """Convert SWIFT velocity grids to flattened displacement fields in Mpc."""
         path_grid = "/fred/oz009/GENESIS/L210_N4320_Grids_Halos_Trees-balu/grids"
         fname = "snap_%04d.hdf5"%snap
         #fname = 'Snapshot_%03d_Vel_%d.hdf5'%(snap, self.gt_vel.n_grid)

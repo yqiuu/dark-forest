@@ -12,6 +12,12 @@ __all__ = ['PositionConstructor']
 
 
 class PositionConstructor(Constructor):
+    """Assign Monte Carlo halo positions using density and motion fields.
+
+    ``cols`` maps x, y, z, and m_vir to catalogue columns. Set ``comoving``
+    to False to save physical coordinates.
+    """
+
     def __init__(self,
         cntr_ext, cntr_src, cols, density_field, n_min, d_min,
         snap_max, snap_min=0, postfix=None, comoving=True, kwargs_tqdm={}

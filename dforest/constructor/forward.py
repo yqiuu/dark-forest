@@ -1,3 +1,5 @@
+"""Restore descendant links and assign catalogue IDs to augmented trees."""
+
 import os
 import gc
 
@@ -18,6 +20,7 @@ __all__ = [
 
 
 def generate_file_name(cntr_ext, i_part=None):
+    """Return the temporary forward-fix file path for a tree partition."""
     prefix = cntr_ext.prefix
     if prefix is None:
         fname = os.path.join(os.path.split(cntr_ext.targets[0])[0], '_tmp_forward_fix.hdf5')
@@ -29,6 +32,8 @@ def generate_file_name(cntr_ext, i_part=None):
 
 
 class ForwardRebuilder:
+    """Rebuild surviving source-tree links before adding forward pointers."""
+
     def __init__(self, cntr_ext, cntr_src, snap_max, snap_min=0, kwargs_tqdm={}):
         self.cntr_ext = cntr_ext
         self.cntr_src = cntr_src
@@ -38,6 +43,7 @@ class ForwardRebuilder:
 
 
     def run(self):
+        """Write surviving source halos and snapshot jumps to a temporary file."""
         with tables.File(generate_file_name(self.cntr_ext), 'w') as hf:
             snap_jump = self._rebuild(hf)
             hf.set_node_attr('/', 'snap_jump', snap_jump)
@@ -175,6 +181,8 @@ class ForwardRebuilder:
 
 
 class ForwardConstructor(Constructor):
+    """Assign halo, host, descendant, and forest IDs using rebuilt source links."""
+
     def __init__(self, cntr_ext, cntr_src, snap_max, snap_min=0, kwargs_tqdm={}):
         super().__init__(
             cntr_ext=cntr_ext,
@@ -199,6 +207,7 @@ class ForwardConstructor(Constructor):
 
 
     def run(self):
+        """Load the forward-fix file and save pointers in the extended catalogue."""
         with tables.File(generate_file_name(self.cntr_ext), 'r') as hf_fix:
             self.snap_jump = hf_fix.get_node_attr('/', 'snap_jump')
             self.hf_fix = hf_fix

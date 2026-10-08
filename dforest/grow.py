@@ -1,3 +1,5 @@
+"""Augment simulation merger trees or grow standalone Monte Carlo forests."""
+
 from ._dtree import *
 from .connector.dforest import save_header
 from .logger import logger, dividing_line, memory_usage
@@ -19,6 +21,7 @@ __all__ = [
 
 
 def create_random_state(seed, comm):
+    """Create a GSL random state, offsetting the seed by MPI rank if present."""
     if comm is None:
         return RandomStateGSL(seed)
     else:
@@ -26,6 +29,7 @@ def create_random_state(seed, comm):
 
 
 def create_output(cntr, fname, filters, comm, master_rank):
+    """Create the output HDF5 file and header on the master rank."""
     if comm is None or comm.Get_rank() == master_rank:
         if isinstance(cntr, DarkSeed):
             with tables.File(fname, 'w', filters=filters) as hf:
@@ -183,6 +187,7 @@ def scatter_data(
 def gather_data(
     host_chunk, new_prog_chunk, next_host_chunk, pool_chunk, stats_chunk, comm, master_rank
 ):
+    """Collect grown chunks on the master rank and rebuild progenitor offsets."""
     if comm is None:
         i_rank = master_rank
         host_data = host_chunk
@@ -275,13 +280,14 @@ def get_leaf_type(host_data, prog_data):
 
 
 def create_new_id(n_halo, snap, offset):
+    """Generate negative IDs for Monte Carlo halos with a snapshot and offset."""
     new_id = 1 + snap*10**12 + offset + np.arange(n_halo)
     return -new_id
 
 
 def interpolate_mass(m_prog, s_prog, m_root, t_root, t_target, ages):
     """
-    Interploate the mass of the most massive progenitor with time. (inplace)
+    Interpolate the most massive progenitor's mass to ``t_target`` in place.
     """
     if len(m_prog) > 0:
         ind_primary = np.argmax(m_prog)
@@ -384,6 +390,7 @@ def augment_chunk(
     z_root, t_root, z_target, t_target, redshifts, ages,
     halo_kit, grow_kit, m_cut, params_ag, rstate, comm,
 ):
+    """Augment host branches and return progenitors, next hosts, and match statistics."""
     #
     dtype_host = host_chunk.dtype
     dtype_prog = np.dtype([('Index', 'i8'), ('Snap', 'i4'), (mass_key, 'f8')])
@@ -555,6 +562,11 @@ def grow_halos(
 
 
 def create_partitions(cntr, mass_key, snap, n_par, by_forest_id=True):
+    """Return halo row indices for partitions distributed by descending mass.
+
+    With ``by_forest_id=True``, keep each forest together and rank by its
+    total mass; otherwise distribute individual halos.
+    """
     if by_forest_id:
         data = cntr.read_cols(snap, 'Host', cols=[mass_key, 'ForestID'])
         m_halo = data[mass_key]
@@ -586,6 +598,11 @@ def create_partitions(cntr, mass_key, snap, n_par, by_forest_id=True):
 
 
 class DarkSeed:
+    """Supply cosmology and snapshots for trees grown without a source simulation.
+
+    ``redshifts`` follows snapshot order and ``box_size`` is in Mpc.
+    """
+
     def __init__(self, emf, redshifts, box_size, z_grid=None):
         self.emf = emf
         self.z_grid = z_grid
@@ -595,4 +612,5 @@ class DarkSeed:
 
 
     def halo_kit(self):
+        """Build mass and redshift interpolation tables from the supplied mass function."""
         return HaloKit(self.emf, z_grid=self.z_grid)

@@ -8,6 +8,8 @@ __all__ = ['TailConstructor']
 
 
 class TailConstructor(Constructor):
+    """Add primary progenitor pointers, using self-links for halos without progenitors."""
+
     def __init__(self,
         cntr_ext, cntr_src, cols, snap_max, snap_min=0, postfix=None, kwargs_tqdm={}
     ):

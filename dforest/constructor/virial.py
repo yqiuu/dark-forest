@@ -11,6 +11,12 @@ __all__ = ['VirialConstructor']
 
 
 class VirialConstructor(Constructor):
+    """Compute halo radii and circular velocities in the source catalogue units.
+
+    ``cols`` maps m_main, m_vir, r_vir, and v_vir to catalogue columns.
+    ``mode`` and ``delta_h`` choose the halo density definition.
+    """
+
     def __init__(self,
         cntr_ext, cntr_src, cols, snap_max, snap_min=0,
         postfix=None, mode='crit', delta_h=200., kwargs_tqdm={}

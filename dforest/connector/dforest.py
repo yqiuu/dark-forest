@@ -1,3 +1,5 @@
+"""Read and write the Dark Forest HDF5 tree format."""
+
 import os
 
 from .._dtree import HaloMergeTree
@@ -18,6 +20,12 @@ __all__ = [
 
 
 class DarkForestConnector(Connector):
+    """Open one tree file or a directory of partitions sharing ``prefix``.
+
+    Use as a context manager. For partitioned data, ``write`` selects the
+    partition index to modify; ``False`` opens all partitions for reading.
+    """
+
     def __init__(self, fname, prefix=None, write=False, filters=None):
         self.prefix = prefix
         if prefix is None:
@@ -170,11 +178,11 @@ class DarkForestConnector(Connector):
 
     def read_cols(self, snap, target, cols=None, rtype='dict', index=None):
         """
-        Read data.
+        Read snapshot columns from the open file or partitions.
 
         Parameters
         ----------
-            target: {'Host', 'Prog', 'Main'}
+            target: {'Host', 'Prog', 'MainA', 'MainB'}
                 Name of the group.
             cols: list
                 List of string specifying column names.
@@ -249,6 +257,10 @@ class DarkForestConnector(Connector):
 
 
     def read_trees(self, mass_key, snap_max, snap_min=0, m_range=None, kwargs_tqdm={}):
+        """Return HaloMergeTree objects rooted at ``snap_max`` from a single file.
+
+        ``m_range=(lower, upper)`` selects root masses in [lower, upper).
+        """
         kwargs_tqdm.update(desc='Reading dark forest')
         #
         redshifts = self.redshifts
@@ -313,6 +325,12 @@ class DarkForestConnector(Connector):
 
 
     def gather(self,cntr_src, snap, c_target, c_rep=None, is_mass=False, transform=None):
+        """Combine source and reconstructed columns into a DataFrame indexed by ID.
+
+        ``c_rep`` names the replacement column for Monte Carlo halos. Mass
+        conversion and ``transform`` apply to those values when using a
+        column outside MainA.
+        """
         if c_rep is None:
             c_rep = c_target
 
@@ -344,6 +362,7 @@ class DarkForestConnector(Connector):
 
 
     def remove(self, name, kwargs_tqdm={}):
+        """Remove a node and its children from every snapshot in the open files."""
         kwargs_tqdm.update(desc="Removing '%s'"%name)
         for i_snap in trange(self.n_snap, **kwargs_tqdm):
             for f in self.files:
@@ -378,6 +397,8 @@ class DarkForestConnector(Connector):
 
 
 class DarkForestSaver:
+    """Convert source host-halo trees to Dark Forest HDF5 over inclusive snapshots."""
+
     def __init__(self,
         cntr, fname, mass_key, cols, snap_max, snap_min=0, filters=None, kwargs_tqdm={}
     ):
@@ -393,6 +414,7 @@ class DarkForestSaver:
 
 
     def run(self):
+        """Write the catalogue, merging subhalo progenitors into their hosts."""
         #
         cntr = self.cntr
         fname = self.fname
@@ -496,6 +518,7 @@ class DarkForestSaver:
 
 
 def save_header(hf, cntr):
+    """Write connector cosmology, units, and redshifts to an HDF5 header."""
     header = hf.create_group('/', 'Header')
     # Save redshifts
     hf.create_carray(header, 'Redshift', obj=cntr.redshifts)

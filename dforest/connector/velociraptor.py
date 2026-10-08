@@ -1,3 +1,5 @@
+"""Read VELOCIraptor catalogues and export reconstructed halo trees."""
+
 import gc
 
 from ..logger import logger, dividing_line, memory_usage
@@ -18,6 +20,8 @@ __all__ = [
 
 
 class VELOCIraptorConnector(Connector):
+    """Read a VELOCIraptor HDF5 tree catalogue as a context manager."""
+
     def __init__(self, fname):
         self.fname = fname
 
@@ -34,6 +38,7 @@ class VELOCIraptorConnector(Connector):
 
 
     def __getitem__(self, key):
+        """Read ``(snapshot, column)``, translating host and descendant fields."""
         snap, column = key
         dataset = self.fp.get('Snap_%03d'%snap)
         if column == 'DescendantSnap':
@@ -114,6 +119,7 @@ class VELOCIraptorConnector(Connector):
 
     @property
     def m_particle(self):
+        """Infer particle mass in h^-1 solar masses from the first halo at snapshot 50."""
         try:
             return self._m_particle
         except AttributeError:
@@ -163,6 +169,7 @@ class VELOCIraptorConnector(Connector):
 
 
     def max_forest_id(self, snap_max, snap_min):
+        """Find the largest forest ID over an inclusive range starting with halos."""
         forest_id_max = max(self[snap_min, 'ForestID']) # Assume that the snapshot starts at zero
         for snap in range(snap_min, snap_max + 1):
             forest_id_max = max(forest_id_max, *self[snap, 'ForestID'])
@@ -170,6 +177,7 @@ class VELOCIraptorConnector(Connector):
 
 
     def host_id(self, n=1):
+        """Return the host-halo sentinel (-1), as a scalar or an array of length n."""
         if n == 1:
             return -1
         else:
@@ -177,10 +185,17 @@ class VELOCIraptorConnector(Connector):
 
 
     def new_id(self, snap, inds):
+        """Encode zero-based halo indices and a snapshot number as catalogue IDs."""
         return snap*10**12 + inds + 1
 
 
 class VELOCIraptorSaver:
+    """Export source and reconstructed properties to VELOCIraptor HDF5.
+
+    Property items are names or tuples of (output name, replacement name,
+    optional transform). ``items_mass`` are converted to source mass units.
+    """
+
     def __init__(self,
         cntr_ext, cntr_src, save_name, items_mass, items_norm,
         snap_max, snap_min=0, kwargs_tqdm={}
@@ -198,6 +213,7 @@ class VELOCIraptorSaver:
 
 
     def run(self):
+        """Write the combined catalogue for the inclusive snapshot range."""
         scale_factors = 1./(1. + self.cntr_ext.redshifts)
         with tables.File(self.save_name, 'w') as hf_out:
             self._save_header(hf_out, self.cntr_src.hf, self.snap_max - self.snap_min + 1)

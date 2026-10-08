@@ -13,6 +13,7 @@ __all__ = [
 
 
 def random_unit_sphere(n_sample, rstate):
+    """Return isotropic unit vectors as an array of shape (3, n_sample)."""
     phi = rstate.uniform(0, 2*np.pi, n_sample)
     theta = np.arccos(rstate.uniform(-1, 1, n_sample))
     vector = np.zeros([3, n_sample])
@@ -23,7 +24,10 @@ def random_unit_sphere(n_sample, rstate):
 
 
 class KernelSpinSampler:
+    """Sample spins from a kernel density estimate of source log10(lambda_B)."""
+
     def draw(self, n_halo, z):
+        """Draw spin magnitudes, advancing snapshots until enough hosts are found."""
         cntr = self.cntr
         snap_target = max(self.snap_fit, np.argmin(abs(self.redshifts - z)))
         while True:
@@ -57,6 +61,12 @@ class KernelSpinSampler:
 
 
 class SpinConstructor(Constructor):
+    """Assign spin magnitudes and isotropic angular momenta to Monte Carlo halos.
+
+    ``primary_spin=True`` inherits magnitudes from the most massive progenitor
+    where available instead of drawing a new value.
+    """
+
     def __init__(self,
         cntr_ext, cntr_src, cols, spin_sampler, snap_max, snap_min=0,
         postfix=None, primary_spin=False, rstate=None, kwargs_tqdm={}

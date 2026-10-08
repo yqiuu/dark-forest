@@ -1,3 +1,5 @@
+"""Simulation-specific virial and spin reconstruction for the example workflow."""
+
 import sys
 
 #sys.path.legend should point to where the dark-forest is located
@@ -10,6 +12,8 @@ from scipy.stats import gaussian_kde
 from dforest import Constructor
 
 class SpecialConstructor(Constructor):
+    """Compute virial properties and sample Monte Carlo spins from source halos."""
+
     def __init__(self,
         cntr_ext, cntr_src, snap_max, snap_min=0, postfix=None,
         mode='crit', delta_h=200., n_min=10000, rstate=None, kwargs_tqdm={}

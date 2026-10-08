@@ -1,3 +1,5 @@
+"""Convert the configured VELOCIraptor host trees to Dark Forest HDF5."""
+
 import sys
 import logging
 

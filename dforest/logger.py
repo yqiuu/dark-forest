@@ -11,6 +11,7 @@ __all__ = [
 
 
 def create_logger(name):
+    """Create a logger with the Dark Forest console format."""
     logger = logging.getLogger(name)
     stream_handler = logging.StreamHandler()
     stream_handler.setFormatter(logging.Formatter('[dark-forest] %(levelname)s: %(message)s'))
@@ -24,5 +25,6 @@ def dividing_line():
 
 
 def memory_usage():
+    """Return the current process's resident memory as a formatted GB value."""
     mem = psutil.Process(os.getpid()).memory_info()[0]/1024**3
     return f'{mem:.2f} GB'
