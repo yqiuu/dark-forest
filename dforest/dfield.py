@@ -9,21 +9,16 @@ from scipy.interpolate import InterpolatedUnivariateSpline as spl
 from hmf.growth_factor import GrowthFactor
 
 
-__all__ = [
-    'index_to_grid',
-    'pos_to_index',
-    'GridTool',
-    'DensityField'
-]
+__all__ = ["index_to_grid", "pos_to_index", "GridTool", "DensityField"]
 
 
 def index_to_grid(inds, n_grid):
     """Convert flat indices to (x, y, z) indices on a cubic grid."""
-    grid_z = inds%n_grid
-    inds = inds//n_grid
-    grid_y = inds%n_grid
-    inds = inds//n_grid
-    grid_x = inds%n_grid
+    grid_z = inds % n_grid
+    inds = inds // n_grid
+    grid_y = inds % n_grid
+    inds = inds // n_grid
+    grid_x = inds % n_grid
     return grid_x, grid_y, grid_z
 
 
@@ -33,7 +28,7 @@ def pos_to_index(x, y, z, n_grid, box_size):
     grid_x = np.digitize(x, bins) - 1
     grid_y = np.digitize(y, bins) - 1
     grid_z = np.digitize(z, bins) - 1
-    return (grid_x*n_grid + grid_y)*n_grid + grid_z
+    return (grid_x * n_grid + grid_y) * n_grid + grid_z
 
 
 class GridTool:
@@ -47,7 +42,6 @@ class GridTool:
         else:
             self.rstate = rstate
 
-
     @property
     def n_grid(self):
         """
@@ -55,14 +49,12 @@ class GridTool:
         """
         return self._n_grid
 
-
     @property
     def box_size(self):
         """
         Box size. [Mpc]
         """
         return self._box_size
-
 
     def index_to_grid(self, inds):
         """
@@ -80,8 +72,7 @@ class GridTool:
         """
         return index_to_grid(inds, self.n_grid)
 
-
-    def pos_to_index(self, xx, yy, zz, z_fix=0.):
+    def pos_to_index(self, xx, yy, zz, z_fix=0.0):
         """
         Convert 3-D coordinates to 1-D grid indices.
 
@@ -98,8 +89,7 @@ class GridTool:
         1-D array
             1-D grid indices.
         """
-        return pos_to_index(xx, yy, zz, self.n_grid, self.box_size/(1. + z_fix))
-
+        return pos_to_index(xx, yy, zz, self.n_grid, self.box_size / (1.0 + z_fix))
 
     def sample_from_inds(self, inds):
         """
@@ -117,15 +107,14 @@ class GridTool:
             3-D coordinates.
         """
         n_grid = self.n_grid
-        grid_size = self.box_size/n_grid
+        grid_size = self.box_size / n_grid
         rstate = self.rstate
         n_sample = len(inds)
         grid_x, grid_y, grid_z = self.index_to_grid(inds)
-        x = (rstate.rand(n_sample) + grid_x)*grid_size
-        y = (rstate.rand(n_sample) + grid_y)*grid_size
-        z = (rstate.rand(n_sample) + grid_z)*grid_size
+        x = (rstate.rand(n_sample) + grid_x) * grid_size
+        y = (rstate.rand(n_sample) + grid_y) * grid_size
+        z = (rstate.rand(n_sample) + grid_z) * grid_size
         return x, y, z
-
 
     def sample_from_field(self, den, n_sample, rstate=None):
         """
@@ -157,7 +146,7 @@ class DensityField(ABC):
     Box lengths are in Mpc and snapshot ages are in Myr.
     """
 
-    def __init__(self, emf, redshifts, ages, n_grid_p, n_grid_v, box_size, r_max=3., rstate=None):
+    def __init__(self, emf, redshifts, ages, n_grid_p, n_grid_v, box_size, r_max=3.0, rstate=None):
         self.gt_pos = GridTool(n_grid_p, box_size, rstate)
         self.gt_vel = GridTool(n_grid_v, box_size, rstate)
         self.emf = emf
@@ -169,7 +158,6 @@ class DensityField(ABC):
         self.D = [gf.growth_factor(z) for z in redshifts]
         self.dDdt = spl(ages, self.D).derivative()(ages)
 
-
     @abstractmethod
     def read_density_field(self, snap):
         """
@@ -178,8 +166,7 @@ class DensityField(ABC):
         array
             Overdensity grid.
         """
-        return np.array([0.])
-
+        return np.array([0.0])
 
     @abstractmethod
     def read_transform_field(self, snap):
@@ -191,17 +178,15 @@ class DensityField(ABC):
         x, y, z : array [Mpc]
             Flattened displacement fields on the velocity grid.
         """
-        return np.array([0.])
+        return np.array([0.0])
 
-
-    def check_bounds(self, a, z_fix=0.):
+    def check_bounds(self, a, z_fix=0.0):
         """Apply one periodic wrap, using physical box size when ``z_fix != 0``."""
-        box_size = self.gt_pos.box_size/(1. + z_fix)
+        box_size = self.gt_pos.box_size / (1.0 + z_fix)
         res = np.copy(a)
         res[res >= box_size] -= box_size
-        res[res < 0.] += box_size
+        res[res < 0.0] += box_size
         return res
-
 
     def move(self, x, y, z, dx, dy, dz):
         """Apply displacements and return wrapped positions and flat grid indices."""
@@ -211,29 +196,28 @@ class DensityField(ABC):
         inds = self.gt_pos.pos_to_index(x, y, z)
         return x, y, z, inds
 
-
     def populate_halos(self, m_halo, bins, snap):
         """Sample positions and grid indices using halo density in each mass bin."""
         emf = self.emf
         z = self.redshifts[snap]
-        v_cell = (self.gt_pos.box_size/self.gt_pos.n_grid*emf.cosmo.h)**3
+        v_cell = (self.gt_pos.box_size / self.gt_pos.n_grid * emf.cosmo.h) ** 3
         delta_dm = self.read_density_field(snap)
 
         n_halo = len(m_halo)
-        x_h = np.zeros(n_halo, dtype='f8')
-        y_h = np.zeros(n_halo, dtype='f8')
-        z_h = np.zeros(n_halo, dtype='f8')
-        inds = np.zeros(n_halo, dtype='i4')
-        for l, u in zip(bins[:-1], bins[1:]):
-            cond = (m_halo >= l) & (m_halo < u)
+        x_h = np.zeros(n_halo, dtype="f8")
+        y_h = np.zeros(n_halo, dtype="f8")
+        z_h = np.zeros(n_halo, dtype="f8")
+        inds = np.zeros(n_halo, dtype="i4")
+        for lower, upper in zip(bins[:-1], bins[1:]):
+            cond = (m_halo >= lower) & (m_halo < upper)
             sample_sub = m_halo[cond]
             m_median = np.median(sample_sub)
             den_halo = emf.halo_density(delta_dm, v_cell, m_median, z)
             den_halo /= np.sum(den_halo)
-            x_h[cond], y_h[cond], z_h[cond], inds[cond] = \
-                self.gt_pos.sample_from_field(den_halo, len(sample_sub))
+            x_h[cond], y_h[cond], z_h[cond], inds[cond] = self.gt_pos.sample_from_field(
+                den_halo, len(sample_sub)
+            )
         return x_h, y_h, z_h, inds
-
 
     def move_halos(self, x_h, y_h, z_h, inds, m1, m2, snap1, return_disps=False):
         """
@@ -249,7 +233,7 @@ class DensityField(ABC):
         m2: array [h^-1 M_solar]
             Mass of the descendant halos.
         """
-        logger.info("Moving halos at snapshot %d"%snap1)
+        logger.info("Moving halos at snapshot %d" % snap1)
         snap2 = snap1 + 1
         z1 = self.redshifts[snap1]
         z2 = self.redshifts[snap2]
@@ -258,28 +242,28 @@ class DensityField(ABC):
         emf.update(z=z1)
         b1 = spl(emf.m, emf.bias)(m1)
         emf.update(z=z2)
-        b2 = spl(emf.m, emf.bias)(m1/np.mean(m1/m2))
+        b2 = spl(emf.m, emf.bias)(m1 / np.mean(m1 / m2))
 
         vx2, vy2, vz2 = self.read_transform_field(snap2)
         vx1, vy1, vz1 = self.read_transform_field(snap1)
 
-        dx = b1*vx1[inds] - b2*vx2[inds]
-        dy = b1*vy1[inds] - b2*vy2[inds]
-        dz = b1*vz1[inds] - b2*vz2[inds]
+        dx = b1 * vx1[inds] - b2 * vx2[inds]
+        dy = b1 * vy1[inds] - b2 * vy2[inds]
+        dz = b1 * vz1[inds] - b2 * vz2[inds]
         if return_disps:
             disps = (np.copy(dx), np.copy(dy), np.copy(dz))
         else:
             disps = None
 
-        dr = np.sqrt(dx*dx + dy*dy + dz*dz)
+        dr = np.sqrt(dx * dx + dy * dy + dz * dz)
         cond = dr > self.r_max
-        norm = self.r_max/dr[cond]
+        norm = self.r_max / dr[cond]
         dx[cond] *= norm
         dy[cond] *= norm
         dz[cond] *= norm
 
         dr_16, dr_50, dr_84 = np.percentile(dr, [16, 50, 84])
-        logger.info(f"dr = {dr_50:.2f}/+{dr_84-dr_50:.2f}/-{dr_50-dr_16:.2f}")
+        logger.info(f"dr = {dr_50:.2f}/+{dr_84 - dr_50:.2f}/-{dr_50 - dr_16:.2f}")
 
         pos_new = self.move(x_h, y_h, z_h, dx, dy, dz)
         if return_disps:

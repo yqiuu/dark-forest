@@ -3,11 +3,11 @@
 import sys
 import logging
 
-#sys.path.legend should point to where the dark-forest is located
-sys.path.append('/home/bsreedha/models/dark-forest/') 
-logging.getLogger('dforest').setLevel(logging.INFO)
+# sys.path.legend should point to where the dark-forest is located
+sys.path.append("/home/bsreedha/models/dark-forest/")
+logging.getLogger("dforest").setLevel(logging.INFO)
 
-import dforest
+import dforest  # noqa: E402 -- Configure logging before loading the package.
 
 ## fname points to the merger tree file
 ##GADGET boxes:
@@ -22,13 +22,17 @@ import dforest
 # fname = "/fred/oz009/GENESIS/L210_N3072_Grids_Halos_Trees-smutch/trees/VELOCIraptor.walkabletree.forestID.hdf5.0"
 fname = "/fred/oz009/GENESIS/L210_N4320_Grids_Halos_Trees-balu/trees/VELOCIraptor.walkabletree.forestID.hdf5.0"
 
-save_name = './outputs/dforest_out.hdf5'
+save_name = "./outputs/dforest_out.hdf5"
 
-snap_min = 11 #first snapshot where the haloes start appearing in the Nbody merger tree. dfrorest breaks if the snap_min has no haloes.
-snap_max = 119 #your smallest snapshot of interest; usually the last snapshot of the tree.
+snap_min = 11  # first snapshot where the haloes start appearing in the Nbody merger tree. dfrorest breaks if the snap_min has no haloes.
+snap_max = 119  # your smallest snapshot of interest; usually the last snapshot of the tree.
 
 with dforest.VELOCIraptorConnector(fname) as cntr:
     dforest.DarkForestSaver(
-        cntr, save_name, ['Mass_200mean', 'Mass_200crit', 'Mass_FOF', 'Mass_tot'],
-        ['ForestID'], snap_max, snap_min
+        cntr,
+        save_name,
+        ["Mass_200mean", "Mass_200crit", "Mass_FOF", "Mass_tot"],
+        ["ForestID"],
+        snap_max,
+        snap_min,
     ).run()

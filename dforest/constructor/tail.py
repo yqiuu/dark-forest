@@ -4,31 +4,30 @@ import numpy as np
 import pandas as pd
 
 
-__all__ = ['TailConstructor']
+__all__ = ["TailConstructor"]
 
 
 class TailConstructor(Constructor):
     """Add primary progenitor pointers, using self-links for halos without progenitors."""
 
-    def __init__(self,
-        cntr_ext, cntr_src, cols, snap_max, snap_min=0, postfix=None, kwargs_tqdm={}
+    def __init__(
+        self, cntr_ext, cntr_src, cols, snap_max, snap_min=0, postfix=None, kwargs_tqdm={}
     ):
         super().__init__(
             cntr_ext=cntr_ext,
             cntr_src=cntr_src,
-            col_inh=[cols['tail']],
-            col_req=['ProgIndex', 'ProgNumber'],
+            col_inh=[cols["tail"]],
+            col_req=["ProgIndex", "ProgNumber"],
             snap_min=snap_min,
             snap_max=snap_max,
-            read_prog=['Index', cols['m_main']],
+            read_prog=["Index", cols["m_main"]],
             inherit=False,
             forward=True,
             postfix=postfix,
-            message='Adding primary progenitor pointers',
-            kwargs_tqdm=kwargs_tqdm
+            message="Adding primary progenitor pointers",
+            kwargs_tqdm=kwargs_tqdm,
         )
-        self.col_tail = cols['tail']
-
+        self.col_tail = cols["tail"]
 
     def _add_property(self, df_inh, df_req, list_prog, snap, z):
         col_tail = self.col_tail
@@ -43,21 +42,21 @@ class TailConstructor(Constructor):
             return df_tail
         #
         df_tail = pd.DataFrame(
-            np.full(len(df_req), -1, 'i8'), index=df_req.index, columns=[col_tail]
+            np.full(len(df_req), -1, "i8"), index=df_req.index, columns=[col_tail]
         )
         select_sim = df_tail.index > 0
         df_tail.loc[select_sim, col_tail] = df_inh.loc[df_tail.index[select_sim], col_tail]
-        cond = df_req['ProgNumber'] == 0
+        cond = df_req["ProgNumber"] == 0
         df_tail.loc[cond, col_tail] = df_req.index[cond]
         #
         list_tail = list(df_tail[col_tail].values)
         for i_halo, (idx, num) in enumerate(df_req.values):
             if num == 0:
                 continue
-            
+
             tail_sim = list_tail[i_halo]
-            prog = list_prog[idx : idx+num]
-            
+            prog = list_prog[idx : idx + num]
+
             tail, m_max = prog[0]
             for id_p, m_p in prog:
                 if id_p == tail_sim:
@@ -71,4 +70,4 @@ class TailConstructor(Constructor):
         df_inh.loc[df_tail.index[select_sim]] = df_tail[select_sim]
         df_inh.index.name = df_tail.index.name
         df_tail = df_inh.append(df_tail[~select_sim])
-        return df_tail    
+        return df_tail

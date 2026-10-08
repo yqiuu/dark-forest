@@ -1,6 +1,5 @@
-import os
 import gc
-from abc import ABC, abstractmethod 
+from abc import ABC, abstractmethod
 
 from ..logger import logger, dividing_line, memory_usage
 
@@ -10,7 +9,7 @@ from tables import NoSuchNodeError
 from tqdm import trange
 
 
-__all__ = ['Constructor']
+__all__ = ["Constructor"]
 
 
 class Constructor(ABC):
@@ -54,9 +53,21 @@ class Constructor(ABC):
     kwargs_tqdm : dict
         Keyword arguments for tqdm.
     """
-    def __init__(self,
-        cntr_ext, cntr_src, col_inh, col_req, snap_max, snap_min,
-        read_prog, inherit, forward, postfix, message, kwargs_tqdm
+
+    def __init__(
+        self,
+        cntr_ext,
+        cntr_src,
+        col_inh,
+        col_req,
+        snap_max,
+        snap_min,
+        read_prog,
+        inherit,
+        forward,
+        postfix,
+        message,
+        kwargs_tqdm,
     ):
         self.cntr_ext = cntr_ext
         self.cntr_src = cntr_src
@@ -72,13 +83,12 @@ class Constructor(ABC):
         self.kwargs_tqdm = kwargs_tqdm
         self._set_column_names(col_req, snap_min)
 
-
     def run(self):
         """Compute and save properties over the inclusive snapshot range."""
         redshifts = self.cntr_src.redshifts
         n_snap = self.snap_max - self.snap_min + 1
         for i_snap, snap in enumerate(self._range()):
-            logger.info(f"{self.message}: {i_snap+1}/{n_snap} ({memory_usage()})")
+            logger.info(f"{self.message}: {i_snap + 1}/{n_snap} ({memory_usage()})")
             z = redshifts[snap]
             df_req = self._prepare_req_data(snap)
             df_inh = self._prepare_inh_data(snap)
@@ -89,10 +99,9 @@ class Constructor(ABC):
             gc.collect()
             logger.info(dividing_line())
 
-
     def _set_column_names(self, col_req, snap_min):
         node_host = [
-            node.name for node in self.cntr_ext.hf.iter_nodes('/Snapshot_%03d/Host'%snap_min)
+            node.name for node in self.cntr_ext.hf.iter_nodes("/Snapshot_%03d/Host" % snap_min)
         ]
         col_host = []
         col_main = []
@@ -104,7 +113,6 @@ class Constructor(ABC):
         self.col_host = col_host
         self.col_main = col_main
 
-
     def _range(self):
         kwargs_tqdm = self.kwargs_tqdm
         kwargs_tqdm.update(desc=self.message)
@@ -113,13 +121,12 @@ class Constructor(ABC):
         else:
             return trange(self.snap_max, self.snap_min - 1, -1, **kwargs_tqdm)
 
-
     def _prepare_prog_data(self, snap):
         cntr_ext = self.cntr_ext
         read_prog = self.read_prog
         if len(read_prog) > 0:
             try:
-                rec_prog = cntr_ext.read_cols(snap, 'Prog', read_prog, 'records')
+                rec_prog = cntr_ext.read_cols(snap, "Prog", read_prog, "records")
             except OSError:
                 return None
             if len(read_prog) == 1:
@@ -130,19 +137,17 @@ class Constructor(ABC):
         else:
             return None
 
-
     def _prepare_req_data(self, snap):
-        df_host = self.cntr_ext.read_cols(snap, 'Host', self.col_host, 'pandas', 'Index')
+        df_host = self.cntr_ext.read_cols(snap, "Host", self.col_host, "pandas", "Index")
         if len(self.col_main) > 0:
-            df_main = self.cntr_ext.read_cols(snap, 'MainA', self.col_main, 'pandas', 'Index')
-            df_req = pd.concat([df_host, df_main], axis=1, join='inner')
+            df_main = self.cntr_ext.read_cols(snap, "MainA", self.col_main, "pandas", "Index")
+            df_req = pd.concat([df_host, df_main], axis=1, join="inner")
         else:
             df_req = df_host
         return df_req
 
-
     def _prepare_inh_data(self, snap):
-        halo_id_sim = self.cntr_src[snap, 'ID']
+        halo_id_sim = self.cntr_src[snap, "ID"]
         df_sim = pd.DataFrame(index=halo_id_sim)
         for col in self.col_inh:
             try:
@@ -150,12 +155,11 @@ class Constructor(ABC):
             except KeyError:
                 pass
         try:
-            halo_id_fix = self.cntr_ext.read_cols(snap, 'MainA', ['Index'])['Index']
+            halo_id_fix = self.cntr_ext.read_cols(snap, "MainA", ["Index"])["Index"]
         except IOError:
             raise Exception("run FowardRebuilder before adding any other properties") from None
         df_sim = df_sim.loc[halo_id_fix[halo_id_fix > 0]]
         return df_sim
-
 
     @abstractmethod
     def _add_property(self, df_inh, df_req, list_prog, snap, z):
@@ -190,19 +194,18 @@ class Constructor(ABC):
         """
         return pd.DataFrame()
 
-
     def _save_output(self, df_new, snap):
         hf = self.cntr_ext.hf
-        postfix = '' if self.postfix is None else f'_{self.postfix}'
-        name = 'MainB' if self.inherit else 'MainA'
-        group = hf.get_node(f'/Snapshot_{snap:03d}', name)
+        postfix = "" if self.postfix is None else f"_{self.postfix}"
+        name = "MainB" if self.inherit else "MainA"
+        group = hf.get_node(f"/Snapshot_{snap:03d}", name)
         try:
-            inds = self.cntr_ext.read_cols(snap, name, ['Index'])['Index']
+            inds = self.cntr_ext.read_cols(snap, name, ["Index"])["Index"]
         except NoSuchNodeError:
             inds = None
         if inds is None or np.array_equal(inds, df_new.index):
             for col in df_new.columns:
-                col_save = f'{col}{postfix}'
+                col_save = f"{col}{postfix}"
                 try:
                     hf.remove_node(group, col_save)
                 except NoSuchNodeError:
