@@ -1,0 +1,8 @@
+line-length = 100
+
+[lint]
+select = ["E4", "E7", "E9", "F"]
+
+[lint.per-file-ignores]
+# Package imports intentionally expose the public API.
+"**/__init__.py" = ["F401", "F403", "F405"]
