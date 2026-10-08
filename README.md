@@ -2,7 +2,7 @@
 
 ![Dark forest branches blending into a cosmic web of dark-matter halos](docs/assets/dark-forest-banner.png)
 
-This code uses Monte-Carlo algorithm to generate merger trees for cosmological dark matter N-body simulations.
+This code uses the extended Press-Schechter formalism coupled with a Monte-Carlo algorithm to generate merger trees for cosmological dark matter N-body simulations.
 
 The code is able to evolve the position and velocity of the Monte-Carlo haloes as well.
 
@@ -13,6 +13,8 @@ Original author: [Yisheng Qiu](https://github.com/yqiuu)
 Maintainer: [Balu Sreedhar](https://github.com/s-balu)
 
 For issues or questions, contact [bsreedhar@us.es](mailto:bsreedhar@us.es).
+
+This project is licensed under the [GNU General Public License v3.0](LICENSE) (GPL-3.0-only).
 
 If you use this code, cite [Qiu et al. 2020](https://ui.adsabs.harvard.edu/abs/2020MNRAS.500..493Q/abstract):
 

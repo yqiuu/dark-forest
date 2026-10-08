@@ -27,6 +27,7 @@ for e in exts:
 
 setup(
     name="halotree",
+    license="GPL-3.0-only",
     ext_modules=exts,
     cmdclass={"build_ext": build_ext},
 )
