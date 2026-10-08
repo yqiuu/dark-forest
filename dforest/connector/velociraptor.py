@@ -117,7 +117,7 @@ class VELOCIraptorConnector(Connector):
         try:
             return self._m_particle
         except AttributeError:
-            self._m_particle = self[0, 'Mass_tot'][0]/self[0, 'npart'][0]*self.mass_conversion
+            self._m_particle = self[50, 'Mass_tot'][0]/self[50, 'npart'][0]*self.mass_conversion
             return self._m_particle
 
 
@@ -162,9 +162,9 @@ class VELOCIraptorConnector(Connector):
             return np.array(self._redshifts)
 
 
-    def max_forest_id(self, snap_max):
-        forest_id_max = max(self[0, 'ForestID']) # Assume that the snapshot starts at zero
-        for snap in range(1, snap_max + 1):
+    def max_forest_id(self, snap_max, snap_min):
+        forest_id_max = max(self[snap_min, 'ForestID']) # Assume that the snapshot starts at zero
+        for snap in range(snap_min, snap_max + 1):
             forest_id_max = max(forest_id_max, *self[snap, 'ForestID'])
         return forest_id_max
 

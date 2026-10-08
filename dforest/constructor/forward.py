@@ -140,7 +140,7 @@ class ForwardRebuilder:
         n_snap = snap_max + 1
         df_source_all = [None]*n_snap
         pool = [{} for i_snap in range(n_snap)]
-        snap_target = [None]*n_snap
+        snap_target = np.arange(n_snap)
         kwargs_tqdm.update(desc="Rebuilding original trees")
         for snap in trange(snap_min, n_snap, **kwargs_tqdm):
             logger.info(f"Processing snapshot {snap}/{n_snap} ({memory_usage()})")
@@ -193,7 +193,7 @@ class ForwardConstructor(Constructor):
         self.kwargs_tqdm = kwargs_tqdm
         self.pool_sim = [{} for snap in range(snap_max + 1)]
         self.df_forward_next = None
-        self.forest_id_max = cntr_src.max_forest_id(snap_max)
+        self.forest_id_max = cntr_src.max_forest_id(snap_max, snap_min)
         #
         self.test_mode = False
 
@@ -224,13 +224,25 @@ class ForwardConstructor(Constructor):
 
 
     def _prepare_inh_data(self, snap):
-        grp = self.hf_fix.get_node(f'/Snapshot_{snap:03d}')
+        try:
+            grp = self.hf_fix.get_node(f'/Snapshot_{snap:03d}')
+        except NoSuchNodeError:
+            grp = None
         df_inh = pd.DataFrame()
-        if 'Index' in grp:
+        if grp is not None and 'Index' in grp:
             for col in ['Index', 'HostHaloID', 'DescendantSnap', 'Descendant', 'ForestID']:
                 df_inh[col] = self.hf_fix.get_node(grp, col).read()
             df_inh.set_index('Index', inplace=True)
         return df_inh
+
+    # def _prepare_inh_data(self, snap):
+    #     grp = self.hf_fix.get_node(f'/Snapshot_{snap:03d}')
+    #     df_inh = pd.DataFrame()
+    #     if 'Index' in grp:
+    #         for col in ['Index', 'HostHaloID', 'DescendantSnap', 'Descendant', 'ForestID']:
+    #             df_inh[col] = self.hf_fix.get_node(grp, col).read()
+    #         df_inh.set_index('Index', inplace=True)
+    #     return df_inh
 
 
     def _generate_pointer_mc(self, df_inh, df_req, list_prog, snap, offset):
