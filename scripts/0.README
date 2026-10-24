@@ -1,0 +1,7 @@
+
+> The velocity fields have been corrected in this run. The velocity fields are in units of Mpc/Myr instead of km/s
+
+> The m_res in this runs was 2.1E7 h^-1 M_sun which is the atomic cooling limit at z~20.
+  (Yisheng has suggested using the z~10)
+
+

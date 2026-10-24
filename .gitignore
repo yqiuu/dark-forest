@@ -2,6 +2,9 @@
 .nfs*
 */_dtree.c
 
+# macOS metadata
+.DS_Store
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -50,6 +53,7 @@ coverage.xml
 *.cover
 .hypothesis/
 .pytest_cache/
+.ruff_cache/
 
 # Translations
 *.mo
@@ -115,3 +119,5 @@ test/
 *.pyc
 */*.pyc
 
+# vscode file
+.vscode/
